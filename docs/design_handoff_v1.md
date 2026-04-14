@@ -9,7 +9,7 @@ This app allows users to scan real-world inspiration and convert it into a struc
 - font recommendations
 - related inspiration
 
-The app is dark-mode-first, premium, and visually expressive but clean.
+The app should feel premium, restrained, and content-first. The core UI should be neutral black and white with both light and dark mode support. User-uploaded inspiration, generated color palettes, textures, imagery, and inspo cards should provide the visual color in the experience.
 
 ---
 
@@ -91,32 +91,53 @@ Structure:
 
 Button:
 - rounded
-- purple primary
-- white text
+- neutral primary treatment
+- high-contrast text
+- subtle state changes
 
 Card:
-- dark surface
+- neutral surface
 - rounded corners
 - padding
 
 Tag:
 - pill shape
 - subtle background
+- optional subtle color only when it helps communicate meaning
 
 Color Swatch:
 - clickable
 - evenly spaced
+- color comes from the analyzed inspiration, not the app theme
 
 ---
 
 ## 5. Design Tokens
 
 Colors:
-- background: #0F0F0F
-- surface: #1A1A1A
-- primary: #7B61FF
-- text primary: #FFFFFF
-- text secondary: #A0A0A0
+- light background: #FFFFFF
+- light surface: #F6F6F6
+- light border: #E5E5E5
+- light text primary: #0A0A0A
+- light text secondary: #5F5F5F
+- dark background: #000000
+- dark surface: #141414
+- dark border: #2A2A2A
+- dark text primary: #FFFFFF
+- dark text secondary: #A3A3A3
+- primary action light: #0A0A0A
+- primary action dark: #FFFFFF
+- semantic success: #2E7D32
+- semantic warning: #B26A00
+- semantic error: #C62828
+- semantic info: #1565C0
+
+Color Usage:
+- The product chrome should stay black, white, and grayscale.
+- Avoid branded color themes, large tinted backgrounds, and decorative gradients.
+- User content is the main source of color: uploaded images, extracted palettes, inspo cards, and related inspiration.
+- Use subtle semantic colors only for status, validation, alerts, and small indicators.
+- Vibe tickers or vibe tags may use restrained accent colors when they clarify category or mood, but should not dominate the screen.
 
 Radius:
 - small: 8
@@ -139,11 +160,13 @@ Typography:
 
 ## 6. Visual Style
 
-- dark mode only
-- minimal but expressive
-- purple accent usage
+- light and dark mode
+- minimal, neutral, and content-first
+- black and white product UI
+- color reserved for user content, extracted palettes, semantic states, and subtle vibe indicators
 - strong spacing
 - smooth subtle animations
+- avoid app-level color treatments that compete with uploaded inspiration
 
 ---
 
