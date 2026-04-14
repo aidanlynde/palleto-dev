@@ -10,7 +10,8 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "usesAppleSignIn": true
     },
     "extra": {
       "apiBaseUrl": "http://localhost:8000"

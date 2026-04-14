@@ -10,7 +10,7 @@ Mobile app MVP for creatives to capture real-world inspiration and turn it into 
 /docs     Product and design documentation
 ```
 
-The current implementation covers the first incremental slices: project scaffolding, a bootable mobile shell, Firebase email/password auth wiring, minimal backend user sync, and a backend health endpoint.
+The current implementation covers the first incremental slices: project scaffolding, a bootable mobile shell, Firebase social auth wiring, minimal backend user sync, and a backend health endpoint.
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ The current implementation covers the first incremental slices: project scaffold
 - npm 10+
 - Python 3.11+
 - PostgreSQL for local user sync
-- Firebase project with Email/Password auth enabled
+- Firebase project with Google and Apple sign-in providers enabled
 
 ## Backend
 
@@ -75,6 +75,7 @@ For Phase 2, configure:
 - backend Firebase Admin credentials in `backend/.env`
 - `DATABASE_URL` in `backend/.env`
 - Expo public Firebase web app values in `mobile/.env`
+- Google OAuth client IDs in `mobile/.env`
 - `EXPO_PUBLIC_API_BASE_URL` in `mobile/.env`
 
 ## Current Scope
@@ -84,7 +85,7 @@ Implemented:
 - monorepo scaffolding
 - Expo TypeScript app shell
 - simple stack-based mobile navigation
-- Firebase email/password auth screen
+- Firebase Google and Apple auth screen
 - authenticated mobile API client
 - FastAPI app shell
 - `/api/v1/health`

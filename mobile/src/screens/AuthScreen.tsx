@@ -1,99 +1,176 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
-import { useState } from "react";
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as Google from "expo-auth-session/providers/google";
+import * as Crypto from "expo-crypto";
+import * as WebBrowser from "expo-web-browser";
+import { GoogleAuthProvider, OAuthProvider, signInWithCredential } from "firebase/auth";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View
 } from "react-native";
 
 import { firebaseAuth } from "../services/firebase";
 import { theme } from "../theme";
 
+WebBrowser.maybeCompleteAuthSession();
+
+const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const googleClientConfig = {
+  clientId: googleWebClientId ?? "missing-google-client-id",
+  webClientId: googleWebClientId,
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+  androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+};
+
 export function AuthScreen() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAppleAvailable, setIsAppleAvailable] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<"google" | "apple" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit() {
-    setIsSubmitting(true);
+  const [googleRequest, googleResponse, promptGoogleAsync] =
+    Google.useIdTokenAuthRequest(googleClientConfig);
+
+  useEffect(() => {
+    AppleAuthentication.isAvailableAsync().then(setIsAppleAvailable);
+  }, []);
+
+  useEffect(() => {
+    async function finishGoogleSignIn() {
+      if (!googleResponse) {
+        return;
+      }
+
+      if (googleResponse.type !== "success") {
+        setActiveProvider(null);
+        return;
+      }
+
+      const idToken = googleResponse.params.id_token;
+      if (!idToken) {
+        setError("Google did not return an ID token.");
+        setActiveProvider(null);
+        return;
+      }
+
+      try {
+        const credential = GoogleAuthProvider.credential(idToken);
+        await signInWithCredential(firebaseAuth, credential);
+      } catch {
+        setError("Google sign-in failed. Check Firebase and Google client ID setup.");
+      } finally {
+        setActiveProvider(null);
+      }
+    }
+
+    finishGoogleSignIn();
+  }, [googleResponse]);
+
+  async function signInWithGoogle() {
     setError(null);
+    setActiveProvider("google");
 
     try {
-      if (mode === "signIn") {
-        await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
-      } else {
-        await createUserWithEmailAndPassword(firebaseAuth, email.trim(), password);
-      }
+      await promptGoogleAsync();
     } catch {
-      setError("Unable to continue. Check your email, password, and Firebase setup.");
-    } finally {
-      setIsSubmitting(false);
+      setError("Google sign-in failed. Check Firebase and Google client ID setup.");
+      setActiveProvider(null);
     }
   }
 
-  const ctaLabel = mode === "signIn" ? "Sign in" : "Create account";
-  const switchLabel = mode === "signIn" ? "Create an account" : "Use an existing account";
+  async function signInWithApple() {
+    setError(null);
+    setActiveProvider("apple");
+
+    try {
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce
+      );
+      const appleCredential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL
+        ],
+        nonce: hashedNonce
+      });
+
+      if (!appleCredential.identityToken) {
+        throw new Error("Apple did not return an identity token.");
+      }
+
+      const provider = new OAuthProvider("apple.com");
+      const firebaseCredential = provider.credential({
+        idToken: appleCredential.identityToken,
+        rawNonce
+      });
+
+      await signInWithCredential(firebaseAuth, firebaseCredential);
+    } catch {
+      setError("Apple sign-in failed or was cancelled.");
+    } finally {
+      setActiveProvider(null);
+    }
+  }
+
+  const isSubmitting = activeProvider !== null;
+  const isGoogleConfigured = Boolean(googleWebClientId);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.select({ ios: "padding", android: undefined })}
-      style={styles.container}
-    >
+    <View style={styles.container}>
       <View>
         <Text style={styles.eyebrow}>Palleto</Text>
         <Text style={styles.title}>Start your inspiration library.</Text>
         <Text style={styles.body}>
-          Sign in to sync your profile with the backend. Cards and scans arrive in later phases.
+          Continue with your creative account. Cards and scans arrive in later phases.
         </Text>
       </View>
 
       <View style={styles.form}>
-        <TextInput
-          autoCapitalize="none"
-          autoComplete="email"
-          keyboardType="email-address"
-          onChangeText={setEmail}
-          placeholder="Email"
-          placeholderTextColor={theme.colors.textSecondary}
-          style={styles.input}
-          value={email}
-        />
-        <TextInput
-          autoCapitalize="none"
-          onChangeText={setPassword}
-          placeholder="Password"
-          placeholderTextColor={theme.colors.textSecondary}
-          secureTextEntry
-          style={styles.input}
-          value={password}
-        />
-
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <Pressable disabled={isSubmitting} onPress={submit} style={styles.primaryButton}>
-          {isSubmitting ? (
+        <Pressable
+          disabled={isSubmitting || !googleRequest || !isGoogleConfigured}
+          onPress={signInWithGoogle}
+          style={({ pressed }) => [
+            styles.providerButton,
+            (pressed || activeProvider === "google") && styles.pressed,
+            (!googleRequest || !isGoogleConfigured) && styles.disabled
+          ]}
+        >
+          {activeProvider === "google" ? (
             <ActivityIndicator color={theme.colors.textPrimary} />
           ) : (
-            <Text style={styles.primaryButtonText}>{ctaLabel}</Text>
+            <Text style={styles.providerButtonText}>Continue with Google</Text>
           )}
         </Pressable>
 
-        <Pressable
-          disabled={isSubmitting}
-          onPress={() => setMode(mode === "signIn" ? "signUp" : "signIn")}
-          style={styles.switchButton}
-        >
-          <Text style={styles.switchButtonText}>{switchLabel}</Text>
-        </Pressable>
+        {Platform.OS === "ios" && isAppleAvailable ? (
+          <Pressable
+            disabled={isSubmitting}
+            onPress={signInWithApple}
+            style={({ pressed }) => [
+              styles.providerButton,
+              (pressed || activeProvider === "apple") && styles.pressed
+            ]}
+          >
+            {activeProvider === "apple" ? (
+              <ActivityIndicator color={theme.colors.textPrimary} />
+            ) : (
+              <Text style={styles.providerButtonText}>Continue with Apple</Text>
+            )}
+          </Pressable>
+        ) : null}
+
+        {!isGoogleConfigured ? (
+          <Text style={styles.helperText}>Add Google client IDs to mobile/.env.</Text>
+        ) : null}
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -127,40 +204,34 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xl,
     gap: theme.spacing.md
   },
-  input: {
-    height: 52,
-    paddingHorizontal: theme.spacing.md,
-    color: theme.colors.textPrimary,
-    backgroundColor: theme.colors.surface,
-    borderColor: "#2A2A2A",
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    fontSize: 16
-  },
   error: {
     color: "#FF7A7A",
     fontSize: 14,
     lineHeight: 20
   },
-  primaryButton: {
+  providerButton: {
     alignItems: "center",
     justifyContent: "center",
     minHeight: 52,
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.small
+    backgroundColor: theme.colors.surface,
+    borderColor: "#2A2A2A",
+    borderRadius: theme.radius.small,
+    borderWidth: 1
   },
-  primaryButtonText: {
+  providerButtonText: {
     color: theme.colors.textPrimary,
     fontSize: 16,
     fontWeight: "700"
   },
-  switchButton: {
-    alignItems: "center",
-    paddingVertical: theme.spacing.sm
+  pressed: {
+    opacity: 0.72
   },
-  switchButtonText: {
+  disabled: {
+    opacity: 0.45
+  },
+  helperText: {
     color: theme.colors.textSecondary,
-    fontSize: 15,
-    fontWeight: "700"
+    fontSize: 14,
+    lineHeight: 20
   }
 });
