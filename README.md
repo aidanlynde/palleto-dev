@@ -10,13 +10,15 @@ Mobile app MVP for creatives to capture real-world inspiration and turn it into 
 /docs     Product and design documentation
 ```
 
-The current implementation covers Phase 1 only: project scaffolding, a bootable mobile shell, and a minimal backend health endpoint.
+The current implementation covers the first incremental slices: project scaffolding, a bootable mobile shell, Firebase email/password auth wiring, minimal backend user sync, and a backend health endpoint.
 
 ## Prerequisites
 
 - Node.js 20+
 - npm 10+
 - Python 3.11+
+- PostgreSQL for local user sync
+- Firebase project with Email/Password auth enabled
 
 ## Backend
 
@@ -41,6 +43,13 @@ Expected response:
 { "status": "ok" }
 ```
 
+Authenticated user sync:
+
+```bash
+curl http://localhost:8000/api/v1/me \
+  -H "Authorization: Bearer <firebase_id_token>"
+```
+
 ## Mobile
 
 ```bash
@@ -61,6 +70,13 @@ Root `.env.example` contains shared development defaults. Each app also has a lo
 
 Do not commit real Firebase, RevenueCat, database, or provider credentials.
 
+For Phase 2, configure:
+
+- backend Firebase Admin credentials in `backend/.env`
+- `DATABASE_URL` in `backend/.env`
+- Expo public Firebase web app values in `mobile/.env`
+- `EXPO_PUBLIC_API_BASE_URL` in `mobile/.env`
+
 ## Current Scope
 
 Implemented:
@@ -68,14 +84,16 @@ Implemented:
 - monorepo scaffolding
 - Expo TypeScript app shell
 - simple stack-based mobile navigation
+- Firebase email/password auth screen
+- authenticated mobile API client
 - FastAPI app shell
 - `/api/v1/health`
+- `/api/v1/me`
 - minimal backend settings
+- minimal `users` table for Firebase user sync
 
 Not implemented yet:
 
-- auth
-- database models
 - image analysis
 - card business logic
 - subscriptions

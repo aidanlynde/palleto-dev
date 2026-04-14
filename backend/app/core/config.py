@@ -9,6 +9,11 @@ class Settings(BaseSettings):
     app_name: str = "Palleto API"
     api_v1_prefix: str = "/api/v1"
     backend_cors_origins: list[AnyHttpUrl] = Field(default_factory=list)
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/palleto"
+    firebase_credentials_path: str | None = None
+    firebase_project_id: str | None = None
+    firebase_client_email: str | None = None
+    firebase_private_key: str | None = None
 
     @field_validator("backend_cors_origins", mode="before")
     @classmethod
