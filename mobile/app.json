@@ -28,6 +28,9 @@
         "projectId": "7b72700e-faef-43ab-854e-4c00ae64e718"
       }
     },
-    "owner": "aidanlynde"
+    "owner": "aidanlynde",
+    "plugins": [
+      "expo-asset"
+    ]
   }
 }
