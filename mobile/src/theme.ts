@@ -1,10 +1,12 @@
 export const theme = {
   colors: {
-    background: "#0F0F0F",
-    surface: "#1A1A1A",
-    primary: "#7B61FF",
+    background: "#000000",
+    surface: "#141414",
+    border: "#2A2A2A",
+    primary: "#FFFFFF",
     textPrimary: "#FFFFFF",
-    textSecondary: "#A0A0A0"
+    textSecondary: "#A3A3A3",
+    error: "#C62828"
   },
   radius: {
     small: 8,

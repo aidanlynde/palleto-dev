@@ -1,6 +1,6 @@
 import { signOut, User } from "firebase/auth";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { getMe, UserProfile } from "../services/api";
 import { firebaseAuth } from "../services/firebase";
@@ -43,6 +43,11 @@ export function HomeScreen({ firebaseUser }: HomeScreenProps) {
 
   return (
     <View style={styles.container}>
+      <Image
+        source={require("../../assets/palleto-logo.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
       <Text style={styles.eyebrow}>Inspiration cards</Text>
       <Text style={styles.title}>Capture what catches your eye.</Text>
       <Text style={styles.body}>
@@ -68,6 +73,11 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     backgroundColor: theme.colors.background
   },
+  logo: {
+    width: 64,
+    height: 64,
+    marginBottom: theme.spacing.lg
+  },
   eyebrow: {
     marginBottom: theme.spacing.sm,
     color: theme.colors.primary,
@@ -91,6 +101,8 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xl,
     padding: theme.spacing.md,
     backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
     borderRadius: theme.radius.medium
   },
   panelLabel: {

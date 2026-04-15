@@ -6,6 +6,7 @@ import { GoogleAuthProvider, OAuthProvider, signInWithCredential } from "firebas
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -125,6 +126,11 @@ export function AuthScreen() {
   return (
     <View style={styles.container}>
       <View>
+        <Image
+          source={require("../../assets/palleto-logo.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.eyebrow}>Palleto</Text>
         <Text style={styles.title}>Start your inspiration library.</Text>
         <Text style={styles.body}>
@@ -183,6 +189,11 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     backgroundColor: theme.colors.background
   },
+  logo: {
+    width: 72,
+    height: 72,
+    marginBottom: theme.spacing.lg
+  },
   eyebrow: {
     marginBottom: theme.spacing.sm,
     color: theme.colors.primary,
@@ -207,7 +218,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.md
   },
   error: {
-    color: "#FF7A7A",
+    color: theme.colors.error,
     fontSize: 14,
     lineHeight: 20
   },
@@ -216,7 +227,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minHeight: 52,
     backgroundColor: theme.colors.surface,
-    borderColor: "#2A2A2A",
+    borderColor: theme.colors.border,
     borderRadius: theme.radius.small,
     borderWidth: 1
   },

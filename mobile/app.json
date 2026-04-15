@@ -6,9 +6,15 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "palleto",
+    "icon": "./assets/app-icon.png",
     "assetBundlePatterns": [
       "**/*"
     ],
+    "splash": {
+      "image": "./assets/palleto-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
     "ios": {
       "bundleIdentifier": "com.palleto.palletolabs",
       "googleServicesFile": "./GoogleService-Info.plist",
@@ -20,7 +26,11 @@
     },
     "android": {
       "package": "com.palleto.palletolabs",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      }
     },
     "extra": {
       "apiBaseUrl": "https://palleto-dev-production.up.railway.app",
