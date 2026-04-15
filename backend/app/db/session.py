@@ -10,10 +10,16 @@ from app.db.models import Base
 
 engine = create_engine(settings.database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+_db_initialized = False
 
 
 def create_db_and_tables() -> None:
+    global _db_initialized
+    if _db_initialized:
+        return
+
     Base.metadata.create_all(bind=engine)
+    _db_initialized = True
 
 
 def get_db() -> Generator[Session, None, None]:

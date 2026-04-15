@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.core.auth import FirebaseUser, get_current_firebase_user
 from app.db.models import User
-from app.db.session import DbSession
+from app.db.session import DbSession, create_db_and_tables
 from app.schemas.user import UserRead
 
 router = APIRouter(tags=["users"])
@@ -13,6 +13,8 @@ def get_me(
     db: DbSession,
     firebase_user: FirebaseUser = Depends(get_current_firebase_user),
 ) -> User:
+    create_db_and_tables()
+
     user = db.query(User).filter(User.firebase_uid == firebase_user.uid).one_or_none()
 
     if user is None:
