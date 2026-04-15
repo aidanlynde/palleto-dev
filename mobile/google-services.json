@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "516352957604",
+    "project_id": "palleto-labs",
+    "storage_bucket": "palleto-labs.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:516352957604:android:25174b346f47ed40719a31",
+        "android_client_info": {
+          "package_name": "com.palleto.palletolabs"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "516352957604-qg7p6snfucm4qb8tf26sra9k22uc7690.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBLHt4DAAchK7d7kTfsskSp1palEbmrF1E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "516352957604-qg7p6snfucm4qb8tf26sra9k22uc7690.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "516352957604-sel1na4ph33fcj5clgcbq37pls5sv7hj.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.palleto.palletolabs"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

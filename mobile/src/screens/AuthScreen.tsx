@@ -19,11 +19,13 @@ import { theme } from "../theme";
 WebBrowser.maybeCompleteAuthSession();
 
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || undefined;
+const googleAndroidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || undefined;
 const googleClientConfig = {
   clientId: googleWebClientId ?? "missing-google-client-id",
   webClientId: googleWebClientId,
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID
+  iosClientId: googleIosClientId,
+  androidClientId: googleAndroidClientId
 };
 
 export function AuthScreen() {

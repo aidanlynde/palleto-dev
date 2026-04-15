@@ -10,10 +10,10 @@ from app.db.session import create_db_and_tables
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name)
 
-    if settings.backend_cors_origins:
+    if settings.cors_origins:
         app.add_middleware(
             CORSMiddleware,
-            allow_origins=[str(origin) for origin in settings.backend_cors_origins],
+            allow_origins=settings.cors_origins,
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],

@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import AnyHttpUrl, Field, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,19 +8,27 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_name: str = "Palleto API"
     api_v1_prefix: str = "/api/v1"
-    backend_cors_origins: list[AnyHttpUrl] = Field(default_factory=list)
+    backend_cors_origins: str = ""
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/palleto"
     firebase_credentials_path: str | None = None
     firebase_project_id: str | None = None
     firebase_client_email: str | None = None
     firebase_private_key: str | None = None
 
-    @field_validator("backend_cors_origins", mode="before")
+    @field_validator("database_url", mode="before")
     @classmethod
-    def parse_cors_origins(cls, value: str | list[str]) -> list[str] | str:
-        if isinstance(value, str) and value:
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
+    def normalize_database_url(cls, value: str) -> str:
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
         return value
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [
+            origin.strip()
+            for origin in self.backend_cors_origins.split(",")
+            if origin.strip()
+        ]
 
     model_config = SettingsConfigDict(
         env_file=".env",

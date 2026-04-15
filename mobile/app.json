@@ -10,8 +10,14 @@
       "**/*"
     ],
     "ios": {
+      "bundleIdentifier": "com.palleto.palletolabs",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "supportsTablet": true,
       "usesAppleSignIn": true
+    },
+    "android": {
+      "package": "com.palleto.palletolabs",
+      "googleServicesFile": "./google-services.json"
     },
     "extra": {
       "apiBaseUrl": "http://localhost:8000"

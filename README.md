@@ -61,6 +61,18 @@ npm run start
 
 Use Expo Go or a simulator from the Expo developer tools.
 
+For a native development build:
+
+```bash
+cd mobile
+npx eas login
+npx eas build:configure
+npx eas build --profile development --platform ios
+npm run start:dev-client
+```
+
+The development build uses `mobile/eas.json` and the Firebase native config files in `mobile/`.
+
 ## Environment
 
 Root `.env.example` contains shared development defaults. Each app also has a local example file:
@@ -99,3 +111,32 @@ Not implemented yet:
 - card business logic
 - subscriptions
 - analytics
+
+## Railway Backend Deployment
+
+Create a Railway project with:
+
+- one backend service using the `backend` directory as the root
+- one PostgreSQL database service
+
+Backend service variables:
+
+```env
+APP_ENV=production
+APP_NAME=Palleto API
+API_V1_PREFIX=/api/v1
+BACKEND_CORS_ORIGINS=
+DATABASE_URL=${{ Postgres.DATABASE_URL }}
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+FIREBASE_CREDENTIALS_PATH=
+```
+
+Use the Firebase service account JSON for the three Firebase values. Keep `FIREBASE_CREDENTIALS_PATH` empty on Railway.
+
+After Railway generates the backend domain, set this in `mobile/.env`:
+
+```env
+EXPO_PUBLIC_API_BASE_URL=https://your-backend.up.railway.app
+```
