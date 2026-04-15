@@ -13,7 +13,10 @@
       "bundleIdentifier": "com.palleto.palletolabs",
       "googleServicesFile": "./GoogleService-Info.plist",
       "supportsTablet": true,
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.palleto.palletolabs",
