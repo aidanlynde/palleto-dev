@@ -11,10 +11,18 @@ import { theme } from "../theme";
 type HomeScreenProps = {
   firebaseUser: User;
   onEditProject: () => void;
+  onOpenLibrary: () => void;
+  onScan: () => void;
   projectContext: ProjectContext | null;
 };
 
-export function HomeScreen({ firebaseUser, onEditProject, projectContext }: HomeScreenProps) {
+export function HomeScreen({
+  firebaseUser,
+  onEditProject,
+  onOpenLibrary,
+  onScan,
+  projectContext
+}: HomeScreenProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [statusText, setStatusText] = useState("Syncing your profile...");
 
@@ -57,6 +65,14 @@ export function HomeScreen({ firebaseUser, onEditProject, projectContext }: Home
         Your scans will be read through the context of what you are building, so every card gets
         more specific over time.
       </Text>
+      <View style={styles.actionPanel}>
+        <Pressable style={styles.primaryButton} onPress={onScan}>
+          <Text style={styles.primaryButtonText}>Scan inspiration</Text>
+        </Pressable>
+        <Pressable style={styles.secondaryActionButton} onPress={onOpenLibrary}>
+          <Text style={styles.secondaryActionButtonText}>Open library</Text>
+        </Pressable>
+      </View>
       {projectContext ? (
         <View style={styles.projectPanel}>
           <Text style={styles.panelLabel}>Active project</Text>
@@ -120,6 +136,35 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 16,
     lineHeight: 24
+  },
+  actionPanel: {
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.xl
+  },
+  primaryButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 54,
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.radius.small
+  },
+  primaryButtonText: {
+    color: theme.colors.background,
+    fontSize: 16,
+    fontWeight: "800"
+  },
+  secondaryActionButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 54,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  secondaryActionButtonText: {
+    color: theme.colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "800"
   },
   projectPanel: {
     gap: theme.spacing.sm,

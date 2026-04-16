@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     firebase_project_id: str | None = None
     firebase_client_email: str | None = None
     firebase_private_key: str | None = None
+    firebase_storage_bucket: str | None = None
 
     @field_validator("database_url", mode="before")
     @classmethod

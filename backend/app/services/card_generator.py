@@ -1,0 +1,138 @@
+from app.schemas.card import ProjectContextPayload
+
+
+def generate_card_payload(project_context: ProjectContextPayload | None) -> dict:
+    project_type = project_context.projectType if project_context else None
+    project_type = project_type or "Creative direction"
+    priorities = project_context.priorities if project_context else []
+    direction_tags = project_context.directionTags if project_context else []
+
+    project_summary = _project_summary(project_type, priorities, direction_tags)
+
+    return {
+        "title": "Street Koi Signal",
+        "one_line_read": (
+            "A street-found graphic system built from pavement grit, animal symbolism, "
+            "and one sharp orange interruption."
+        ),
+        "creative_direction": (
+            "This reference works because it turns an ordinary sidewalk into a graphic mark. "
+            "The koi forms feel symbolic and handmade, while the black, white, and orange palette "
+            "gives the image instant poster energy. Use this direction when you want something "
+            "urban, tactile, and expressive without becoming messy."
+        ),
+        "palette": [
+            {"hex": "#F26A21", "label": "Signal orange", "role": "accent"},
+            {"hex": "#111111", "label": "Tar black", "role": "anchor"},
+            {"hex": "#F4F1EA", "label": "Chalk white", "role": "relief"},
+            {"hex": "#67675F", "label": "Weathered concrete", "role": "field"},
+            {"hex": "#2D2F2A", "label": "Soft shadow", "role": "depth"},
+        ],
+        "visual_dna": {
+            "contrast": "Hard black and white separation with one saturated orange interruption.",
+            "shape_language": "Organic koi silhouettes, tapered motion, stencil-like edge behavior.",
+            "texture": "Rough pavement grain, sprayed pigment, chalky wear, soft outdoor shadow.",
+            "composition": (
+                "Two offset forms create diagonal movement and a quiet negative-space tension."
+            ),
+        },
+        "design_moves": [
+            "Use one saturated accent as the entire emotional charge.",
+            "Let rough surface texture stay visible instead of over-cleaning the mark.",
+            "Build movement through diagonal placement rather than extra decoration.",
+            "Pair organic illustration with severe typography for tension.",
+            "Keep imperfect edges so the system feels found, not manufactured.",
+        ],
+        "project_lens": {
+            "project_type": project_type,
+            "summary": project_summary,
+            "applications": _applications_for_project(project_type),
+        },
+        "type_direction": [
+            {
+                "style": "Compressed grotesk",
+                "use": "For street-poster urgency, product names, and campaign headlines.",
+            },
+            {
+                "style": "Ink-trap sans",
+                "use": "For sharper cultural edge without losing legibility.",
+            },
+            {
+                "style": "Utility mono",
+                "use": "For captions, archive labels, specs, and drop information.",
+            },
+        ],
+        "search_language": [
+            "koi symbolism",
+            "urban stencil",
+            "signal orange identity",
+            "pavement texture",
+            "high contrast street mark",
+            "Japanese fish motif",
+        ],
+        "related_links": related_inspiration_links(),
+    }
+
+
+def related_inspiration_links() -> list[dict]:
+    return [
+        {
+            "provider": "placeholder",
+            "title": "Are.na query: urban stencil marks",
+            "url": "https://www.are.na/search?q=urban%20stencil%20marks",
+        },
+        {
+            "provider": "placeholder",
+            "title": "Pinterest query: koi graphic identity",
+            "url": "https://www.pinterest.com/search/pins/?q=koi%20graphic%20identity",
+        },
+        {
+            "provider": "placeholder",
+            "title": "Google Images query: pavement texture graphic design",
+            "url": "https://www.google.com/search?tbm=isch&q=pavement%20texture%20graphic%20design",
+        },
+    ]
+
+
+def _project_summary(project_type: str, priorities: list[str], direction_tags: list[str]) -> str:
+    priority_text = ", ".join(priorities[:3]) if priorities else "visual direction"
+    direction_text = ", ".join(direction_tags[:3]).lower() if direction_tags else "focused"
+
+    return (
+        f"For this {project_type.lower()}, read the reference through {direction_text} cues and "
+        f"prioritize {priority_text.lower()}."
+    )
+
+
+def _applications_for_project(project_type: str) -> list[str]:
+    applications_by_project = {
+        "Clothing brand": [
+            "Use the koi as a recurring drop symbol instead of a full logo.",
+            "Pull the orange into stitching, hang tags, and limited-run packaging.",
+            "Keep pavement texture as campaign backdrop and pair it with strict type.",
+        ],
+        "Brand identity": [
+            "Build a mascot-adjacent mark system with one aggressive accent color.",
+            "Use rough pavement crops for launch graphics, stickers, and hang tags.",
+            "Keep the symbol handmade while making typography severe and structured.",
+        ],
+        "Packaging": [
+            "Translate the koi into stamped seals, box tape, and label closures.",
+            "Use matte concrete-gray substrates with black illustration and white utility type.",
+            "Make the orange accent feel like a limited-run recognition system.",
+        ],
+        "Campaign": [
+            "Use diagonal motion and high-contrast animal symbolism for hero art.",
+            "Let one color carry the entire visual charge across placements.",
+            "Treat pavement texture as a recurring campaign surface.",
+        ],
+    }
+
+    return applications_by_project.get(
+        project_type,
+        [
+            "Use this as a compact visual system built from one motif, one accent, and one texture.",
+            "Make rough surface texture feel intentional instead of incidental.",
+            "Apply the reference to marks, layouts, packaging, or campaign openers.",
+        ],
+    )

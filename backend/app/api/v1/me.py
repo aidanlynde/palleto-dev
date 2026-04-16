@@ -4,6 +4,7 @@ from app.core.auth import FirebaseUser, get_current_firebase_user
 from app.db.models import User
 from app.db.session import DbSession, create_db_and_tables
 from app.schemas.user import UserRead
+from app.services.users import get_or_create_user
 
 router = APIRouter(tags=["users"])
 
@@ -15,21 +16,7 @@ def get_me(
 ) -> User:
     create_db_and_tables()
 
-    user = db.query(User).filter(User.firebase_uid == firebase_user.uid).one_or_none()
-
-    if user is None:
-        user = User(
-            firebase_uid=firebase_user.uid,
-            email=firebase_user.email,
-            display_name=firebase_user.name,
-            photo_url=firebase_user.picture,
-        )
-        db.add(user)
-    else:
-        user.email = firebase_user.email
-        user.display_name = firebase_user.name
-        user.photo_url = firebase_user.picture
-
+    user = get_or_create_user(db, firebase_user)
     db.commit()
     db.refresh(user)
 

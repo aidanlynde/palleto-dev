@@ -45,7 +45,11 @@ def get_firebase_app() -> firebase_admin.App:
             detail="Firebase Admin credentials are not configured.",
         )
 
-    return firebase_admin.initialize_app(credential)
+    options = {}
+    if settings.firebase_storage_bucket:
+        options["storageBucket"] = settings.firebase_storage_bucket
+
+    return firebase_admin.initialize_app(credential, options)
 
 
 def get_current_firebase_user(
