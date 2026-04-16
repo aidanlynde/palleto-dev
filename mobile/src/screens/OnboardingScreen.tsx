@@ -53,16 +53,102 @@ const processingStages = [
 ];
 
 const palette = [
-  { hex: "#F26A21", label: "Signal orange" },
-  { hex: "#111111", label: "Tar black" },
-  { hex: "#F4F1EA", label: "Chalk white" },
-  { hex: "#67675F", label: "Weathered concrete" },
-  { hex: "#2D2F2A", label: "Soft shadow" }
+  { hex: "#F26A21", label: "Signal orange", role: "accent" },
+  { hex: "#111111", label: "Tar black", role: "anchor" },
+  { hex: "#F4F1EA", label: "Chalk white", role: "relief" },
+  { hex: "#67675F", label: "Weathered concrete", role: "field" },
+  { hex: "#2D2F2A", label: "Soft shadow", role: "depth" }
 ];
 
-const cardTags = ["street ritual", "graphic movement", "urban folklore", "high-contrast mark-making"];
-const textureTags = ["rough pavement", "sprayed edge", "worn stencil", "chalky contrast"];
-const fontDirections = ["compressed grotesk", "ink-trap sans", "utility mono"];
+const visualDna = [
+  {
+    label: "Contrast",
+    value: "Hard black and white separation with one saturated orange interruption."
+  },
+  {
+    label: "Shape",
+    value: "Organic koi silhouettes, tapered motion, stencil-like edge behavior."
+  },
+  {
+    label: "Texture",
+    value: "Rough pavement grain, sprayed pigment, chalky wear, soft outdoor shadow."
+  },
+  {
+    label: "Composition",
+    value: "Two offset forms create diagonal movement and a quiet negative-space tension."
+  }
+];
+
+const designMoves = [
+  "Use one saturated accent as the entire emotional charge.",
+  "Let rough surface texture stay visible instead of over-cleaning the mark.",
+  "Build movement through diagonal placement rather than extra decoration.",
+  "Pair organic illustration with severe typography for tension.",
+  "Keep imperfect edges so the system feels found, not manufactured."
+];
+
+const projectApplications: Record<string, string[]> = {
+  "Brand identity": [
+    "A mascot-adjacent mark system with one aggressive accent color.",
+    "Hang tags, stickers, and launch graphics built from rough pavement crops.",
+    "A logo world that feels symbolic without becoming heritage cosplay."
+  ],
+  Packaging: [
+    "Stamped seals, box tape, and label closures with a single orange hit.",
+    "Matte concrete-gray substrates with black illustration and white utility type.",
+    "Limited-run packaging that feels street-found and collectible."
+  ],
+  "Art direction": [
+    "Campaign imagery with diagonal motion and high-contrast animal symbolism.",
+    "Poster compositions that let one color carry the entire visual charge.",
+    "A reference system for urban folklore, movement, and imperfect mark-making."
+  ],
+  Moodboard: [
+    "A board direction around graphic street marks, pavement texture, and signal color.",
+    "Pair with worn signage, stencil typography, asphalt, and cropped animal forms.",
+    "Use as a counterweight to cleaner studio references."
+  ],
+  "Product idea": [
+    "Surface graphics for bags, cases, decks, or small accessories.",
+    "A product drop where the accent color becomes the recognition system.",
+    "Embossed or printed texture that keeps the sidewalk energy intact."
+  ],
+  "Personal archive": [
+    "A saved reference for high-contrast street graphics and found symbolism.",
+    "Useful when a future project needs movement without polish.",
+    "A reminder to preserve the environment around the mark, not just the motif."
+  ]
+};
+
+const fallbackApplications = [
+  "Identity marks, packaging stamps, editorial openers, or street-level campaign graphics.",
+  "A reference for making rough surfaces feel intentional and designed.",
+  "A compact visual system built from one motif, one accent, and one texture field."
+];
+
+const typeDirections = [
+  {
+    style: "Compressed grotesk",
+    use: "For street-poster urgency, product names, and campaign headlines."
+  },
+  {
+    style: "Ink-trap sans",
+    use: "For sharper cultural edge without losing legibility."
+  },
+  {
+    style: "Utility mono",
+    use: "For captions, archive labels, specs, and drop information."
+  }
+];
+
+const searchLanguage = [
+  "koi symbolism",
+  "urban stencil",
+  "signal orange identity",
+  "pavement texture",
+  "high contrast street mark",
+  "Japanese fish motif"
+];
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [step, setStep] = useState(0);
@@ -82,6 +168,8 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
     return `Tuned for ${intent}. Prioritizing ${notices}. Reading references with a ${style} lens.`;
   }, [answers]);
+  const selectedProject = answers.collecting_for?.[0] || "Brand identity";
+  const activeApplications = projectApplications[selectedProject] ?? fallbackApplications;
 
   useEffect(() => {
     if (step !== 5) {
@@ -275,6 +363,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
       <View style={styles.demoHeader}>
         <Text style={styles.kicker}>Generated card</Text>
         <Text style={styles.cardIntro}>This is what every scan becomes.</Text>
+        <Text style={styles.cardIntroBody}>
+          Palleto turns a reference into a visual system, then adapts the read to what you are
+          building.
+        </Text>
       </View>
 
       <View style={styles.card}>
@@ -285,30 +377,74 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         />
         <View style={styles.cardBody}>
           <Text style={styles.cardTitle}>Street Koi Signal</Text>
+          <Text style={styles.oneLineRead}>
+            A street-found graphic system built from pavement grit, animal symbolism, and one
+            sharp orange interruption.
+          </Text>
           <Text style={styles.cardDirection}>
-            A high-contrast reference built from pavement grit, stencil-like forms, and a sharp
-            hit of orange. It feels graphic, kinetic, and slightly ceremonial, useful for identity
-            systems, packaging marks, editorial layouts, or street-level visual campaigns.
+            This reference works because it turns an ordinary sidewalk into a graphic mark. The koi
+            forms feel symbolic and handmade, while the black, white, and orange palette gives the
+            image instant poster energy. Use this direction when you want something urban, tactile,
+            and expressive without becoming messy.
           </Text>
 
           <SectionLabel label="Palette" />
           <View style={styles.paletteRow}>
             {palette.map((color) => (
-              <View key={color.hex} style={styles.paletteItem}>
+              <View key={color.hex} style={styles.paletteCard}>
                 <View style={[styles.swatch, { backgroundColor: color.hex }]} />
-                <Text style={styles.swatchLabel}>{color.label}</Text>
+                <View style={styles.paletteCopy}>
+                  <Text style={styles.swatchLabel}>{color.label}</Text>
+                  <Text style={styles.swatchRole}>{color.role}</Text>
+                </View>
               </View>
             ))}
           </View>
 
-          <SectionLabel label="Texture" />
-          <TagRow tags={textureTags} />
+          <SectionLabel label="Visual DNA" />
+          <View style={styles.dnaList}>
+            {visualDna.map((item) => (
+              <View key={item.label} style={styles.dnaRow}>
+                <Text style={styles.dnaLabel}>{item.label}</Text>
+                <Text style={styles.dnaValue}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
 
-          <SectionLabel label="Vibe" />
-          <TagRow tags={cardTags} />
+          <SectionLabel label="Design moves" />
+          <View style={styles.moveList}>
+            {designMoves.map((move, index) => (
+              <View key={move} style={styles.moveRow}>
+                <Text style={styles.moveNumber}>{String(index + 1).padStart(2, "0")}</Text>
+                <Text style={styles.moveText}>{move}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.projectPanel}>
+            <Text style={styles.projectLabel}>Project lens</Text>
+            <Text style={styles.projectTitle}>{selectedProject}</Text>
+            <View style={styles.applicationList}>
+              {activeApplications.map((application) => (
+                <Text key={application} style={styles.applicationText}>
+                  {application}
+                </Text>
+              ))}
+            </View>
+          </View>
 
           <SectionLabel label="Type direction" />
-          <TagRow tags={fontDirections} />
+          <View style={styles.typeList}>
+            {typeDirections.map((direction) => (
+              <View key={direction.style} style={styles.typeItem}>
+                <Text style={styles.typeStyle}>{direction.style}</Text>
+                <Text style={styles.typeUse}>{direction.use}</Text>
+              </View>
+            ))}
+          </View>
+
+          <SectionLabel label="Search language" />
+          <TagRow tags={searchLanguage} />
         </View>
       </View>
 
@@ -598,6 +734,11 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 36
   },
+  cardIntroBody: {
+    color: theme.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22
+  },
   card: {
     overflow: "hidden",
     backgroundColor: theme.colors.surface,
@@ -619,6 +760,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 34
   },
+  oneLineRead: {
+    color: theme.colors.textPrimary,
+    fontSize: 17,
+    fontWeight: "700",
+    lineHeight: 24
+  },
   cardDirection: {
     color: theme.colors.textSecondary,
     fontSize: 15,
@@ -634,22 +781,128 @@ const styles = StyleSheet.create({
   paletteRow: {
     gap: theme.spacing.sm
   },
-  paletteItem: {
+  paletteCard: {
     flexDirection: "row",
     alignItems: "center",
-    gap: theme.spacing.sm
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
   },
   swatch: {
-    width: 42,
-    height: 24,
+    width: 48,
+    height: 36,
     borderColor: "rgba(255,255,255,0.18)",
     borderWidth: 1,
     borderRadius: 4
   },
+  paletteCopy: {
+    flex: 1,
+    gap: 2
+  },
   swatchLabel: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.textPrimary,
     fontSize: 14,
     fontWeight: "700"
+  },
+  swatchRole: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase"
+  },
+  dnaList: {
+    gap: theme.spacing.sm
+  },
+  dnaRow: {
+    gap: theme.spacing.xs,
+    paddingBottom: theme.spacing.sm,
+    borderBottomColor: theme.colors.border,
+    borderBottomWidth: 1
+  },
+  dnaLabel: {
+    color: theme.colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  dnaValue: {
+    color: theme.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22
+  },
+  moveList: {
+    gap: theme.spacing.sm
+  },
+  moveRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs
+  },
+  moveNumber: {
+    width: 28,
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 21
+  },
+  moveText: {
+    flex: 1,
+    color: theme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 21
+  },
+  projectPanel: {
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  projectLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  projectTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 22,
+    fontWeight: "800",
+    lineHeight: 28
+  },
+  applicationList: {
+    gap: theme.spacing.sm
+  },
+  applicationText: {
+    color: theme.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22
+  },
+  typeList: {
+    gap: theme.spacing.sm
+  },
+  typeItem: {
+    gap: theme.spacing.xs,
+    padding: theme.spacing.sm,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  typeStyle: {
+    color: theme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "800"
+  },
+  typeUse: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20
   },
   tagRow: {
     flexDirection: "row",
