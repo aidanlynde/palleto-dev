@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
+import { ProjectIntakeScreen } from "./src/screens/ProjectIntakeScreen";
 import { SplashScreen } from "./src/screens/SplashScreen";
 import { firebaseAuth } from "./src/services/firebase";
 import {
@@ -14,12 +15,14 @@ import {
   hasCompletedOnboarding,
   OnboardingSurveyAnswers
 } from "./src/services/onboarding";
+import { getActiveProjectContext, ProjectContext } from "./src/services/projectContext";
 import { theme } from "./src/theme";
 
 export type RootStackParamList = {
   Auth: undefined;
   Home: undefined;
   Onboarding: undefined;
+  ProjectIntake: undefined;
   Splash: undefined;
 };
 
@@ -39,8 +42,10 @@ const navigationTheme = {
 export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isOnboardingReady, setIsOnboardingReady] = useState(false);
+  const [isProjectContextReady, setIsProjectContextReady] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
@@ -61,12 +66,22 @@ export default function App() {
     loadOnboardingState();
   }, []);
 
+  useEffect(() => {
+    async function loadProjectContext() {
+      const activeProject = await getActiveProjectContext();
+      setProjectContext(activeProject);
+      setIsProjectContextReady(true);
+    }
+
+    loadProjectContext();
+  }, []);
+
   async function finishOnboarding(surveyAnswers: OnboardingSurveyAnswers) {
     await completeOnboarding(surveyAnswers);
     setOnboardingComplete(true);
   }
 
-  const isLoading = !isAuthReady || !isOnboardingReady;
+  const isLoading = !isAuthReady || !isOnboardingReady || !isProjectContextReady;
 
   return (
     <NavigationContainer theme={navigationTheme}>
@@ -85,9 +100,19 @@ export default function App() {
           <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
             {() => <OnboardingScreen onComplete={finishOnboarding} />}
           </Stack.Screen>
+        ) : firebaseUser && !projectContext ? (
+          <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
+            {() => <ProjectIntakeScreen onComplete={setProjectContext} />}
+          </Stack.Screen>
         ) : firebaseUser ? (
           <Stack.Screen name="Home" options={{ title: "Palleto" }}>
-            {() => <HomeScreen firebaseUser={firebaseUser} />}
+            {() => (
+              <HomeScreen
+                firebaseUser={firebaseUser}
+                onEditProject={() => setProjectContext(null)}
+                projectContext={projectContext}
+              />
+            )}
           </Stack.Screen>
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} options={{ title: "Sign in" }} />
