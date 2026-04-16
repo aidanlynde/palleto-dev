@@ -6,13 +6,20 @@ import { useEffect, useState } from "react";
 
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { HomeScreen } from "./src/screens/HomeScreen";
+import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { SplashScreen } from "./src/screens/SplashScreen";
 import { firebaseAuth } from "./src/services/firebase";
+import {
+  completeOnboarding,
+  hasCompletedOnboarding,
+  OnboardingSurveyAnswers
+} from "./src/services/onboarding";
 import { theme } from "./src/theme";
 
 export type RootStackParamList = {
   Auth: undefined;
   Home: undefined;
+  Onboarding: undefined;
   Splash: undefined;
 };
 
@@ -30,17 +37,36 @@ const navigationTheme = {
 };
 
 export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [isOnboardingReady, setIsOnboardingReady] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
       setFirebaseUser(user);
-      setIsLoading(false);
+      setIsAuthReady(true);
     });
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    async function loadOnboardingState() {
+      const hasCompleted = await hasCompletedOnboarding();
+      setOnboardingComplete(hasCompleted);
+      setIsOnboardingReady(true);
+    }
+
+    loadOnboardingState();
+  }, []);
+
+  async function finishOnboarding(surveyAnswers: OnboardingSurveyAnswers) {
+    await completeOnboarding(surveyAnswers);
+    setOnboardingComplete(true);
+  }
+
+  const isLoading = !isAuthReady || !isOnboardingReady;
 
   return (
     <NavigationContainer theme={navigationTheme}>
@@ -55,6 +81,10 @@ export default function App() {
       >
         {isLoading ? (
           <Stack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
+        ) : !onboardingComplete ? (
+          <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
+            {() => <OnboardingScreen onComplete={finishOnboarding} />}
+          </Stack.Screen>
         ) : firebaseUser ? (
           <Stack.Screen name="Home" options={{ title: "Palleto" }}>
             {() => <HomeScreen firebaseUser={firebaseUser} />}
