@@ -127,7 +127,7 @@ export function AuthScreen() {
     <View style={styles.container}>
       <View>
         <Image
-          source={require("../../assets/palleto-logo.png")}
+          source={require("../../assets/brand/palleto-logo-transparent.png")}
           style={styles.logo}
           resizeMode="contain"
         />
