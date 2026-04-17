@@ -123,3 +123,16 @@ export async function listCards(idToken: string): Promise<InspirationCard[]> {
 
   return response.json();
 }
+
+export async function deleteCard(idToken: string, cardId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/cards/${cardId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${idToken}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete card: ${response.status}`);
+  }
+}

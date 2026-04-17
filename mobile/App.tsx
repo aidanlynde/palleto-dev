@@ -209,7 +209,18 @@ export default function App() {
               }
             </Stack.Screen>
             <Stack.Screen name="CardDetail" options={{ title: "Card" }}>
-              {() => (selectedCard ? <CardDetailScreen card={selectedCard} /> : null)}
+              {({ navigation }) =>
+                selectedCard ? (
+                  <CardDetailScreen
+                    card={selectedCard}
+                    firebaseUser={firebaseUser}
+                    onDeleted={() => {
+                      setSelectedCard(null);
+                      navigation.navigate("Home");
+                    }}
+                  />
+                ) : null
+              }
             </Stack.Screen>
           </>
         ) : null}

@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import quote
 from uuid import uuid4
 
@@ -6,6 +7,8 @@ from firebase_admin import storage
 
 from app.core.auth import get_firebase_app
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def upload_card_image(
@@ -46,6 +49,18 @@ async def upload_card_image(
     )
 
     return storage_path, image_url
+
+
+def delete_card_image(storage_path: str | None) -> None:
+    if not storage_path or not settings.firebase_storage_bucket:
+        return
+
+    try:
+        get_firebase_app()
+        bucket = storage.bucket(settings.firebase_storage_bucket)
+        bucket.blob(storage_path).delete()
+    except Exception:
+        logger.exception("Failed to delete card image from Firebase Storage")
 
 
 def _extension_for_content_type(content_type: str) -> str:

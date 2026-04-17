@@ -1,6 +1,9 @@
-import { Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import * as Haptics from "expo-haptics";
+import { User } from "firebase/auth";
+import { useState } from "react";
+import { Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
-import { InspirationCard } from "../services/api";
+import { deleteCard, InspirationCard } from "../services/api";
 import { theme } from "../theme";
 
 type CardResultScreenProps = {
@@ -157,10 +160,56 @@ export function CardDetail({ card }: { card: InspirationCard }) {
   );
 }
 
-export function CardDetailScreen({ card }: { card: InspirationCard }) {
+export function CardDetailScreen({
+  card,
+  firebaseUser,
+  onDeleted
+}: {
+  card: InspirationCard;
+  firebaseUser: User;
+  onDeleted: () => void;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  function confirmDelete() {
+    Alert.alert("Delete this card?", "This removes it from your library.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: deleteCurrentCard
+      }
+    ]);
+  }
+
+  async function deleteCurrentCard() {
+    try {
+      setIsDeleting(true);
+      const token = await firebaseUser.getIdToken();
+      await deleteCard(token, card.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onDeleted();
+    } catch {
+      setIsDeleting(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Delete failed", "Try again in a moment.");
+    }
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <CardDetail card={card} />
+      <Pressable
+        disabled={isDeleting}
+        onPress={confirmDelete}
+        style={({ pressed }) => [
+          styles.deleteButton,
+          pressed && styles.pressed,
+          isDeleting && styles.disabled
+        ]}
+      >
+        <Text style={styles.deleteButtonText}>{isDeleting ? "Deleting..." : "Delete from library"}</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -648,5 +697,24 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 15,
     fontWeight: "800"
+  },
+  deleteButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 52,
+    borderColor: theme.colors.error,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  deleteButtonText: {
+    color: theme.colors.error,
+    fontSize: 15,
+    fontWeight: "900"
+  },
+  disabled: {
+    opacity: 0.5
+  },
+  pressed: {
+    opacity: 0.72
   }
 });

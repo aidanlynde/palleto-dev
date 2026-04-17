@@ -1,7 +1,7 @@
 import json
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy import desc
 
 from app.core.auth import FirebaseUser, get_current_firebase_user
@@ -9,7 +9,7 @@ from app.db.models import Card
 from app.db.session import DbSession, create_db_and_tables
 from app.schemas.card import CardRead, ProjectContextPayload
 from app.services.openai_card_generator import generate_card_payload_for_image
-from app.services.storage import upload_card_image
+from app.services.storage import delete_card_image, upload_card_image
 from app.services.users import get_or_create_user
 
 router = APIRouter(prefix="/cards", tags=["cards"])
@@ -91,6 +91,31 @@ def get_card(
         )
 
     return card
+
+
+@router.delete("/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_card(
+    card_id: str,
+    db: DbSession,
+    firebase_user: FirebaseUser = Depends(get_current_firebase_user),
+) -> Response:
+    create_db_and_tables()
+
+    user = get_or_create_user(db, firebase_user)
+    card = db.query(Card).filter(Card.id == card_id, Card.user_id == user.id).one_or_none()
+
+    if card is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Card not found.",
+        )
+
+    storage_path = card.storage_path
+    db.delete(card)
+    db.commit()
+    delete_card_image(storage_path)
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def _parse_project_context(project_context: str | None) -> ProjectContextPayload | None:
