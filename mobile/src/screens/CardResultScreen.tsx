@@ -1,3 +1,4 @@
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
 import { useState } from "react";
@@ -5,6 +6,8 @@ import { Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, 
 
 import { deleteCard, InspirationCard } from "../services/api";
 import { theme } from "../theme";
+
+type PaletteColor = InspirationCard["palette"][number];
 
 type CardResultScreenProps = {
   card: InspirationCard;
@@ -39,6 +42,11 @@ export function CardResultScreen({ card, onDone, onViewLibrary }: CardResultScre
 }
 
 export function CardDetail({ card }: { card: InspirationCard }) {
+  async function copyHex(hex: string) {
+    await Clipboard.setStringAsync(hex.toUpperCase());
+    Haptics.selectionAsync();
+  }
+
   return (
     <View style={styles.card}>
       <Image source={{ uri: card.image_url }} style={styles.cardImage} resizeMode="cover" />
@@ -50,22 +58,49 @@ export function CardDetail({ card }: { card: InspirationCard }) {
         <SectionLabel label="Palette" />
         <View style={styles.paletteHero}>
           {card.palette.map((color) => (
-            <View key={`${color.hex}-${color.role}`} style={styles.paletteColumn}>
-              <View style={[styles.swatchBlock, { backgroundColor: color.hex }]} />
+            <Pressable
+              key={`${color.hex}-${color.role}`}
+              onPress={() => copyHex(color.hex)}
+              style={({ pressed }) => [styles.paletteColumn, pressed && styles.pressed]}
+            >
+              <View style={[styles.swatchBlock, { backgroundColor: color.hex }]}>
+                <Text style={styles.swatchHex}>{color.hex.toUpperCase()}</Text>
+              </View>
               <View style={styles.paletteCopy}>
                 <Text style={styles.swatchLabel}>{color.label}</Text>
                 <Text style={styles.swatchRole}>{color.role}</Text>
+                <Text style={styles.copyHint}>Tap to copy</Text>
               </View>
-            </View>
+            </Pressable>
           ))}
         </View>
 
         <SectionLabel label="Visual DNA" />
         <View style={styles.dnaGrid}>
-          <DnaModule label="Contrast" type="contrast" value={card.visual_dna.contrast} />
-          <DnaModule label="Shape" type="shape" value={card.visual_dna.shape_language} />
-          <DnaModule label="Texture" type="texture" value={card.visual_dna.texture} />
-          <DnaModule label="Composition" type="composition" value={card.visual_dna.composition} />
+          <DnaModule
+            label="Contrast"
+            palette={card.palette}
+            type="contrast"
+            value={card.visual_dna.contrast}
+          />
+          <DnaModule
+            label="Shape"
+            palette={card.palette}
+            type="shape"
+            value={card.visual_dna.shape_language}
+          />
+          <DnaModule
+            label="Texture"
+            palette={card.palette}
+            type="texture"
+            value={card.visual_dna.texture}
+          />
+          <DnaModule
+            label="Composition"
+            palette={card.palette}
+            type="composition"
+            value={card.visual_dna.composition}
+          />
         </View>
 
         <SectionLabel label="Design moves" />
@@ -106,18 +141,7 @@ export function CardDetail({ card }: { card: InspirationCard }) {
             {link.thumbnail_url ? (
               <Image source={{ uri: link.thumbnail_url }} style={styles.relatedImage} resizeMode="cover" />
             ) : (
-              <View style={styles.relatedPreview}>
-                <View style={styles.relatedPreviewMark} />
-                <View style={styles.relatedPreviewLine} />
-                <View style={styles.relatedPreviewPalette}>
-                  {card.palette.slice(0, 4).map((color) => (
-                    <View
-                      key={`${link.url}-${color.hex}`}
-                      style={[styles.relatedPreviewSwatch, { backgroundColor: color.hex }]}
-                    />
-                  ))}
-                </View>
-              </View>
+              <RelatedPreview palette={card.palette} title={link.title} />
             )}
             <View style={styles.relatedCopy}>
               <Text style={styles.relatedTitle}>{link.title}</Text>
@@ -155,6 +179,36 @@ export function CardDetail({ card }: { card: InspirationCard }) {
             </View>
           ))}
         </View>
+      </View>
+    </View>
+  );
+}
+
+function RelatedPreview({ palette, title }: { palette: PaletteColor[]; title: string }) {
+  const seed = title.length;
+  const base = palette[seed % Math.max(palette.length, 1)]?.hex ?? theme.colors.surface;
+  const accent = palette[(seed + 2) % Math.max(palette.length, 1)]?.hex ?? theme.colors.textPrimary;
+  const line = palette[(seed + 3) % Math.max(palette.length, 1)]?.hex ?? theme.colors.textSecondary;
+
+  return (
+    <View style={[styles.relatedPreview, { backgroundColor: base }]}>
+      <View
+        style={[
+          styles.relatedPreviewMark,
+          {
+            backgroundColor: accent,
+            transform: [{ rotate: seed % 2 === 0 ? "-18deg" : "12deg" }]
+          }
+        ]}
+      />
+      <View style={[styles.relatedPreviewLine, { backgroundColor: line }]} />
+      <View style={styles.relatedPreviewPalette}>
+        {palette.slice(0, 4).map((color) => (
+          <View
+            key={`related-preview-${title}-${color.hex}`}
+            style={[styles.relatedPreviewSwatch, { backgroundColor: color.hex }]}
+          />
+        ))}
       </View>
     </View>
   );
@@ -220,29 +274,53 @@ function SectionLabel({ label }: { label: string }) {
 
 function DnaModule({
   label,
+  palette,
   type,
   value
 }: {
   label: string;
+  palette: PaletteColor[];
   type: "composition" | "contrast" | "shape" | "texture";
   value: string;
 }) {
   return (
     <View style={styles.dnaModule}>
-      <DnaVisual type={type} />
+      <DnaVisual palette={palette} type={type} />
       <Text style={styles.dnaLabel}>{label}</Text>
       <Text style={styles.dnaValue}>{value}</Text>
     </View>
   );
 }
 
-function DnaVisual({ type }: { type: "composition" | "contrast" | "shape" | "texture" }) {
+function DnaVisual({
+  palette,
+  type
+}: {
+  palette: PaletteColor[];
+  type: "composition" | "contrast" | "shape" | "texture";
+}) {
+  const [primary, secondary, accent, depth] = palette;
+  const primaryHex = primary?.hex ?? theme.colors.textPrimary;
+  const secondaryHex = secondary?.hex ?? theme.colors.surface;
+  const accentHex = accent?.hex ?? theme.colors.textSecondary;
+  const depthHex = depth?.hex ?? theme.colors.border;
+
   if (type === "contrast") {
+    const contrastPalette = palette.length
+      ? palette
+      : [
+          { hex: theme.colors.textPrimary, label: "Light", role: "base" },
+          { hex: theme.colors.background, label: "Dark", role: "depth" }
+        ];
+
     return (
       <View style={styles.contrastVisual}>
-        <View style={[styles.contrastBlock, { backgroundColor: "#111111" }]} />
-        <View style={[styles.contrastBlock, { backgroundColor: "#F4F1EA" }]} />
-        <View style={[styles.contrastBlock, { backgroundColor: "#F26A21" }]} />
+        {contrastPalette.slice(0, 5).map((color, index) => (
+          <View
+            key={`contrast-${color.hex}-${index}`}
+            style={[styles.contrastBlock, { backgroundColor: color.hex }]}
+          />
+        ))}
       </View>
     );
   }
@@ -250,8 +328,9 @@ function DnaVisual({ type }: { type: "composition" | "contrast" | "shape" | "tex
   if (type === "shape") {
     return (
       <View style={styles.shapeVisual}>
-        <View style={styles.shapeOval} />
-        <View style={[styles.shapeOval, styles.shapeOvalOffset]} />
+        <View style={[styles.shapeOval, { backgroundColor: primaryHex }]} />
+        <View style={[styles.shapeOval, styles.shapeOvalOffset, { backgroundColor: accentHex }]} />
+        <View style={[styles.shapeFrame, { borderColor: secondaryHex }]} />
       </View>
     );
   }
@@ -259,16 +338,26 @@ function DnaVisual({ type }: { type: "composition" | "contrast" | "shape" | "tex
   if (type === "composition") {
     return (
       <View style={styles.compositionVisual}>
-        <View style={styles.diagonalLine} />
-        <View style={styles.compositionDot} />
+        <View style={[styles.compositionField, { borderColor: depthHex }]} />
+        <View style={[styles.diagonalLine, { backgroundColor: primaryHex }]} />
+        <View style={[styles.compositionDot, { backgroundColor: accentHex }]} />
       </View>
     );
   }
 
   return (
     <View style={styles.textureVisual}>
-      {Array.from({ length: 18 }).map((_, index) => (
-        <View key={index} style={styles.textureDot} />
+      {Array.from({ length: 24 }).map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.textureDot,
+            {
+              backgroundColor: palette[index % Math.max(palette.length, 1)]?.hex ?? primaryHex,
+              opacity: 0.34 + (index % 4) * 0.16
+            }
+          ]}
+        />
       ))}
     </View>
   );
@@ -346,17 +435,36 @@ const styles = StyleSheet.create({
   },
   paletteHero: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: theme.spacing.xs
   },
   paletteColumn: {
-    flex: 1,
-    gap: theme.spacing.sm
+    width: "48.5%",
+    gap: theme.spacing.sm,
+    padding: theme.spacing.xs,
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
   },
   swatchBlock: {
+    justifyContent: "flex-end",
     height: 76,
+    padding: theme.spacing.xs,
     borderColor: "rgba(255,255,255,0.18)",
     borderWidth: 1,
     borderRadius: 4
+  },
+  swatchHex: {
+    alignSelf: "flex-start",
+    overflow: "hidden",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    color: theme.colors.textPrimary,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 4,
+    fontSize: 11,
+    fontWeight: "900"
   },
   paletteCopy: {
     flex: 1,
@@ -372,6 +480,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase"
+  },
+  copyHint: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "700"
   },
   dnaGrid: {
     flexDirection: "row",
@@ -400,7 +513,7 @@ const styles = StyleSheet.create({
   },
   contrastVisual: {
     flexDirection: "row",
-    height: 42,
+    height: 54,
     overflow: "hidden",
     borderRadius: 4
   },
@@ -408,30 +521,48 @@ const styles = StyleSheet.create({
     flex: 1
   },
   shapeVisual: {
-    height: 42,
-    justifyContent: "center"
+    height: 54,
+    justifyContent: "center",
+    overflow: "hidden"
   },
   shapeOval: {
-    width: 58,
+    width: 70,
     height: 20,
-    backgroundColor: theme.colors.textPrimary,
     borderRadius: 8,
     transform: [{ rotate: "-18deg" }]
   },
   shapeOvalOffset: {
     alignSelf: "flex-end",
     marginTop: -4,
-    backgroundColor: "#F26A21",
     transform: [{ rotate: "18deg" }]
   },
+  shapeFrame: {
+    position: "absolute",
+    right: 10,
+    bottom: 4,
+    width: 44,
+    height: 34,
+    borderWidth: 1,
+    borderRadius: 4,
+    transform: [{ rotate: "-8deg" }]
+  },
   compositionVisual: {
-    height: 42,
+    height: 54,
     justifyContent: "center",
     overflow: "hidden"
   },
+  compositionField: {
+    position: "absolute",
+    left: 6,
+    right: 6,
+    top: 5,
+    bottom: 5,
+    borderWidth: 1,
+    borderRadius: 4,
+    opacity: 0.75
+  },
   diagonalLine: {
     height: 2,
-    backgroundColor: theme.colors.textPrimary,
     transform: [{ rotate: "-28deg" }]
   },
   compositionDot: {
@@ -439,19 +570,18 @@ const styles = StyleSheet.create({
     right: 18,
     width: 12,
     height: 12,
-    backgroundColor: "#F26A21",
     borderRadius: 6
   },
   textureVisual: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 4,
-    height: 42
+    alignContent: "center",
+    height: 54
   },
   textureDot: {
-    width: 5,
-    height: 5,
-    backgroundColor: theme.colors.textSecondary,
+    width: 6,
+    height: 6,
     borderRadius: 3
   },
   moveList: {

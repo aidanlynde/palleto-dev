@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.schemas.card import ProjectContextPayload
 from app.services.card_generator import generate_card_payload
+from app.services.link_preview import enrich_related_links
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +62,13 @@ def generate_card_payload_for_image(
     project_context: ProjectContextPayload | None,
 ) -> dict:
     if not settings.openai_api_key:
-        return generate_card_payload(project_context)
+        return _fallback_payload(project_context)
 
     try:
         return _generate_with_openai(image_url=image_url, project_context=project_context)
     except Exception:
         logger.exception("OpenAI card generation failed; using placeholder generator")
-        return generate_card_payload(project_context)
+        return _fallback_payload(project_context)
 
 
 def _generate_with_openai(
@@ -116,8 +117,16 @@ def _generate_with_openai(
 
     parsed = response.output_parsed
     payload = parsed.model_dump()
-    payload["related_links"] = _normalize_related_links(payload["related_links"])
+    payload["related_links"] = enrich_related_links(
+        _normalize_related_links(payload["related_links"])
+    )
 
+    return payload
+
+
+def _fallback_payload(project_context: ProjectContextPayload | None) -> dict:
+    payload = generate_card_payload(project_context)
+    payload["related_links"] = enrich_related_links(payload["related_links"])
     return payload
 
 
@@ -137,7 +146,8 @@ Rules:
 - Palette colors must be plausible visible colors from the image.
 - Design moves must be concrete actions a creative could apply.
 - Project lens must adapt to the provided project context.
-- Related links should be useful search URLs from Are.na, Pinterest, Google Images, or other public inspiration surfaces. Use thumbnail_url null unless you know a direct image thumbnail.
+- Related links should be specific public pages or search lanes from Are.na, Pinterest, Google Images, museum archives, type foundries, fashion/editorial references, or design publications.
+- Do not invent thumbnail URLs. Use thumbnail_url null unless it is a real direct image URL from the source.
 - Keep every text field concise enough for a mobile card.
 
 Return only the structured card.
