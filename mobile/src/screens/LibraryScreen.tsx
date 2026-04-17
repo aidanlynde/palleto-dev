@@ -7,10 +7,15 @@ import { theme } from "../theme";
 
 type LibraryScreenProps = {
   firebaseUser: User;
+  onScan: () => void;
   onSelectCard: (card: InspirationCard) => void;
+  projectContext?: {
+    name: string;
+    projectType: string;
+  } | null;
 };
 
-export function LibraryScreen({ firebaseUser, onSelectCard }: LibraryScreenProps) {
+export function LibraryScreen({ firebaseUser, onScan, onSelectCard, projectContext }: LibraryScreenProps) {
   const [cards, setCards] = useState<InspirationCard[]>([]);
   const [status, setStatus] = useState("Loading library...");
 
@@ -33,7 +38,20 @@ export function LibraryScreen({ firebaseUser, onSelectCard }: LibraryScreenProps
     <View style={styles.container}>
       <Text style={styles.eyebrow}>Library</Text>
       <Text style={styles.title}>Saved inspiration</Text>
+      {projectContext ? (
+        <View style={styles.projectChip}>
+          <Text style={styles.projectChipLabel}>Working on</Text>
+          <Text style={styles.projectChipText}>
+            {projectContext.projectType}: {projectContext.name}
+          </Text>
+        </View>
+      ) : null}
       {status ? <Text style={styles.status}>{status}</Text> : null}
+      {!cards.length && !status.includes("failed") ? (
+        <Pressable style={styles.emptyButton} onPress={onScan}>
+          <Text style={styles.emptyButtonText}>Scan your first reference</Text>
+        </Pressable>
+      ) : null}
       <FlatList
         contentContainerStyle={styles.grid}
         data={cards}
@@ -86,6 +104,39 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 15,
     lineHeight: 22
+  },
+  projectChip: {
+    gap: 2,
+    marginTop: theme.spacing.md,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  projectChipLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  projectChipText: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "800"
+  },
+  emptyButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 52,
+    marginTop: theme.spacing.lg,
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.radius.small
+  },
+  emptyButtonText: {
+    color: theme.colors.background,
+    fontSize: 15,
+    fontWeight: "800"
   },
   grid: {
     gap: theme.spacing.md,

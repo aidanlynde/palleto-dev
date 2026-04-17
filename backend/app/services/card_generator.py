@@ -78,16 +78,22 @@ def related_inspiration_links() -> list[dict]:
     return [
         {
             "provider": "placeholder",
+            "reason": "A search lane for rough public marks, stencil edges, and found graphic systems.",
+            "thumbnail_url": None,
             "title": "Are.na query: urban stencil marks",
             "url": "https://www.are.na/search?q=urban%20stencil%20marks",
         },
         {
             "provider": "placeholder",
+            "reason": "Useful for seeing how koi symbolism gets translated into identity and surface graphics.",
+            "thumbnail_url": None,
             "title": "Pinterest query: koi graphic identity",
             "url": "https://www.pinterest.com/search/pins/?q=koi%20graphic%20identity",
         },
         {
             "provider": "placeholder",
+            "reason": "A texture lane for asphalt, concrete, and gritty outdoor surfaces.",
+            "thumbnail_url": None,
             "title": "Google Images query: pavement texture graphic design",
             "url": "https://www.google.com/search?tbm=isch&q=pavement%20texture%20graphic%20design",
         },

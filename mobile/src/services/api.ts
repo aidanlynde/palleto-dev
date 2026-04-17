@@ -57,6 +57,8 @@ export type InspirationCard = {
   search_language: string[];
   related_links: Array<{
     provider: string;
+    reason: string | null;
+    thumbnail_url: string | null;
     title: string;
     url: string;
   }>;

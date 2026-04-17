@@ -7,8 +7,7 @@ import { useEffect, useState } from "react";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { CaptureScreen } from "./src/screens/CaptureScreen";
 import { CardDetailScreen, CardResultScreen } from "./src/screens/CardResultScreen";
-import { HomeScreen } from "./src/screens/HomeScreen";
-import { LibraryScreen } from "./src/screens/LibraryScreen";
+import { MainScreen } from "./src/screens/MainScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProcessingScreen } from "./src/screens/ProcessingScreen";
 import { ProjectIntakeScreen } from "./src/screens/ProjectIntakeScreen";
@@ -28,7 +27,6 @@ export type RootStackParamList = {
   Capture: undefined;
   CardDetail: undefined;
   Home: undefined;
-  Library: undefined;
   Onboarding: undefined;
   Processing: undefined;
   ProjectIntake: undefined;
@@ -125,11 +123,14 @@ export default function App() {
         ) : firebaseUser ? (
           <Stack.Screen name="Home" options={{ title: "Palleto" }}>
             {({ navigation }) => (
-              <HomeScreen
+              <MainScreen
                 firebaseUser={firebaseUser}
                 onEditProject={() => setProjectContext(null)}
-                onOpenLibrary={() => navigation.navigate("Library")}
                 onScan={() => navigation.navigate("Capture")}
+                onSelectCard={(card) => {
+                  setSelectedCard(card);
+                  navigation.navigate("CardDetail");
+                }}
                 projectContext={projectContext}
               />
             )}
@@ -177,32 +178,24 @@ export default function App() {
             <Stack.Screen name="Result" options={{ title: "Inspiration card" }}>
               {({ navigation }) =>
                 selectedCard ? (
-                  <CardResultScreen
-                    card={selectedCard}
-                    onDone={() => navigation.navigate("Home")}
-                    onViewLibrary={() => navigation.navigate("Library")}
-                  />
+                    <CardResultScreen
+                      card={selectedCard}
+                      onDone={() => navigation.navigate("Home")}
+                      onViewLibrary={() => navigation.navigate("Home")}
+                    />
                 ) : (
-                  <LibraryScreen
+                  <MainScreen
                     firebaseUser={firebaseUser}
+                    onEditProject={() => setProjectContext(null)}
+                    onScan={() => navigation.navigate("Capture")}
                     onSelectCard={(card) => {
                       setSelectedCard(card);
                       navigation.navigate("CardDetail");
                     }}
+                    projectContext={projectContext}
                   />
                 )
               }
-            </Stack.Screen>
-            <Stack.Screen name="Library" options={{ title: "Library" }}>
-              {({ navigation }) => (
-                <LibraryScreen
-                  firebaseUser={firebaseUser}
-                  onSelectCard={(card) => {
-                    setSelectedCard(card);
-                    navigation.navigate("CardDetail");
-                  }}
-                />
-              )}
             </Stack.Screen>
             <Stack.Screen name="CardDetail" options={{ title: "Card" }}>
               {() => (selectedCard ? <CardDetailScreen card={selectedCard} /> : null)}

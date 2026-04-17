@@ -29,6 +29,8 @@ class TypeDirection(BaseModel):
 
 class RelatedLink(BaseModel):
     provider: str
+    reason: str | None = None
+    thumbnail_url: str | None = None
     title: str
     url: str
 

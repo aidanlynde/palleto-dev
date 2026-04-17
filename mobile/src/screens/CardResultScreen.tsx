@@ -1,4 +1,4 @@
-import { Linking, Pressable, ScrollView, Share, StyleSheet, Text, View, Image } from "react-native";
+import { Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { InspirationCard } from "../services/api";
 import { theme } from "../theme";
@@ -45,10 +45,10 @@ export function CardDetail({ card }: { card: InspirationCard }) {
         <Text style={styles.direction}>{card.creative_direction}</Text>
 
         <SectionLabel label="Palette" />
-        <View style={styles.paletteRow}>
+        <View style={styles.paletteHero}>
           {card.palette.map((color) => (
-            <View key={`${color.hex}-${color.role}`} style={styles.paletteCard}>
-              <View style={[styles.swatch, { backgroundColor: color.hex }]} />
+            <View key={`${color.hex}-${color.role}`} style={styles.paletteColumn}>
+              <View style={[styles.swatchBlock, { backgroundColor: color.hex }]} />
               <View style={styles.paletteCopy}>
                 <Text style={styles.swatchLabel}>{color.label}</Text>
                 <Text style={styles.swatchRole}>{color.role}</Text>
@@ -58,10 +58,12 @@ export function CardDetail({ card }: { card: InspirationCard }) {
         </View>
 
         <SectionLabel label="Visual DNA" />
-        <DnaRow label="Contrast" value={card.visual_dna.contrast} />
-        <DnaRow label="Shape" value={card.visual_dna.shape_language} />
-        <DnaRow label="Texture" value={card.visual_dna.texture} />
-        <DnaRow label="Composition" value={card.visual_dna.composition} />
+        <View style={styles.dnaGrid}>
+          <DnaModule label="Contrast" type="contrast" value={card.visual_dna.contrast} />
+          <DnaModule label="Shape" type="shape" value={card.visual_dna.shape_language} />
+          <DnaModule label="Texture" type="texture" value={card.visual_dna.texture} />
+          <DnaModule label="Composition" type="composition" value={card.visual_dna.composition} />
+        </View>
 
         <SectionLabel label="Design moves" />
         <View style={styles.moveList}>
@@ -87,6 +89,9 @@ export function CardDetail({ card }: { card: InspirationCard }) {
         <SectionLabel label="Type direction" />
         {card.type_direction.map((direction) => (
           <View key={direction.style} style={styles.typeItem}>
+            <Text style={[styles.typePreview, typePreviewStyle(direction.style)]}>
+              {direction.style}
+            </Text>
             <Text style={styles.typeStyle}>{direction.style}</Text>
             <Text style={styles.typeUse}>{direction.use}</Text>
           </View>
@@ -94,11 +99,50 @@ export function CardDetail({ card }: { card: InspirationCard }) {
 
         <SectionLabel label="Related inspiration" />
         {card.related_links.map((link) => (
-          <Pressable key={link.url} style={styles.relatedLink} onPress={() => Linking.openURL(link.url)}>
-            <Text style={styles.relatedTitle}>{link.title}</Text>
-            <Text style={styles.relatedProvider}>{link.provider}</Text>
+          <Pressable key={link.url} style={styles.relatedTile} onPress={() => Linking.openURL(link.url)}>
+            {link.thumbnail_url ? (
+              <Image source={{ uri: link.thumbnail_url }} style={styles.relatedImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.relatedPreview}>
+                <View style={styles.relatedPreviewMark} />
+                <View style={styles.relatedPreviewLine} />
+                <View style={styles.relatedPreviewPalette}>
+                  {card.palette.slice(0, 4).map((color) => (
+                    <View
+                      key={`${link.url}-${color.hex}`}
+                      style={[styles.relatedPreviewSwatch, { backgroundColor: color.hex }]}
+                    />
+                  ))}
+                </View>
+              </View>
+            )}
+            <View style={styles.relatedCopy}>
+              <Text style={styles.relatedTitle}>{link.title}</Text>
+              {link.reason ? <Text style={styles.relatedReason}>{link.reason}</Text> : null}
+              <Text style={styles.relatedProvider}>{link.provider}</Text>
+            </View>
           </Pressable>
         ))}
+
+        <SectionLabel label="Share preview" />
+        <View style={styles.sharePreview}>
+          <Image source={{ uri: card.image_url }} style={styles.shareImage} resizeMode="cover" />
+          <View style={styles.shareBody}>
+            <Text style={styles.shareBrand}>PALLETO</Text>
+            <Text style={styles.shareTitle}>{card.title}</Text>
+            <Text style={styles.shareRead} numberOfLines={3}>
+              {card.one_line_read}
+            </Text>
+            <View style={styles.sharePalette}>
+              {card.palette.map((color) => (
+                <View
+                  key={`share-${color.hex}`}
+                  style={[styles.shareSwatch, { backgroundColor: color.hex }]}
+                />
+              ))}
+            </View>
+          </View>
+        </View>
 
         <SectionLabel label="Search language" />
         <View style={styles.tagRow}>
@@ -125,13 +169,72 @@ function SectionLabel({ label }: { label: string }) {
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
-function DnaRow({ label, value }: { label: string; value: string }) {
+function DnaModule({
+  label,
+  type,
+  value
+}: {
+  label: string;
+  type: "composition" | "contrast" | "shape" | "texture";
+  value: string;
+}) {
   return (
-    <View style={styles.dnaRow}>
+    <View style={styles.dnaModule}>
+      <DnaVisual type={type} />
       <Text style={styles.dnaLabel}>{label}</Text>
       <Text style={styles.dnaValue}>{value}</Text>
     </View>
   );
+}
+
+function DnaVisual({ type }: { type: "composition" | "contrast" | "shape" | "texture" }) {
+  if (type === "contrast") {
+    return (
+      <View style={styles.contrastVisual}>
+        <View style={[styles.contrastBlock, { backgroundColor: "#111111" }]} />
+        <View style={[styles.contrastBlock, { backgroundColor: "#F4F1EA" }]} />
+        <View style={[styles.contrastBlock, { backgroundColor: "#F26A21" }]} />
+      </View>
+    );
+  }
+
+  if (type === "shape") {
+    return (
+      <View style={styles.shapeVisual}>
+        <View style={styles.shapeOval} />
+        <View style={[styles.shapeOval, styles.shapeOvalOffset]} />
+      </View>
+    );
+  }
+
+  if (type === "composition") {
+    return (
+      <View style={styles.compositionVisual}>
+        <View style={styles.diagonalLine} />
+        <View style={styles.compositionDot} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.textureVisual}>
+      {Array.from({ length: 18 }).map((_, index) => (
+        <View key={index} style={styles.textureDot} />
+      ))}
+    </View>
+  );
+}
+
+function typePreviewStyle(style: string) {
+  if (style.toLowerCase().includes("mono")) {
+    return styles.typePreviewMono;
+  }
+
+  if (style.toLowerCase().includes("grotesk")) {
+    return styles.typePreviewGrotesk;
+  }
+
+  return styles.typePreviewSans;
 }
 
 const styles = StyleSheet.create({
@@ -188,22 +291,16 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textTransform: "uppercase"
   },
-  paletteRow: {
+  paletteHero: {
+    flexDirection: "row",
+    gap: theme.spacing.xs
+  },
+  paletteColumn: {
+    flex: 1,
     gap: theme.spacing.sm
   },
-  paletteCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  swatch: {
-    width: 48,
-    height: 36,
+  swatchBlock: {
+    height: 76,
     borderColor: "rgba(255,255,255,0.18)",
     borderWidth: 1,
     borderRadius: 4
@@ -223,11 +320,19 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textTransform: "uppercase"
   },
-  dnaRow: {
-    gap: theme.spacing.xs,
-    paddingBottom: theme.spacing.sm,
-    borderBottomColor: theme.colors.border,
-    borderBottomWidth: 1
+  dnaGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.sm
+  },
+  dnaModule: {
+    width: "48%",
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
   },
   dnaLabel: {
     color: theme.colors.textPrimary,
@@ -239,6 +344,62 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 15,
     lineHeight: 22
+  },
+  contrastVisual: {
+    flexDirection: "row",
+    height: 42,
+    overflow: "hidden",
+    borderRadius: 4
+  },
+  contrastBlock: {
+    flex: 1
+  },
+  shapeVisual: {
+    height: 42,
+    justifyContent: "center"
+  },
+  shapeOval: {
+    width: 58,
+    height: 20,
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: 8,
+    transform: [{ rotate: "-18deg" }]
+  },
+  shapeOvalOffset: {
+    alignSelf: "flex-end",
+    marginTop: -4,
+    backgroundColor: "#F26A21",
+    transform: [{ rotate: "18deg" }]
+  },
+  compositionVisual: {
+    height: 42,
+    justifyContent: "center",
+    overflow: "hidden"
+  },
+  diagonalLine: {
+    height: 2,
+    backgroundColor: theme.colors.textPrimary,
+    transform: [{ rotate: "-28deg" }]
+  },
+  compositionDot: {
+    position: "absolute",
+    right: 18,
+    width: 12,
+    height: 12,
+    backgroundColor: "#F26A21",
+    borderRadius: 6
+  },
+  textureVisual: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 4,
+    height: 42
+  },
+  textureDot: {
+    width: 5,
+    height: 5,
+    backgroundColor: theme.colors.textSecondary,
+    borderRadius: 3
   },
   moveList: {
     gap: theme.spacing.sm
@@ -299,6 +460,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: theme.radius.small
   },
+  typePreview: {
+    color: theme.colors.textPrimary,
+    fontSize: 28,
+    lineHeight: 34
+  },
+  typePreviewGrotesk: {
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  typePreviewMono: {
+    fontFamily: "Courier",
+    fontWeight: "700"
+  },
+  typePreviewSans: {
+    fontWeight: "800"
+  },
   typeStyle: {
     color: theme.colors.textPrimary,
     fontSize: 15,
@@ -309,22 +486,104 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20
   },
-  relatedLink: {
-    gap: theme.spacing.xs,
-    paddingVertical: theme.spacing.sm,
-    borderBottomColor: theme.colors.border,
-    borderBottomWidth: 1
+  relatedTile: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  relatedImage: {
+    width: 86,
+    height: 86,
+    borderRadius: 4
+  },
+  relatedPreview: {
+    width: 86,
+    height: 86,
+    justifyContent: "space-between",
+    padding: theme.spacing.sm,
+    backgroundColor: "#67675F",
+    borderRadius: 4
+  },
+  relatedPreviewMark: {
+    width: 38,
+    height: 18,
+    backgroundColor: "#111111",
+    borderRadius: 8,
+    transform: [{ rotate: "-18deg" }]
+  },
+  relatedPreviewLine: {
+    height: 2,
+    backgroundColor: "#F4F1EA"
+  },
+  relatedPreviewPalette: {
+    flexDirection: "row",
+    height: 10
+  },
+  relatedPreviewSwatch: {
+    flex: 1
+  },
+  relatedCopy: {
+    flex: 1,
+    gap: theme.spacing.xs
   },
   relatedTitle: {
     color: theme.colors.textPrimary,
     fontSize: 15,
     fontWeight: "800"
   },
+  relatedReason: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
+  },
   relatedProvider: {
     color: theme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase"
+  },
+  sharePreview: {
+    overflow: "hidden",
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  shareImage: {
+    width: "100%",
+    height: 220
+  },
+  shareBody: {
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md
+  },
+  shareBrand: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  shareTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 24,
+    fontWeight: "900",
+    lineHeight: 29
+  },
+  shareRead: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  sharePalette: {
+    flexDirection: "row",
+    height: 12
+  },
+  shareSwatch: {
+    flex: 1
   },
   tagRow: {
     flexDirection: "row",

@@ -5,24 +5,15 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { getMe, UserProfile } from "../services/api";
 import { firebaseAuth } from "../services/firebase";
 import { ProjectContext } from "../services/projectContext";
-
 import { theme } from "../theme";
 
-type HomeScreenProps = {
+type ProfileScreenProps = {
   firebaseUser: User;
   onEditProject: () => void;
-  onOpenLibrary: () => void;
-  onScan: () => void;
   projectContext: ProjectContext | null;
 };
 
-export function HomeScreen({
-  firebaseUser,
-  onEditProject,
-  onOpenLibrary,
-  onScan,
-  projectContext
-}: HomeScreenProps) {
+export function ProfileScreen({ firebaseUser, onEditProject, projectContext }: ProfileScreenProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [statusText, setStatusText] = useState("Syncing your profile...");
 
@@ -59,27 +50,19 @@ export function HomeScreen({
         style={styles.logo}
         resizeMode="contain"
       />
-      <Text style={styles.eyebrow}>Inspiration cards</Text>
-      <Text style={styles.title}>Capture what catches your eye.</Text>
+      <Text style={styles.eyebrow}>Profile</Text>
+      <Text style={styles.title}>Your creative context.</Text>
       <Text style={styles.body}>
-        Your scans will be read through the context of what you are building, so every card gets
-        more specific over time.
+        Palleto uses your active project to make scans more specific to what you are building.
       </Text>
-      <View style={styles.actionPanel}>
-        <Pressable style={styles.primaryButton} onPress={onScan}>
-          <Text style={styles.primaryButtonText}>Scan inspiration</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryActionButton} onPress={onOpenLibrary}>
-          <Text style={styles.secondaryActionButtonText}>Open library</Text>
-        </Pressable>
-      </View>
+
       {projectContext ? (
-        <View style={styles.projectPanel}>
+        <View style={styles.panel}>
           <Text style={styles.panelLabel}>Active project</Text>
           <Text style={styles.projectTitle}>{projectContext.name}</Text>
           <Text style={styles.projectDescription}>{projectContext.description}</Text>
           <View style={styles.tagRow}>
-            {[projectContext.projectType, ...projectContext.directionTags.slice(0, 3)].map((tag) => (
+            {[projectContext.projectType, ...projectContext.directionTags].map((tag) => (
               <View key={tag} style={styles.tag}>
                 <Text style={styles.tagText}>{tag}</Text>
               </View>
@@ -90,11 +73,13 @@ export function HomeScreen({
           </Pressable>
         </View>
       ) : null}
+
       <View style={styles.panel}>
         <Text style={styles.panelLabel}>Signed in as</Text>
         <Text style={styles.panelValue}>{profile?.email ?? firebaseUser.email ?? "Unknown user"}</Text>
         <Text style={styles.status}>{statusText}</Text>
       </View>
+
       <Pressable style={styles.secondaryButton} onPress={() => signOut(firebaseAuth)}>
         <Text style={styles.secondaryButtonText}>Sign out</Text>
       </Pressable>
@@ -120,9 +105,9 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     marginBottom: theme.spacing.sm,
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: "700",
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
     textTransform: "uppercase"
   },
   title: {
@@ -137,36 +122,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24
   },
-  actionPanel: {
-    gap: theme.spacing.md,
-    marginTop: theme.spacing.xl
-  },
-  primaryButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 54,
-    backgroundColor: theme.colors.textPrimary,
-    borderRadius: theme.radius.small
-  },
-  primaryButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: "800"
-  },
-  secondaryActionButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 54,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  secondaryActionButtonText: {
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "800"
-  },
-  projectPanel: {
+  panel: {
     gap: theme.spacing.sm,
     marginTop: theme.spacing.xl,
     padding: theme.spacing.md,
@@ -174,6 +130,17 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderWidth: 1,
     borderRadius: theme.radius.medium
+  },
+  panelLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "700",
+    textTransform: "uppercase"
+  },
+  panelValue: {
+    color: theme.colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "700"
   },
   projectTitle: {
     color: theme.colors.textPrimary,
@@ -212,28 +179,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800"
   },
-  panel: {
-    marginTop: theme.spacing.xl,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.medium
-  },
-  panelLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "uppercase"
-  },
-  panelValue: {
-    marginTop: theme.spacing.xs,
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "700"
-  },
   status: {
-    marginTop: theme.spacing.sm,
     color: theme.colors.textSecondary,
     fontSize: 14,
     lineHeight: 20
