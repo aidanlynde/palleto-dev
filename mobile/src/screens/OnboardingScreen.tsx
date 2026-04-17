@@ -453,7 +453,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         <Text style={styles.summaryText}>{summaryLine}</Text>
       </View>
 
-      <FooterButton label="Save my library" onPress={continueFlow} />
+      <FooterButton label="Start my library" onPress={continueFlow} />
     </ScrollView>
   );
 }

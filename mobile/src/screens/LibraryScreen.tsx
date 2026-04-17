@@ -1,5 +1,6 @@
+import { useFocusEffect } from "@react-navigation/native";
 import { User } from "firebase/auth";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { InspirationCard, listCards } from "../services/api";
@@ -30,9 +31,11 @@ export function LibraryScreen({ firebaseUser, onScan, onSelectCard, projectConte
     }
   }, [firebaseUser]);
 
-  useEffect(() => {
-    loadCards();
-  }, [loadCards]);
+  useFocusEffect(
+    useCallback(() => {
+      loadCards();
+    }, [loadCards])
+  );
 
   return (
     <View style={styles.container}>
