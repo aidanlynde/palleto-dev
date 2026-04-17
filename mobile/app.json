@@ -47,7 +47,8 @@
           "cameraPermission": "Palleto uses the camera to capture real-world inspiration.",
           "photosPermission": "Palleto uses your photo library to turn saved references into inspiration cards."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

@@ -1,5 +1,10 @@
+import { Archivo_900Black } from "@expo-google-fonts/archivo";
+import { CormorantGaramond_600SemiBold } from "@expo-google-fonts/cormorant-garamond";
+import { IBMPlexMono_600SemiBold } from "@expo-google-fonts/ibm-plex-mono";
+import { SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { useEffect, useState } from "react";
@@ -54,6 +59,12 @@ const navigationTheme = {
 };
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Archivo_900Black,
+    CormorantGaramond_600SemiBold,
+    IBMPlexMono_600SemiBold,
+    SpaceGrotesk_700Bold
+  });
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isOnboardingReady, setIsOnboardingReady] = useState(false);
   const [isProjectContextReady, setIsProjectContextReady] = useState(false);
@@ -97,7 +108,7 @@ export default function App() {
     setOnboardingComplete(true);
   }
 
-  const isLoading = !isAuthReady || !isOnboardingReady || !isProjectContextReady;
+  const isLoading = !fontsLoaded || !isAuthReady || !isOnboardingReady || !isProjectContextReady;
 
   return (
     <NavigationContainer theme={navigationTheme}>

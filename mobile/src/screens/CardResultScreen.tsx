@@ -226,6 +226,10 @@ function DnaVisual({ type }: { type: "composition" | "contrast" | "shape" | "tex
 }
 
 function typePreviewStyle(style: string) {
+  if (style.toLowerCase().includes("serif")) {
+    return styles.typePreviewSerif;
+  }
+
   if (style.toLowerCase().includes("mono")) {
     return styles.typePreviewMono;
   }
@@ -466,14 +470,20 @@ const styles = StyleSheet.create({
     lineHeight: 34
   },
   typePreviewGrotesk: {
+    fontFamily: "Archivo_900Black",
     fontWeight: "900",
     textTransform: "uppercase"
   },
   typePreviewMono: {
-    fontFamily: "Courier",
+    fontFamily: "IBMPlexMono_600SemiBold",
     fontWeight: "700"
   },
+  typePreviewSerif: {
+    fontFamily: "CormorantGaramond_600SemiBold",
+    fontSize: 34
+  },
   typePreviewSans: {
+    fontFamily: "SpaceGrotesk_700Bold",
     fontWeight: "800"
   },
   typeStyle: {

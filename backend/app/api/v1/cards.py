@@ -1,4 +1,5 @@
 import json
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import desc
@@ -7,7 +8,7 @@ from app.core.auth import FirebaseUser, get_current_firebase_user
 from app.db.models import Card
 from app.db.session import DbSession, create_db_and_tables
 from app.schemas.card import CardRead, ProjectContextPayload
-from app.services.card_generator import generate_card_payload
+from app.services.openai_card_generator import generate_card_payload_for_image
 from app.services.storage import upload_card_image
 from app.services.users import get_or_create_user
 
@@ -25,23 +26,26 @@ async def create_card(
     create_db_and_tables()
 
     user = get_or_create_user(db, firebase_user)
-    card = Card(
-        user_id=user.id,
-        image_url="pending",
-        source_type=source_type,
-        storage_path=None,
-        **generate_card_payload(_parse_project_context(project_context)),
-    )
-    db.add(card)
-    db.flush()
+    card_id = str(uuid4())
+    parsed_project_context = _parse_project_context(project_context)
 
     storage_path, image_url = await upload_card_image(
-        card_id=card.id,
+        card_id=card_id,
         firebase_uid=firebase_user.uid,
         image=image,
     )
-    card.storage_path = storage_path
-    card.image_url = image_url
+    card = Card(
+        id=card_id,
+        user_id=user.id,
+        image_url=image_url,
+        source_type=source_type,
+        storage_path=storage_path,
+        **generate_card_payload_for_image(
+            image_url=image_url,
+            project_context=parsed_project_context,
+        ),
+    )
+    db.add(card)
 
     db.commit()
     db.refresh(card)
