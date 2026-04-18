@@ -219,9 +219,7 @@ function CreativeTranslation({ card }: { card: InspirationCard }) {
         <View style={styles.translationHeroShade} />
         <View style={styles.translationHeroCopy}>
           <Text style={styles.translationEyebrow}>What to steal</Text>
-          <Text style={styles.translationTitle} numberOfLines={4}>
-            {card.project_lens.summary}
-          </Text>
+          <Text style={styles.translationTitle}>{card.project_lens.summary}</Text>
         </View>
       </View>
 
@@ -391,14 +389,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.small
   },
   translationHero: {
-    minHeight: 260,
+    minHeight: 300,
     overflow: "hidden",
     backgroundColor: theme.colors.surface
   },
   translationHeroImage: {
     position: "absolute",
     width: "100%",
-    height: 260,
+    minHeight: 300,
     transform: [{ scale: 1.1 }]
   },
   translationHeroShade: {
@@ -407,10 +405,10 @@ const styles = StyleSheet.create({
   },
   translationHeroCopy: {
     justifyContent: "flex-end",
-    minHeight: 260,
+    minHeight: 300,
     gap: theme.spacing.xs,
     padding: theme.spacing.md,
-    paddingTop: 72
+    paddingTop: 92
   },
   translationEyebrow: {
     color: theme.colors.textPrimary,
