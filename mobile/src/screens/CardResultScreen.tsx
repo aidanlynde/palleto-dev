@@ -8,6 +8,7 @@ import { deleteCard, InspirationCard } from "../services/api";
 import { theme } from "../theme";
 
 type PaletteColor = InspirationCard["palette"][number];
+type RelatedLink = InspirationCard["related_links"][number];
 
 type CardResultScreenProps = {
   card: InspirationCard;
@@ -75,29 +76,11 @@ export function CardDetail({ card }: { card: InspirationCard }) {
           ))}
         </View>
 
-        <SectionLabel label="Design DNA" />
-        <DesignDna card={card} />
+        <SectionLabel label="Related inspiration" />
+        <RelatedInspiration links={card.related_links} />
 
-        <SectionLabel label="Design moves" />
-        <View style={styles.moveList}>
-          {card.design_moves.map((move, index) => (
-            <View key={move} style={styles.moveRow}>
-              <Text style={styles.moveNumber}>{String(index + 1).padStart(2, "0")}</Text>
-              <Text style={styles.moveText}>{move}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.projectPanel}>
-          <Text style={styles.projectLabel}>Project lens</Text>
-          <Text style={styles.projectTitle}>{card.project_lens.project_type}</Text>
-          <Text style={styles.projectSummary}>{card.project_lens.summary}</Text>
-          {card.project_lens.applications.map((application) => (
-            <Text key={application} style={styles.applicationText}>
-              {application}
-            </Text>
-          ))}
-        </View>
+        <SectionLabel label="Creative translation" />
+        <CreativeTranslation card={card} />
 
         <SectionLabel label="Type direction" />
         {card.type_direction.map((direction) => (
@@ -108,28 +91,6 @@ export function CardDetail({ card }: { card: InspirationCard }) {
             <Text style={styles.typeStyle}>{direction.style}</Text>
             <Text style={styles.typeUse}>{direction.use}</Text>
           </View>
-        ))}
-
-        <SectionLabel label="Related inspiration" />
-        {card.related_links.map((link) => (
-          <Pressable
-            key={link.url}
-            style={[styles.relatedTile, !link.thumbnail_url && styles.relatedTileTextOnly]}
-            onPress={() => Linking.openURL(link.url)}
-          >
-            {link.thumbnail_url ? (
-              <View style={styles.relatedImageFrame}>
-                <Image source={{ uri: link.thumbnail_url }} style={styles.relatedImage} resizeMode="cover" />
-              </View>
-            ) : null}
-            <View style={styles.relatedCopy}>
-              <Text style={styles.relatedTitle}>{link.title}</Text>
-              {link.reason ? <Text style={styles.relatedReason}>{link.reason}</Text> : null}
-              <Text style={styles.relatedProvider}>
-                {link.thumbnail_url ? link.provider : `${link.provider} / open link`}
-              </Text>
-            </View>
-          </Pressable>
         ))}
 
         <SectionLabel label="Share preview" />
@@ -223,61 +184,76 @@ function SectionLabel({ label }: { label: string }) {
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
-function DesignDna({ card }: { card: InspirationCard }) {
+function RelatedInspiration({ links }: { links: RelatedLink[] }) {
   return (
-    <View style={styles.dnaBoard}>
-      <View style={styles.dnaHeroCrop}>
-        <Image source={{ uri: card.image_url }} style={styles.dnaHeroImage} resizeMode="cover" />
-        <View style={styles.dnaHeroShade} />
-        <Text style={styles.dnaHeroLabel}>Captured surface</Text>
+    <View style={styles.relatedList}>
+      {links.map((link) => (
+        <Pressable
+          key={link.url}
+          style={[styles.relatedTile, !link.thumbnail_url && styles.relatedTileTextOnly]}
+          onPress={() => Linking.openURL(link.url)}
+        >
+          {link.thumbnail_url ? (
+            <View style={styles.relatedImageFrame}>
+              <Image source={{ uri: link.thumbnail_url }} style={styles.relatedImage} resizeMode="cover" />
+            </View>
+          ) : null}
+          <View style={styles.relatedCopy}>
+            <Text style={styles.relatedTitle}>{link.title}</Text>
+            {link.reason ? <Text style={styles.relatedReason}>{link.reason}</Text> : null}
+            <Text style={styles.relatedProvider}>
+              {link.thumbnail_url ? link.provider : `${link.provider} / open link`}
+            </Text>
+          </View>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+function CreativeTranslation({ card }: { card: InspirationCard }) {
+  return (
+    <View style={styles.translationPanel}>
+      <View style={styles.translationHero}>
+        <Image source={{ uri: card.image_url }} style={styles.translationHeroImage} resizeMode="cover" />
+        <View style={styles.translationHeroShade} />
+        <View style={styles.translationHeroCopy}>
+          <Text style={styles.translationEyebrow}>What to steal</Text>
+          <Text style={styles.translationTitle}>{card.project_lens.summary}</Text>
+        </View>
       </View>
 
-      <View style={styles.dnaCropRow}>
-        <ImageCrop label="Surface" source={card.image_url} variant="surface" />
-        <ImageCrop label="Edge" source={card.image_url} variant="edge" />
-        <ImageCrop label="Pattern" source={card.image_url} variant="pattern" />
-      </View>
+      <View style={styles.translationBody}>
+        <View style={styles.projectUseHeader}>
+          <Text style={styles.translationEyebrow}>Use it for</Text>
+          <Text style={styles.projectUseTitle}>{card.project_lens.project_type}</Text>
+        </View>
 
-      <View style={styles.dnaReadGrid}>
-        <DnaRead label="Texture" value={card.visual_dna.texture} />
-        <DnaRead label="Shape language" value={card.visual_dna.shape_language} />
-        <DnaRead label="Contrast system" value={card.visual_dna.contrast} />
-        <DnaRead label="Composition logic" value={card.visual_dna.composition} />
+        <View style={styles.moveList}>
+          {card.project_lens.applications.slice(0, 4).map((application, index) => (
+            <View key={application} style={styles.moveRow}>
+              <Text style={styles.moveNumber}>{String(index + 1).padStart(2, "0")}</Text>
+              <Text style={styles.moveText}>{application}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.systemNotes}>
+          <SystemNote label="Surface" value={card.visual_dna.texture} />
+          <SystemNote label="Form" value={card.visual_dna.shape_language} />
+          <SystemNote label="Contrast" value={card.visual_dna.contrast} />
+          <SystemNote label="Layout" value={card.visual_dna.composition} />
+        </View>
       </View>
     </View>
   );
 }
 
-function ImageCrop({
-  label,
-  source,
-  variant
-}: {
-  label: string;
-  source: string;
-  variant: "edge" | "pattern" | "surface";
-}) {
-  const imageStyle =
-    variant === "edge"
-      ? styles.cropImageEdge
-      : variant === "pattern"
-        ? styles.cropImagePattern
-        : styles.cropImageSurface;
-
+function SystemNote({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.cropTile}>
-      <Image source={{ uri: source }} style={[styles.cropImage, imageStyle]} resizeMode="cover" />
-      <View style={styles.cropShade} />
-      <Text style={styles.cropLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function DnaRead({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.dnaRead}>
-      <Text style={styles.dnaLabel}>{label}</Text>
-      <Text style={styles.dnaValue}>{value}</Text>
+    <View style={styles.systemNote}>
+      <Text style={styles.systemNoteLabel}>{label}</Text>
+      <Text style={styles.systemNoteValue}>{value}</Text>
     </View>
   );
 }
@@ -405,98 +381,58 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700"
   },
-  dnaBoard: {
-    gap: theme.spacing.sm,
+  translationPanel: {
     overflow: "hidden",
     backgroundColor: theme.colors.background,
     borderColor: theme.colors.border,
     borderWidth: 1,
     borderRadius: theme.radius.small
   },
-  dnaHeroCrop: {
-    height: 190,
+  translationHero: {
+    height: 210,
     overflow: "hidden",
     backgroundColor: theme.colors.surface
   },
-  dnaHeroImage: {
+  translationHeroImage: {
     width: "100%",
     height: "100%",
-    transform: [{ scale: 1.22 }]
+    transform: [{ scale: 1.1 }]
   },
-  dnaHeroShade: {
+  translationHeroShade: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.26)"
+    backgroundColor: "rgba(0,0,0,0.48)"
   },
-  dnaHeroLabel: {
+  translationHeroCopy: {
     position: "absolute",
-    left: theme.spacing.sm,
-    bottom: theme.spacing.sm,
+    left: theme.spacing.md,
+    right: theme.spacing.md,
+    bottom: theme.spacing.md,
+    gap: theme.spacing.xs
+  },
+  translationEyebrow: {
     color: theme.colors.textPrimary,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "900",
     textTransform: "uppercase"
   },
-  dnaCropRow: {
-    flexDirection: "row",
-    gap: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm
-  },
-  cropTile: {
-    flex: 1,
-    height: 82,
-    overflow: "hidden",
-    backgroundColor: theme.colors.surface,
-    borderRadius: 4
-  },
-  cropImage: {
-    width: "100%",
-    height: "100%"
-  },
-  cropImageSurface: {
-    transform: [{ scale: 1.75 }, { translateX: -10 }, { translateY: -4 }]
-  },
-  cropImageEdge: {
-    transform: [{ scale: 1.9 }, { translateX: 16 }, { translateY: 8 }]
-  },
-  cropImagePattern: {
-    transform: [{ scale: 1.65 }, { translateX: -2 }, { translateY: 18 }]
-  },
-  cropShade: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.18)"
-  },
-  cropLabel: {
-    position: "absolute",
-    left: 8,
-    bottom: 7,
+  translationTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 10,
+    fontSize: 24,
     fontWeight: "900",
-    textTransform: "uppercase"
+    lineHeight: 30
   },
-  dnaReadGrid: {
-    gap: theme.spacing.xs,
-    padding: theme.spacing.sm,
-    paddingTop: 0
+  translationBody: {
+    gap: theme.spacing.md,
+    padding: theme.spacing.md
   },
-  dnaRead: {
-    gap: theme.spacing.xs,
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: 4
+  projectUseHeader: {
+    gap: 2
   },
-  dnaLabel: {
+  projectUseTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  dnaValue: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22
+    fontSize: 20,
+    fontWeight: "900",
+    lineHeight: 25
   },
   moveList: {
     gap: theme.spacing.sm
@@ -519,36 +455,26 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 21
   },
-  projectPanel: {
+  systemNotes: {
     gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
   },
-  projectLabel: {
+  systemNote: {
+    gap: 2,
+    paddingTop: theme.spacing.sm,
+    borderTopColor: theme.colors.border,
+    borderTopWidth: 1
+  },
+  systemNoteLabel: {
     color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "900",
     textTransform: "uppercase"
   },
-  projectTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 22,
-    fontWeight: "800",
-    lineHeight: 28
-  },
-  projectSummary: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22
-  },
-  applicationText: {
+  systemNoteValue: {
     color: theme.colors.textPrimary,
     fontSize: 14,
     fontWeight: "700",
-    lineHeight: 21
+    lineHeight: 20
   },
   typeItem: {
     gap: theme.spacing.xs,
@@ -588,6 +514,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 14,
     lineHeight: 20
+  },
+  relatedList: {
+    gap: theme.spacing.sm
   },
   relatedTile: {
     flexDirection: "row",

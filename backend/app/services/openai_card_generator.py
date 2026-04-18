@@ -148,8 +148,9 @@ Rules:
 - visual_dna.shape_language must name concrete forms visible in the image: arcs, grids, borders, silhouettes, seams, blocks, loops, ornament, negative space, or edge behavior.
 - visual_dna.contrast must describe the image's design contrast system: tonal mass, material contrast, scale contrast, saturated accent vs muted field, sharp vs soft, dense vs open.
 - visual_dna.composition must describe how the image is organized: crop logic, field/figure relationship, repetition, alignment, depth, rhythm, or framing.
-- Design moves must be concrete actions a creative could apply.
-- Project lens must adapt to the provided project context.
+- project_lens.summary must be a strong "what to steal" takeaway: one clear creative idea a user can apply from this image.
+- project_lens.applications must be concrete project-specific uses for the active project, not generic observations.
+- Design moves must be short action lines that can support the translation, but avoid repeating project_lens.applications.
 - Related links should be specific public webpages that are likely to unfurl with real link preview images: design articles, museum/archive pages, type foundries, brand case studies, editorial references, Are.na channels, Pinterest boards, or other stable inspiration pages.
 - Avoid generic search-result URLs unless no specific page is credible.
 - Do not invent thumbnail URLs. Use thumbnail_url null unless it is a real direct image URL from the source.
