@@ -137,20 +137,22 @@ export function CardDetail({ card }: { card: InspirationCard }) {
 
         <SectionLabel label="Related inspiration" />
         {card.related_links.map((link) => (
-          <Pressable key={link.url} style={styles.relatedTile} onPress={() => Linking.openURL(link.url)}>
-            <View style={styles.relatedImageFrame}>
-              {link.thumbnail_url ? (
+          <Pressable
+            key={link.url}
+            style={[styles.relatedTile, !link.thumbnail_url && styles.relatedTileTextOnly]}
+            onPress={() => Linking.openURL(link.url)}
+          >
+            {link.thumbnail_url ? (
+              <View style={styles.relatedImageFrame}>
                 <Image source={{ uri: link.thumbnail_url }} style={styles.relatedImage} resizeMode="cover" />
-              ) : (
-                <View style={styles.relatedMissingPreview}>
-                  <Text style={styles.relatedMissingText}>No preview</Text>
-                </View>
-              )}
-            </View>
+              </View>
+            ) : null}
             <View style={styles.relatedCopy}>
               <Text style={styles.relatedTitle}>{link.title}</Text>
               {link.reason ? <Text style={styles.relatedReason}>{link.reason}</Text> : null}
-              <Text style={styles.relatedProvider}>{link.provider}</Text>
+              <Text style={styles.relatedProvider}>
+                {link.thumbnail_url ? link.provider : `${link.provider} / open link`}
+              </Text>
             </View>
           </Pressable>
         ))}
@@ -658,6 +660,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: theme.radius.small
   },
+  relatedTileTextOnly: {
+    paddingVertical: theme.spacing.md
+  },
   relatedImageFrame: {
     width: 86,
     height: 86,
@@ -667,21 +672,6 @@ const styles = StyleSheet.create({
   relatedImage: {
     width: "100%",
     height: "100%"
-  },
-  relatedMissingPreview: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    height: "100%",
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1
-  },
-  relatedMissingText: {
-    color: theme.colors.textSecondary,
-    fontSize: 10,
-    fontWeight: "900",
-    textTransform: "uppercase"
   },
   relatedCopy: {
     flex: 1,
