@@ -144,6 +144,10 @@ Rules:
 - Use confident editorial language, but avoid vague filler.
 - Avoid generic words like modern, cool, aesthetic, beautiful, premium, edgy, or bold unless you explain the visual reason.
 - Palette colors must be plausible visible colors from the image.
+- visual_dna.texture must describe the visible material surface: grain, weave, glaze, erosion, paper, fabric, shadow softness, organic marks, or construction evidence.
+- visual_dna.shape_language must name concrete forms visible in the image: arcs, grids, borders, silhouettes, seams, blocks, loops, ornament, negative space, or edge behavior.
+- visual_dna.contrast must describe the image's design contrast system: tonal mass, material contrast, scale contrast, saturated accent vs muted field, sharp vs soft, dense vs open.
+- visual_dna.composition must describe how the image is organized: crop logic, field/figure relationship, repetition, alignment, depth, rhythm, or framing.
 - Design moves must be concrete actions a creative could apply.
 - Project lens must adapt to the provided project context.
 - Related links should be specific public webpages that are likely to unfurl with real link preview images: design articles, museum/archive pages, type foundries, brand case studies, editorial references, Are.na channels, Pinterest boards, or other stable inspiration pages.

@@ -75,33 +75,8 @@ export function CardDetail({ card }: { card: InspirationCard }) {
           ))}
         </View>
 
-        <SectionLabel label="Visual DNA" />
-        <View style={styles.dnaGrid}>
-          <DnaModule
-            label="Contrast"
-            palette={card.palette}
-            type="contrast"
-            value={card.visual_dna.contrast}
-          />
-          <DnaModule
-            label="Shape"
-            palette={card.palette}
-            type="shape"
-            value={card.visual_dna.shape_language}
-          />
-          <DnaModule
-            label="Texture"
-            palette={card.palette}
-            type="texture"
-            value={card.visual_dna.texture}
-          />
-          <DnaModule
-            label="Composition"
-            palette={card.palette}
-            type="composition"
-            value={card.visual_dna.composition}
-          />
-        </View>
+        <SectionLabel label="Design DNA" />
+        <DesignDna card={card} />
 
         <SectionLabel label="Design moves" />
         <View style={styles.moveList}>
@@ -248,93 +223,61 @@ function SectionLabel({ label }: { label: string }) {
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
-function DnaModule({
-  label,
-  palette,
-  type,
-  value
-}: {
-  label: string;
-  palette: PaletteColor[];
-  type: "composition" | "contrast" | "shape" | "texture";
-  value: string;
-}) {
+function DesignDna({ card }: { card: InspirationCard }) {
   return (
-    <View style={styles.dnaModule}>
-      <DnaVisual palette={palette} type={type} />
-      <Text style={styles.dnaLabel}>{label}</Text>
-      <Text style={styles.dnaValue}>{value}</Text>
+    <View style={styles.dnaBoard}>
+      <View style={styles.dnaHeroCrop}>
+        <Image source={{ uri: card.image_url }} style={styles.dnaHeroImage} resizeMode="cover" />
+        <View style={styles.dnaHeroShade} />
+        <Text style={styles.dnaHeroLabel}>Captured surface</Text>
+      </View>
+
+      <View style={styles.dnaCropRow}>
+        <ImageCrop label="Surface" source={card.image_url} variant="surface" />
+        <ImageCrop label="Edge" source={card.image_url} variant="edge" />
+        <ImageCrop label="Pattern" source={card.image_url} variant="pattern" />
+      </View>
+
+      <View style={styles.dnaReadGrid}>
+        <DnaRead label="Texture" value={card.visual_dna.texture} />
+        <DnaRead label="Shape language" value={card.visual_dna.shape_language} />
+        <DnaRead label="Contrast system" value={card.visual_dna.contrast} />
+        <DnaRead label="Composition logic" value={card.visual_dna.composition} />
+      </View>
     </View>
   );
 }
 
-function DnaVisual({
-  palette,
-  type
+function ImageCrop({
+  label,
+  source,
+  variant
 }: {
-  palette: PaletteColor[];
-  type: "composition" | "contrast" | "shape" | "texture";
+  label: string;
+  source: string;
+  variant: "edge" | "pattern" | "surface";
 }) {
-  const [primary, secondary, accent, depth] = palette;
-  const primaryHex = primary?.hex ?? theme.colors.textPrimary;
-  const secondaryHex = secondary?.hex ?? theme.colors.surface;
-  const accentHex = accent?.hex ?? theme.colors.textSecondary;
-  const depthHex = depth?.hex ?? theme.colors.border;
-
-  if (type === "contrast") {
-    const contrastPalette = palette.length
-      ? palette
-      : [
-          { hex: theme.colors.textPrimary, label: "Light", role: "base" },
-          { hex: theme.colors.background, label: "Dark", role: "depth" }
-        ];
-
-    return (
-      <View style={styles.contrastVisual}>
-        {contrastPalette.slice(0, 5).map((color, index) => (
-          <View
-            key={`contrast-${color.hex}-${index}`}
-            style={[styles.contrastBlock, { backgroundColor: color.hex }]}
-          />
-        ))}
-      </View>
-    );
-  }
-
-  if (type === "shape") {
-    return (
-      <View style={styles.shapeVisual}>
-        <View style={[styles.shapeOval, { backgroundColor: primaryHex }]} />
-        <View style={[styles.shapeOval, styles.shapeOvalOffset, { backgroundColor: accentHex }]} />
-        <View style={[styles.shapeFrame, { borderColor: secondaryHex }]} />
-      </View>
-    );
-  }
-
-  if (type === "composition") {
-    return (
-      <View style={styles.compositionVisual}>
-        <View style={[styles.compositionField, { borderColor: depthHex }]} />
-        <View style={[styles.diagonalLine, { backgroundColor: primaryHex }]} />
-        <View style={[styles.compositionDot, { backgroundColor: accentHex }]} />
-      </View>
-    );
-  }
+  const imageStyle =
+    variant === "edge"
+      ? styles.cropImageEdge
+      : variant === "pattern"
+        ? styles.cropImagePattern
+        : styles.cropImageSurface;
 
   return (
-    <View style={styles.textureVisual}>
-      {Array.from({ length: 24 }).map((_, index) => (
-        <View
-          key={index}
-          style={[
-            styles.textureDot,
-            {
-              backgroundColor: palette[index % Math.max(palette.length, 1)]?.hex ?? primaryHex,
-              opacity: 0.34 + (index % 4) * 0.16
-            }
-          ]}
-        />
-      ))}
+    <View style={styles.cropTile}>
+      <Image source={{ uri: source }} style={[styles.cropImage, imageStyle]} resizeMode="cover" />
+      <View style={styles.cropShade} />
+      <Text style={styles.cropLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function DnaRead({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.dnaRead}>
+      <Text style={styles.dnaLabel}>{label}</Text>
+      <Text style={styles.dnaValue}>{value}</Text>
     </View>
   );
 }
@@ -462,19 +405,87 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700"
   },
-  dnaGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm
-  },
-  dnaModule: {
-    width: "48%",
+  dnaBoard: {
     gap: theme.spacing.sm,
-    padding: theme.spacing.sm,
+    overflow: "hidden",
     backgroundColor: theme.colors.background,
     borderColor: theme.colors.border,
     borderWidth: 1,
     borderRadius: theme.radius.small
+  },
+  dnaHeroCrop: {
+    height: 190,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surface
+  },
+  dnaHeroImage: {
+    width: "100%",
+    height: "100%",
+    transform: [{ scale: 1.22 }]
+  },
+  dnaHeroShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.26)"
+  },
+  dnaHeroLabel: {
+    position: "absolute",
+    left: theme.spacing.sm,
+    bottom: theme.spacing.sm,
+    color: theme.colors.textPrimary,
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  dnaCropRow: {
+    flexDirection: "row",
+    gap: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm
+  },
+  cropTile: {
+    flex: 1,
+    height: 82,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surface,
+    borderRadius: 4
+  },
+  cropImage: {
+    width: "100%",
+    height: "100%"
+  },
+  cropImageSurface: {
+    transform: [{ scale: 1.75 }, { translateX: -10 }, { translateY: -4 }]
+  },
+  cropImageEdge: {
+    transform: [{ scale: 1.9 }, { translateX: 16 }, { translateY: 8 }]
+  },
+  cropImagePattern: {
+    transform: [{ scale: 1.65 }, { translateX: -2 }, { translateY: 18 }]
+  },
+  cropShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.18)"
+  },
+  cropLabel: {
+    position: "absolute",
+    left: 8,
+    bottom: 7,
+    color: theme.colors.textPrimary,
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  dnaReadGrid: {
+    gap: theme.spacing.xs,
+    padding: theme.spacing.sm,
+    paddingTop: 0
+  },
+  dnaRead: {
+    gap: theme.spacing.xs,
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: 4
   },
   dnaLabel: {
     color: theme.colors.textPrimary,
@@ -486,79 +497,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 15,
     lineHeight: 22
-  },
-  contrastVisual: {
-    flexDirection: "row",
-    height: 54,
-    overflow: "hidden",
-    borderRadius: 4
-  },
-  contrastBlock: {
-    flex: 1
-  },
-  shapeVisual: {
-    height: 54,
-    justifyContent: "center",
-    overflow: "hidden"
-  },
-  shapeOval: {
-    width: 70,
-    height: 20,
-    borderRadius: 8,
-    transform: [{ rotate: "-18deg" }]
-  },
-  shapeOvalOffset: {
-    alignSelf: "flex-end",
-    marginTop: -4,
-    transform: [{ rotate: "18deg" }]
-  },
-  shapeFrame: {
-    position: "absolute",
-    right: 10,
-    bottom: 4,
-    width: 44,
-    height: 34,
-    borderWidth: 1,
-    borderRadius: 4,
-    transform: [{ rotate: "-8deg" }]
-  },
-  compositionVisual: {
-    height: 54,
-    justifyContent: "center",
-    overflow: "hidden"
-  },
-  compositionField: {
-    position: "absolute",
-    left: 6,
-    right: 6,
-    top: 5,
-    bottom: 5,
-    borderWidth: 1,
-    borderRadius: 4,
-    opacity: 0.75
-  },
-  diagonalLine: {
-    height: 2,
-    transform: [{ rotate: "-28deg" }]
-  },
-  compositionDot: {
-    position: "absolute",
-    right: 18,
-    width: 12,
-    height: 12,
-    borderRadius: 6
-  },
-  textureVisual: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 4,
-    alignContent: "center",
-    height: 54
-  },
-  textureDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3
   },
   moveList: {
     gap: theme.spacing.sm
