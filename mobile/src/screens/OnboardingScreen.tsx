@@ -79,22 +79,14 @@ const visualDna = [
   }
 ];
 
-const designMoves = [
-  "Use one saturated accent as the entire emotional charge.",
-  "Let rough surface texture stay visible instead of over-cleaning the mark.",
-  "Build movement through diagonal placement rather than extra decoration.",
-  "Pair organic illustration with severe typography for tension.",
-  "Keep imperfect edges so the system feels found, not manufactured."
-];
-
 const projectApplications: Record<string, string[]> = {
   "Brand identity": [
-    "A mascot-adjacent mark system with one aggressive accent color.",
+    "Mascot-adjacent mark system with one aggressive accent color.",
     "Hang tags, stickers, and launch graphics built from rough pavement crops.",
-    "A logo world that feels symbolic without becoming heritage cosplay."
+    "Symbolic identity world that avoids clean heritage nostalgia."
   ],
   Packaging: [
-    "Stamped seals, box tape, and label closures with a single orange hit.",
+    "Stamped seals, box tape, and label closures with one orange hit.",
     "Matte concrete-gray substrates with black illustration and white utility type.",
     "Limited-run packaging that feels street-found and collectible."
   ],
@@ -124,6 +116,24 @@ const fallbackApplications = [
   "Identity marks, packaging stamps, editorial openers, or street-level campaign graphics.",
   "A reference for making rough surfaces feel intentional and designed.",
   "A compact visual system built from one motif, one accent, and one texture field."
+];
+
+const relatedInspiration = [
+  {
+    provider: "Are.na",
+    title: "Street marks and found symbols",
+    reason: "A board direction for rough public graphics, pavement texture, and symbolic marks."
+  },
+  {
+    provider: "Pinterest",
+    title: "Koi graphic identity references",
+    reason: "Useful for translating animal symbolism into labels, posters, and surface graphics."
+  },
+  {
+    provider: "Archive",
+    title: "Pavement texture and stencil language",
+    reason: "A material lane for keeping rough surfaces visible instead of over-polished."
+  }
 ];
 
 const typeDirections = [
@@ -401,35 +411,61 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
             ))}
           </View>
 
-          <SectionLabel label="Visual DNA" />
-          <View style={styles.dnaList}>
-            {visualDna.map((item) => (
-              <View key={item.label} style={styles.dnaRow}>
-                <Text style={styles.dnaLabel}>{item.label}</Text>
-                <Text style={styles.dnaValue}>{item.value}</Text>
+          <SectionLabel label="Related inspiration" />
+          <View style={styles.relatedList}>
+            {relatedInspiration.map((link) => (
+              <View key={link.title} style={styles.relatedTile}>
+                <View style={styles.relatedCopy}>
+                  <Text style={styles.relatedTitle}>{link.title}</Text>
+                  <Text style={styles.relatedReason}>{link.reason}</Text>
+                  <Text style={styles.relatedProvider}>{link.provider} / open link</Text>
+                </View>
               </View>
             ))}
           </View>
 
-          <SectionLabel label="Design moves" />
-          <View style={styles.moveList}>
-            {designMoves.map((move, index) => (
-              <View key={move} style={styles.moveRow}>
-                <Text style={styles.moveNumber}>{String(index + 1).padStart(2, "0")}</Text>
-                <Text style={styles.moveText}>{move}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.projectPanel}>
-            <Text style={styles.projectLabel}>Project lens</Text>
-            <Text style={styles.projectTitle}>{selectedProject}</Text>
-            <View style={styles.applicationList}>
-              {activeApplications.map((application) => (
-                <Text key={application} style={styles.applicationText}>
-                  {application}
+          <SectionLabel label="Creative translation" />
+          <View style={styles.translationPanel}>
+            <ImageBackground
+              source={require("../../assets/demo/koi-street-reference.png")}
+              style={styles.translationHero}
+              imageStyle={styles.translationHeroImage}
+              resizeMode="cover"
+            >
+              <View style={styles.translationHeroShade} />
+              <View style={styles.translationHeroCopy}>
+                <Text style={styles.translationEyebrow}>What to steal</Text>
+                <Text style={styles.translationTitle}>
+                  Street-found animal symbolism turned into a compact graphic system.
                 </Text>
-              ))}
+              </View>
+            </ImageBackground>
+
+            <View style={styles.translationBody}>
+              <View style={styles.projectUseHeader}>
+                <Text style={styles.translationEyebrow}>Use it for</Text>
+                <Text style={styles.projectUseTitle}>{selectedProject}</Text>
+              </View>
+
+              <View style={styles.moveList}>
+                {activeApplications.slice(0, 4).map((application, index) => (
+                  <View key={application} style={styles.moveRow}>
+                    <Text style={styles.moveNumber}>{String(index + 1).padStart(2, "0")}</Text>
+                    <Text style={styles.moveText}>{application}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.systemNotes}>
+                {visualDna.map((item) => (
+                  <View key={item.label} style={styles.systemNote}>
+                    <Text style={styles.systemNoteLabel}>
+                      {item.label === "Shape" ? "Form" : item.label}
+                    </Text>
+                    <Text style={styles.systemNoteValue}>{item.value}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           </View>
 
@@ -813,25 +849,82 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase"
   },
-  dnaList: {
+  relatedList: {
     gap: theme.spacing.sm
   },
-  dnaRow: {
-    gap: theme.spacing.xs,
-    paddingBottom: theme.spacing.sm,
-    borderBottomColor: theme.colors.border,
-    borderBottomWidth: 1
+  relatedTile: {
+    padding: theme.spacing.sm,
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
   },
-  dnaLabel: {
+  relatedCopy: {
+    gap: theme.spacing.xs
+  },
+  relatedTitle: {
     color: theme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "800"
+  },
+  relatedReason: {
+    color: theme.colors.textSecondary,
     fontSize: 13,
+    lineHeight: 18
+  },
+  relatedProvider: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase"
   },
-  dnaValue: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22
+  translationPanel: {
+    overflow: "hidden",
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  translationHero: {
+    minHeight: 260,
+    justifyContent: "flex-end"
+  },
+  translationHeroImage: {
+    transform: [{ scale: 1.08 }]
+  },
+  translationHeroShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.5)"
+  },
+  translationHeroCopy: {
+    gap: theme.spacing.xs,
+    padding: theme.spacing.md,
+    paddingTop: 72
+  },
+  translationEyebrow: {
+    color: theme.colors.textPrimary,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  translationTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 22,
+    fontWeight: "900",
+    lineHeight: 28
+  },
+  translationBody: {
+    gap: theme.spacing.md,
+    padding: theme.spacing.md
+  },
+  projectUseHeader: {
+    gap: 2
+  },
+  projectUseTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 20,
+    fontWeight: "900",
+    lineHeight: 25
   },
   moveList: {
     gap: theme.spacing.sm
@@ -855,34 +948,26 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 21
   },
-  projectPanel: {
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.xs,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  projectLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  projectTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 22,
-    fontWeight: "800",
-    lineHeight: 28
-  },
-  applicationList: {
+  systemNotes: {
     gap: theme.spacing.sm
   },
-  applicationText: {
+  systemNote: {
+    gap: 2,
+    paddingTop: theme.spacing.sm,
+    borderTopColor: theme.colors.border,
+    borderTopWidth: 1
+  },
+  systemNoteLabel: {
     color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  systemNoteValue: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20
   },
   typeList: {
     gap: theme.spacing.sm
