@@ -3,6 +3,8 @@ from urllib.parse import urljoin
 
 import httpx
 
+from app.core.config import settings
+
 
 class MetaParser(HTMLParser):
     def __init__(self) -> None:
@@ -44,6 +46,10 @@ def _fetch_preview(url: str | None) -> dict[str, str] | None:
     if not url:
         return None
 
+    preview = _fetch_microlink_preview(url)
+    if preview and preview.get("image"):
+        return preview
+
     try:
         with httpx.Client(
             follow_redirects=True,
@@ -73,3 +79,51 @@ def _fetch_preview(url: str | None) -> dict[str, str] | None:
         "image": urljoin(str(response.url), image) if image else "",
         "title": title or "",
     }
+
+
+def _fetch_microlink_preview(url: str) -> dict[str, str] | None:
+    headers = {}
+    if settings.microlink_api_key:
+        headers["x-api-key"] = settings.microlink_api_key
+
+    try:
+        with httpx.Client(follow_redirects=True, timeout=5.0) as client:
+            response = client.get(
+                "https://api.microlink.io",
+                headers=headers,
+                params={
+                    "audio": "false",
+                    "iframe": "false",
+                    "palette": "false",
+                    "screenshot": "true",
+                    "url": url,
+                    "video": "false",
+                },
+            )
+            response.raise_for_status()
+            body = response.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+
+    if body.get("status") != "success":
+        return None
+
+    data = body.get("data") or {}
+    image = _extract_image_url(data.get("image")) or _extract_image_url(data.get("screenshot"))
+
+    return {
+        "image": image,
+        "title": data.get("title") or "",
+    }
+
+
+def _extract_image_url(value: object) -> str:
+    if isinstance(value, str):
+        return value
+
+    if isinstance(value, dict):
+        url = value.get("url")
+        if isinstance(url, str):
+            return url
+
+    return ""

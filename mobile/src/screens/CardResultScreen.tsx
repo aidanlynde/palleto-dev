@@ -138,11 +138,15 @@ export function CardDetail({ card }: { card: InspirationCard }) {
         <SectionLabel label="Related inspiration" />
         {card.related_links.map((link) => (
           <Pressable key={link.url} style={styles.relatedTile} onPress={() => Linking.openURL(link.url)}>
-            {link.thumbnail_url ? (
-              <Image source={{ uri: link.thumbnail_url }} style={styles.relatedImage} resizeMode="cover" />
-            ) : (
-              <RelatedPreview palette={card.palette} title={link.title} />
-            )}
+            <View style={styles.relatedImageFrame}>
+              {link.thumbnail_url ? (
+                <Image source={{ uri: link.thumbnail_url }} style={styles.relatedImage} resizeMode="cover" />
+              ) : (
+                <View style={styles.relatedMissingPreview}>
+                  <Text style={styles.relatedMissingText}>No preview</Text>
+                </View>
+              )}
+            </View>
             <View style={styles.relatedCopy}>
               <Text style={styles.relatedTitle}>{link.title}</Text>
               {link.reason ? <Text style={styles.relatedReason}>{link.reason}</Text> : null}
@@ -179,36 +183,6 @@ export function CardDetail({ card }: { card: InspirationCard }) {
             </View>
           ))}
         </View>
-      </View>
-    </View>
-  );
-}
-
-function RelatedPreview({ palette, title }: { palette: PaletteColor[]; title: string }) {
-  const seed = title.length;
-  const base = palette[seed % Math.max(palette.length, 1)]?.hex ?? theme.colors.surface;
-  const accent = palette[(seed + 2) % Math.max(palette.length, 1)]?.hex ?? theme.colors.textPrimary;
-  const line = palette[(seed + 3) % Math.max(palette.length, 1)]?.hex ?? theme.colors.textSecondary;
-
-  return (
-    <View style={[styles.relatedPreview, { backgroundColor: base }]}>
-      <View
-        style={[
-          styles.relatedPreviewMark,
-          {
-            backgroundColor: accent,
-            transform: [{ rotate: seed % 2 === 0 ? "-18deg" : "12deg" }]
-          }
-        ]}
-      />
-      <View style={[styles.relatedPreviewLine, { backgroundColor: line }]} />
-      <View style={styles.relatedPreviewPalette}>
-        {palette.slice(0, 4).map((color) => (
-          <View
-            key={`related-preview-${title}-${color.hex}`}
-            style={[styles.relatedPreviewSwatch, { backgroundColor: color.hex }]}
-          />
-        ))}
       </View>
     </View>
   );
@@ -684,36 +658,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: theme.radius.small
   },
+  relatedImageFrame: {
+    width: 86,
+    height: 86,
+    overflow: "hidden",
+    borderRadius: 4
+  },
   relatedImage: {
-    width: 86,
-    height: 86,
-    borderRadius: 4
+    width: "100%",
+    height: "100%"
   },
-  relatedPreview: {
-    width: 86,
-    height: 86,
-    justifyContent: "space-between",
-    padding: theme.spacing.sm,
-    backgroundColor: "#67675F",
-    borderRadius: 4
+  relatedMissingPreview: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    height: "100%",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1
   },
-  relatedPreviewMark: {
-    width: 38,
-    height: 18,
-    backgroundColor: "#111111",
-    borderRadius: 8,
-    transform: [{ rotate: "-18deg" }]
-  },
-  relatedPreviewLine: {
-    height: 2,
-    backgroundColor: "#F4F1EA"
-  },
-  relatedPreviewPalette: {
-    flexDirection: "row",
-    height: 10
-  },
-  relatedPreviewSwatch: {
-    flex: 1
+  relatedMissingText: {
+    color: theme.colors.textSecondary,
+    fontSize: 10,
+    fontWeight: "900",
+    textTransform: "uppercase"
   },
   relatedCopy: {
     flex: 1,

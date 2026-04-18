@@ -146,7 +146,8 @@ Rules:
 - Palette colors must be plausible visible colors from the image.
 - Design moves must be concrete actions a creative could apply.
 - Project lens must adapt to the provided project context.
-- Related links should be specific public pages or search lanes from Are.na, Pinterest, Google Images, museum archives, type foundries, fashion/editorial references, or design publications.
+- Related links should be specific public webpages that are likely to unfurl with real link preview images: design articles, museum/archive pages, type foundries, brand case studies, editorial references, Are.na channels, Pinterest boards, or other stable inspiration pages.
+- Avoid generic search-result URLs unless no specific page is credible.
 - Do not invent thumbnail URLs. Use thumbnail_url null unless it is a real direct image URL from the source.
 - Keep every text field concise enough for a mobile card.
 

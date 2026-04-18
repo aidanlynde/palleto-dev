@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     firebase_storage_bucket: str | None = None
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1-mini"
+    microlink_api_key: str | None = None
 
     @field_validator("database_url", mode="before")
     @classmethod
