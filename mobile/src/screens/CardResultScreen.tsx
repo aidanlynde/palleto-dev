@@ -219,7 +219,9 @@ function CreativeTranslation({ card }: { card: InspirationCard }) {
         <View style={styles.translationHeroShade} />
         <View style={styles.translationHeroCopy}>
           <Text style={styles.translationEyebrow}>What to steal</Text>
-          <Text style={styles.translationTitle}>{card.project_lens.summary}</Text>
+          <Text style={styles.translationTitle} numberOfLines={4}>
+            {card.project_lens.summary}
+          </Text>
         </View>
       </View>
 
@@ -389,13 +391,14 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.small
   },
   translationHero: {
-    height: 210,
+    minHeight: 260,
     overflow: "hidden",
     backgroundColor: theme.colors.surface
   },
   translationHeroImage: {
+    position: "absolute",
     width: "100%",
-    height: "100%",
+    height: 260,
     transform: [{ scale: 1.1 }]
   },
   translationHeroShade: {
@@ -403,11 +406,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.48)"
   },
   translationHeroCopy: {
-    position: "absolute",
-    left: theme.spacing.md,
-    right: theme.spacing.md,
-    bottom: theme.spacing.md,
-    gap: theme.spacing.xs
+    justifyContent: "flex-end",
+    minHeight: 260,
+    gap: theme.spacing.xs,
+    padding: theme.spacing.md,
+    paddingTop: 72
   },
   translationEyebrow: {
     color: theme.colors.textPrimary,
@@ -417,9 +420,9 @@ const styles = StyleSheet.create({
   },
   translationTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: "900",
-    lineHeight: 30
+    lineHeight: 27
   },
   translationBody: {
     gap: theme.spacing.md,

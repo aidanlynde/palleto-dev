@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { InspirationCard, uploadCard } from "../services/api";
@@ -28,6 +28,7 @@ export function ProcessingScreen({
   projectContext,
   sourceType
 }: ProcessingScreenProps) {
+  const submittedImageUri = useRef<string | null>(null);
   const [stageIndex, setStageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +44,12 @@ export function ProcessingScreen({
     let isMounted = true;
 
     async function createCard() {
+      if (submittedImageUri.current === imageUri) {
+        return;
+      }
+
+      submittedImageUri.current = imageUri;
+
       try {
         const idToken = await firebaseUser.getIdToken();
         const card = await uploadCard({
@@ -59,6 +66,7 @@ export function ProcessingScreen({
         }
       } catch {
         if (isMounted) {
+          submittedImageUri.current = null;
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           setError("Card generation failed. Check backend storage configuration and try again.");
         }
