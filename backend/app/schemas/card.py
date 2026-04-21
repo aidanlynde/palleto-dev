@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.project import ActiveProjectRead
+
 
 class PaletteColor(BaseModel):
     hex: str
@@ -37,11 +39,28 @@ class RelatedLink(BaseModel):
 
 class ProjectContextPayload(BaseModel):
     avoid: str | None = None
+    audience: str | None = None
+    desiredFeeling: str | None = None
     description: str | None = None
     directionTags: list[str] = []
     name: str | None = None
     priorities: list[str] = []
+    referenceLinks: list[str] = []
     projectType: str | None = None
+
+    @classmethod
+    def from_active_project(cls, project: ActiveProjectRead) -> "ProjectContextPayload":
+        return cls(
+            avoid=project.avoid,
+            audience=project.audience,
+            desiredFeeling=project.desired_feeling,
+            description=project.description,
+            directionTags=project.direction_tags,
+            name=project.name,
+            priorities=project.priorities,
+            projectType=project.project_type,
+            referenceLinks=project.reference_links,
+        )
 
 
 class CardRead(BaseModel):

@@ -5,10 +5,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from sqlalchemy import desc
 
 from app.core.auth import FirebaseUser, get_current_firebase_user
-from app.db.models import Card
+from app.db.models import Card, User
 from app.db.session import DbSession, create_db_and_tables
 from app.schemas.card import CardRead, ProjectContextPayload
+from app.schemas.project import ActiveProjectRead
 from app.services.openai_card_generator import generate_card_payload_for_image
+from app.services.projects import get_active_project
 from app.services.storage import delete_card_image, upload_card_image
 from app.services.users import get_or_create_user
 
@@ -27,7 +29,11 @@ async def create_card(
 
     user = get_or_create_user(db, firebase_user)
     card_id = str(uuid4())
-    parsed_project_context = _parse_project_context(project_context)
+    parsed_project_context = _resolve_project_context(
+        db=db,
+        user=user,
+        project_context=project_context,
+    )
 
     storage_path, image_url = await upload_card_image(
         card_id=card_id,
@@ -129,3 +135,24 @@ def _parse_project_context(project_context: str | None) -> ProjectContextPayload
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid project context.",
         ) from exc
+
+
+def _resolve_project_context(
+    *,
+    db: DbSession,
+    user: User,
+    project_context: str | None,
+) -> ProjectContextPayload | None:
+    parsed_project_context = _parse_project_context(project_context)
+
+    if parsed_project_context is not None:
+        return parsed_project_context
+
+    active_project = get_active_project(db, user)
+
+    if active_project is None:
+        return None
+
+    return ProjectContextPayload.from_active_project(
+        ActiveProjectRead.model_validate(active_project)
+    )

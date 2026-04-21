@@ -26,6 +26,21 @@ export async function getMe(idToken: string): Promise<UserProfile> {
   return response.json();
 }
 
+type ActiveProjectApiResponse = {
+  id: string;
+  name: string;
+  description: string;
+  project_type: string;
+  audience: string | null;
+  desired_feeling: string | null;
+  avoid: string | null;
+  direction_tags: string[];
+  priorities: string[];
+  reference_links: string[];
+  created_at: string;
+  updated_at: string;
+};
+
 export type InspirationCard = {
   id: string;
   image_url: string;
@@ -110,6 +125,51 @@ export async function uploadCard({
   return response.json();
 }
 
+export async function getActiveProject(idToken: string): Promise<ProjectContext | null> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/active`, {
+    headers: {
+      Authorization: `Bearer ${idToken}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load active project: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as ActiveProjectApiResponse | null;
+  return payload ? mapActiveProject(payload) : null;
+}
+
+export async function saveActiveProject(
+  idToken: string,
+  project: Omit<ProjectContext, "createdAt" | "id" | "updatedAt">
+): Promise<ProjectContext> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/active`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      avoid: project.avoid,
+      audience: project.audience,
+      description: project.description,
+      desired_feeling: project.desiredFeeling,
+      direction_tags: project.directionTags,
+      name: project.name,
+      priorities: project.priorities,
+      project_type: project.projectType,
+      reference_links: project.referenceLinks
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save active project: ${response.status}`);
+  }
+
+  return mapActiveProject((await response.json()) as ActiveProjectApiResponse);
+}
+
 export async function listCards(idToken: string): Promise<InspirationCard[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/cards`, {
     headers: {
@@ -135,4 +195,21 @@ export async function deleteCard(idToken: string, cardId: string): Promise<void>
   if (!response.ok) {
     throw new Error(`Failed to delete card: ${response.status}`);
   }
+}
+
+function mapActiveProject(payload: ActiveProjectApiResponse): ProjectContext {
+  return {
+    avoid: payload.avoid,
+    audience: payload.audience,
+    createdAt: payload.created_at,
+    description: payload.description,
+    desiredFeeling: payload.desired_feeling,
+    directionTags: payload.direction_tags,
+    id: payload.id,
+    name: payload.name,
+    priorities: payload.priorities,
+    projectType: payload.project_type,
+    referenceLinks: payload.reference_links,
+    updatedAt: payload.updated_at
+  };
 }

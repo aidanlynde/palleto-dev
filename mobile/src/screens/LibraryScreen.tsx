@@ -8,15 +8,23 @@ import { theme } from "../theme";
 
 type LibraryScreenProps = {
   firebaseUser: User;
+  onEditProject: () => void;
   onScan: () => void;
   onSelectCard: (card: InspirationCard) => void;
   projectContext?: {
     name: string;
     projectType: string;
+    desiredFeeling?: string | null;
   } | null;
 };
 
-export function LibraryScreen({ firebaseUser, onScan, onSelectCard, projectContext }: LibraryScreenProps) {
+export function LibraryScreen({
+  firebaseUser,
+  onEditProject,
+  onScan,
+  onSelectCard,
+  projectContext
+}: LibraryScreenProps) {
   const [cards, setCards] = useState<InspirationCard[]>([]);
   const [status, setStatus] = useState("Loading library...");
 
@@ -47,6 +55,12 @@ export function LibraryScreen({ firebaseUser, onScan, onSelectCard, projectConte
           <Text style={styles.projectChipText}>
             {projectContext.projectType}: {projectContext.name}
           </Text>
+          {projectContext.desiredFeeling ? (
+            <Text style={styles.projectChipBody}>{projectContext.desiredFeeling}</Text>
+          ) : null}
+          <Pressable style={styles.projectChipAction} onPress={onEditProject}>
+            <Text style={styles.projectChipActionText}>Edit active project</Text>
+          </Pressable>
         </View>
       ) : null}
       {status ? <Text style={styles.status}>{status}</Text> : null}
@@ -126,6 +140,20 @@ const styles = StyleSheet.create({
   projectChipText: {
     color: theme.colors.textPrimary,
     fontSize: 14,
+    fontWeight: "800"
+  },
+  projectChipBody: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
+  },
+  projectChipAction: {
+    alignSelf: "flex-start",
+    marginTop: theme.spacing.xs
+  },
+  projectChipActionText: {
+    color: theme.colors.textPrimary,
+    fontSize: 13,
     fontWeight: "800"
   },
   emptyButton: {

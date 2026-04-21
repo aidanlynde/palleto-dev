@@ -17,14 +17,14 @@ import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProcessingScreen } from "./src/screens/ProcessingScreen";
 import { ProjectIntakeScreen } from "./src/screens/ProjectIntakeScreen";
 import { SplashScreen } from "./src/screens/SplashScreen";
-import { InspirationCard } from "./src/services/api";
+import { getActiveProject, InspirationCard, saveActiveProject } from "./src/services/api";
 import { firebaseAuth } from "./src/services/firebase";
 import {
   completeOnboarding,
   hasCompletedOnboarding,
   OnboardingSurveyAnswers
 } from "./src/services/onboarding";
-import { getActiveProjectContext, ProjectContext } from "./src/services/projectContext";
+import { ProjectContext, ProjectContextInput } from "./src/services/projectContext";
 import { theme } from "./src/theme";
 
 export type RootStackParamList = {
@@ -95,17 +95,39 @@ export default function App() {
 
   useEffect(() => {
     async function loadProjectContext() {
-      const activeProject = await getActiveProjectContext();
-      setProjectContext(activeProject);
-      setIsProjectContextReady(true);
+      if (!firebaseUser || !onboardingComplete) {
+        setProjectContext(null);
+        setIsProjectContextReady(true);
+        return;
+      }
+
+      try {
+        setIsProjectContextReady(false);
+        const token = await firebaseUser.getIdToken();
+        const activeProject = await getActiveProject(token);
+        setProjectContext(activeProject);
+      } finally {
+        setIsProjectContextReady(true);
+      }
     }
 
     loadProjectContext();
-  }, []);
+  }, [firebaseUser, onboardingComplete]);
 
   async function finishOnboarding(surveyAnswers: OnboardingSurveyAnswers) {
     await completeOnboarding(surveyAnswers);
     setOnboardingComplete(true);
+  }
+
+  async function handleSaveProject(project: ProjectContextInput) {
+    if (!firebaseUser) {
+      throw new Error("User must be signed in.");
+    }
+
+    const token = await firebaseUser.getIdToken();
+    const savedProject = await saveActiveProject(token, project);
+    setProjectContext(savedProject);
+    return savedProject;
   }
 
   const isLoading = !fontsLoaded || !isAuthReady || !isOnboardingReady || !isProjectContextReady;
@@ -129,14 +151,19 @@ export default function App() {
           </Stack.Screen>
         ) : firebaseUser && !projectContext ? (
           <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
-            {() => <ProjectIntakeScreen onComplete={setProjectContext} />}
+            {() => (
+              <ProjectIntakeScreen
+                onComplete={setProjectContext}
+                onSave={handleSaveProject}
+              />
+            )}
           </Stack.Screen>
         ) : firebaseUser ? (
           <Stack.Screen name="Home" options={{ title: "Palleto" }}>
             {({ navigation }) => (
               <MainScreen
                 firebaseUser={firebaseUser}
-                onEditProject={() => setProjectContext(null)}
+                onEditProject={() => navigation.navigate("ProjectIntake")}
                 onScan={() => navigation.navigate("Capture")}
                 onSelectCard={(card) => {
                   setSelectedCard(card);
@@ -186,6 +213,19 @@ export default function App() {
                 )
               }
             </Stack.Screen>
+            <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
+              {({ navigation }) => (
+                <ProjectIntakeScreen
+                  initialProject={projectContext}
+                  onCancel={() => navigation.goBack()}
+                  onComplete={(project) => {
+                    setProjectContext(project);
+                    navigation.goBack();
+                  }}
+                  onSave={handleSaveProject}
+                />
+              )}
+            </Stack.Screen>
             <Stack.Screen name="Result" options={{ title: "Inspiration card" }}>
               {({ navigation }) =>
                 selectedCard ? (
@@ -197,7 +237,7 @@ export default function App() {
                 ) : (
                   <MainScreen
                     firebaseUser={firebaseUser}
-                    onEditProject={() => setProjectContext(null)}
+                    onEditProject={() => navigation.navigate("ProjectIntake")}
                     onScan={() => navigation.navigate("Capture")}
                     onSelectCard={(card) => {
                       setSelectedCard(card);

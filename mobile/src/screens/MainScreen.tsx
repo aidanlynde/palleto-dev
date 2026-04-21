@@ -39,6 +39,7 @@ export function MainScreen({
         {activeTab === "library" ? (
           <LibraryScreen
             firebaseUser={firebaseUser}
+            onEditProject={onEditProject}
             onScan={onScan}
             onSelectCard={onSelectCard}
             projectContext={projectContext}

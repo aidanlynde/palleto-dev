@@ -61,6 +61,12 @@ export function ProfileScreen({ firebaseUser, onEditProject, projectContext }: P
           <Text style={styles.panelLabel}>Active project</Text>
           <Text style={styles.projectTitle}>{projectContext.name}</Text>
           <Text style={styles.projectDescription}>{projectContext.description}</Text>
+          {projectContext.desiredFeeling ? (
+            <Text style={styles.projectMeta}>Target feel: {projectContext.desiredFeeling}</Text>
+          ) : null}
+          {projectContext.audience ? (
+            <Text style={styles.projectMeta}>Audience: {projectContext.audience}</Text>
+          ) : null}
           <View style={styles.tagRow}>
             {[projectContext.projectType, ...projectContext.directionTags].map((tag) => (
               <View key={tag} style={styles.tag}>
@@ -68,6 +74,11 @@ export function ProfileScreen({ firebaseUser, onEditProject, projectContext }: P
               </View>
             ))}
           </View>
+          {projectContext.referenceLinks.length ? (
+            <Text style={styles.projectMeta}>
+              References linked: {projectContext.referenceLinks.length}
+            </Text>
+          ) : null}
           <Pressable style={styles.inlineButton} onPress={onEditProject}>
             <Text style={styles.inlineButtonText}>Edit project context</Text>
           </Pressable>
@@ -152,6 +163,11 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 14,
     lineHeight: 20
+  },
+  projectMeta: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
   },
   tagRow: {
     flexDirection: "row",

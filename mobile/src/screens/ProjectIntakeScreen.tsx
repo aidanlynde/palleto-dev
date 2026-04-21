@@ -11,11 +11,14 @@ import {
   View
 } from "react-native";
 
-import { ProjectContext, saveActiveProjectContext } from "../services/projectContext";
+import { ProjectContext, ProjectContextInput } from "../services/projectContext";
 import { theme } from "../theme";
 
 type ProjectIntakeScreenProps = {
+  initialProject?: ProjectContext | null;
+  onCancel?: () => void;
   onComplete: (project: ProjectContext) => void;
+  onSave: (project: ProjectContextInput) => Promise<ProjectContext>;
 };
 
 const projectTypes = [
@@ -40,14 +43,30 @@ const directionTags = [
 
 const priorities = ["Color systems", "Materials", "Typography", "Patterns", "Composition", "Mood"];
 
-export function ProjectIntakeScreen({ onComplete }: ProjectIntakeScreenProps) {
+export function ProjectIntakeScreen({
+  initialProject,
+  onCancel,
+  onComplete,
+  onSave
+}: ProjectIntakeScreenProps) {
   const [step, setStep] = useState(0);
-  const [description, setDescription] = useState("");
-  const [projectType, setProjectType] = useState("");
-  const [selectedDirectionTags, setSelectedDirectionTags] = useState<string[]>([]);
-  const [selectedPriorities, setSelectedPriorities] = useState<string[]>([]);
-  const [avoid, setAvoid] = useState("");
+  const [description, setDescription] = useState(initialProject?.description ?? "");
+  const [projectType, setProjectType] = useState(initialProject?.projectType ?? "");
+  const [selectedDirectionTags, setSelectedDirectionTags] = useState<string[]>(
+    initialProject?.directionTags ?? []
+  );
+  const [selectedPriorities, setSelectedPriorities] = useState<string[]>(
+    initialProject?.priorities ?? []
+  );
+  const [audience, setAudience] = useState(initialProject?.audience ?? "");
+  const [desiredFeeling, setDesiredFeeling] = useState(initialProject?.desiredFeeling ?? "");
+  const [avoid, setAvoid] = useState(initialProject?.avoid ?? "");
+  const [referenceLinks, setReferenceLinks] = useState(
+    initialProject?.referenceLinks.join("\n") ?? ""
+  );
   const [isSaving, setIsSaving] = useState(false);
+  const totalSteps = 6;
+  const isEditing = Boolean(initialProject);
 
   const canContinue = useMemo(() => {
     if (step === 0) {
@@ -85,7 +104,7 @@ export function ProjectIntakeScreen({ onComplete }: ProjectIntakeScreenProps) {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (step < 4) {
+    if (step < totalSteps - 1) {
       setStep(step + 1);
       return;
     }
@@ -93,13 +112,19 @@ export function ProjectIntakeScreen({ onComplete }: ProjectIntakeScreenProps) {
     setIsSaving(true);
 
     try {
-      const project = await saveActiveProjectContext({
+      const project = await onSave({
         avoid: avoid.trim() || null,
+        audience: audience.trim() || null,
         description: description.trim(),
+        desiredFeeling: desiredFeeling.trim() || null,
         directionTags: selectedDirectionTags,
-        name: inferProjectName(description, projectType),
+        name: initialProject?.name ?? inferProjectName(description, projectType),
         priorities: selectedPriorities,
-        projectType
+        projectType,
+        referenceLinks: referenceLinks
+          .split("\n")
+          .map((value) => value.trim())
+          .filter(Boolean)
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -115,8 +140,18 @@ export function ProjectIntakeScreen({ onComplete }: ProjectIntakeScreenProps) {
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {onCancel ? (
+          <View style={styles.topBar}>
+            <Pressable
+              onPress={onCancel}
+              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.backButtonText}>Back</Text>
+            </Pressable>
+          </View>
+        ) : null}
         <View style={styles.progressTrack}>
-          {Array.from({ length: 5 }).map((_, index) => (
+          {Array.from({ length: totalSteps }).map((_, index) => (
             <View
               key={index}
               style={[styles.progressDot, index <= step && styles.progressDotActive]}
@@ -127,7 +162,11 @@ export function ProjectIntakeScreen({ onComplete }: ProjectIntakeScreenProps) {
         <View style={styles.thread}>
           <AssistantMessage
             eyebrow="Project context"
-            message="Before you start scanning, tell Palleto what you are working on. The better the context, the sharper every inspiration card gets."
+            message={
+              isEditing
+                ? "Update what you are building right now. Future scans will read through this brief."
+                : "Before you start scanning, tell Palleto what you are working on. The better the context, the sharper every inspiration card gets."
+            }
           />
 
           {step === 0 ? (
@@ -191,8 +230,38 @@ export function ProjectIntakeScreen({ onComplete }: ProjectIntakeScreenProps) {
           {step === 4 ? (
             <View style={styles.answerBlock}>
               <AssistantMessage
+                eyebrow="Project lens"
+                message="Who is this for, and what should the work feel like when it is dialed?"
+              />
+              <TextInput
+                onChangeText={setAudience}
+                placeholder="Audience or customer"
+                placeholderTextColor={theme.colors.textSecondary}
+                style={styles.singleLineInput}
+                value={audience}
+              />
+              <TextInput
+                multiline
+                onChangeText={setDesiredFeeling}
+                placeholder="Soft editorial, hand-touched, quiet confidence, more sculptural than corporate."
+                placeholderTextColor={theme.colors.textSecondary}
+                style={styles.textInput}
+                value={desiredFeeling}
+              />
+            </View>
+          ) : null}
+
+          {step >= 5 ? (
+            <UserMessage
+              message={[audience.trim(), desiredFeeling.trim()].filter(Boolean).join(" • ") || "No extra project lens"}
+            />
+          ) : null}
+
+          {step === 5 ? (
+            <View style={styles.answerBlock}>
+              <AssistantMessage
                 eyebrow="Guardrails"
-                message="Anything Palleto should avoid when reading references for this project?"
+                message="Anything Palleto should avoid, or any links that define the world you want?"
               />
               <TextInput
                 multiline
@@ -201,6 +270,14 @@ export function ProjectIntakeScreen({ onComplete }: ProjectIntakeScreenProps) {
                 placeholderTextColor={theme.colors.textSecondary}
                 style={styles.textInput}
                 value={avoid}
+              />
+              <TextInput
+                multiline
+                onChangeText={setReferenceLinks}
+                placeholder="Paste one reference link per line"
+                placeholderTextColor={theme.colors.textSecondary}
+                style={styles.textInput}
+                value={referenceLinks}
               />
             </View>
           ) : null}
@@ -218,7 +295,7 @@ export function ProjectIntakeScreen({ onComplete }: ProjectIntakeScreenProps) {
           ]}
         >
           <Text style={styles.footerButtonText}>
-            {step === 4 ? (isSaving ? "Saving" : "Save project context") : "Continue"}
+            {step === totalSteps - 1 ? (isSaving ? "Saving" : "Save project context") : "Continue"}
           </Text>
         </Pressable>
       </View>
@@ -308,6 +385,17 @@ const styles = StyleSheet.create({
     paddingTop: 64,
     paddingBottom: 120
   },
+  topBar: {
+    flexDirection: "row"
+  },
+  backButton: {
+    paddingVertical: theme.spacing.xs
+  },
+  backButtonText: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "800"
+  },
   progressTrack: {
     flexDirection: "row",
     gap: theme.spacing.xs
@@ -366,6 +454,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 23,
     textAlignVertical: "top"
+  },
+  singleLineInput: {
+    minHeight: 52,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    color: theme.colors.textPrimary,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small,
+    fontSize: 16,
+    lineHeight: 22
   },
   userMessage: {
     alignSelf: "flex-end",

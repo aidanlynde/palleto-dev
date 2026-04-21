@@ -6,8 +6,18 @@ def generate_card_payload(project_context: ProjectContextPayload | None) -> dict
     project_type = project_type or "Creative direction"
     priorities = project_context.priorities if project_context else []
     direction_tags = project_context.directionTags if project_context else []
+    audience = project_context.audience if project_context else None
+    desired_feeling = project_context.desiredFeeling if project_context else None
+    avoid = project_context.avoid if project_context else None
+    reference_links = project_context.referenceLinks if project_context else []
 
-    project_summary = _project_summary(project_type, priorities, direction_tags)
+    project_summary = _project_summary(
+        project_type,
+        priorities,
+        direction_tags,
+        audience,
+        desired_feeling,
+    )
 
     return {
         "title": "Street Koi Signal",
@@ -46,7 +56,11 @@ def generate_card_payload(project_context: ProjectContextPayload | None) -> dict
         "project_lens": {
             "project_type": project_type,
             "summary": project_summary,
-            "applications": _applications_for_project(project_type),
+            "applications": _applications_for_project(
+                project_type,
+                desired_feeling=desired_feeling,
+                avoid=avoid,
+            ),
         },
         "type_direction": [
             {
@@ -70,12 +84,27 @@ def generate_card_payload(project_context: ProjectContextPayload | None) -> dict
             "high contrast street mark",
             "Japanese fish motif",
         ],
-        "related_links": related_inspiration_links(),
+        "related_links": related_inspiration_links(reference_links),
     }
 
 
-def related_inspiration_links() -> list[dict]:
+def related_inspiration_links(reference_links: list[str]) -> list[dict]:
+    if reference_links:
+        seeded_links = [
+            {
+                "provider": "project reference",
+                "reason": "Seeded from your active project references.",
+                "thumbnail_url": None,
+                "title": reference_link,
+                "url": reference_link,
+            }
+            for reference_link in reference_links[:2]
+        ]
+    else:
+        seeded_links = []
+
     return [
+        *seeded_links,
         {
             "provider": "placeholder",
             "reason": "A search lane for rough public marks, stencil edges, and found graphic systems.",
@@ -90,27 +119,34 @@ def related_inspiration_links() -> list[dict]:
             "title": "Pinterest query: koi graphic identity",
             "url": "https://www.pinterest.com/search/pins/?q=koi%20graphic%20identity",
         },
-        {
-            "provider": "placeholder",
-            "reason": "A texture lane for asphalt, concrete, and gritty outdoor surfaces.",
-            "thumbnail_url": None,
-            "title": "Google Images query: pavement texture graphic design",
-            "url": "https://www.google.com/search?tbm=isch&q=pavement%20texture%20graphic%20design",
-        },
-    ]
+    ][:4]
 
 
-def _project_summary(project_type: str, priorities: list[str], direction_tags: list[str]) -> str:
+def _project_summary(
+    project_type: str,
+    priorities: list[str],
+    direction_tags: list[str],
+    audience: str | None,
+    desired_feeling: str | None,
+) -> str:
     priority_text = ", ".join(priorities[:3]) if priorities else "visual direction"
     direction_text = ", ".join(direction_tags[:3]).lower() if direction_tags else "focused"
+    audience_text = f" for {audience}" if audience else ""
+    feeling_text = f" that feels {desired_feeling.lower()}" if desired_feeling else ""
 
     return (
-        f"For this {project_type.lower()}, read the reference through {direction_text} cues and "
-        f"prioritize {priority_text.lower()}."
+        f"For this {project_type.lower()}{audience_text}, read the reference through "
+        f"{direction_text} cues, prioritize {priority_text.lower()}, and push it toward "
+        f"a direction{feeling_text}."
     )
 
 
-def _applications_for_project(project_type: str) -> list[str]:
+def _applications_for_project(
+    project_type: str,
+    *,
+    desired_feeling: str | None,
+    avoid: str | None,
+) -> list[str]:
     applications_by_project = {
         "Clothing brand": [
             "Use the koi as a recurring drop symbol instead of a full logo.",
@@ -134,7 +170,7 @@ def _applications_for_project(project_type: str) -> list[str]:
         ],
     }
 
-    return applications_by_project.get(
+    applications = applications_by_project.get(
         project_type,
         [
             "Use this as a compact visual system built from one motif, one accent, and one texture.",
@@ -142,3 +178,11 @@ def _applications_for_project(project_type: str) -> list[str]:
             "Apply the reference to marks, layouts, packaging, or campaign openers.",
         ],
     )
+
+    if desired_feeling:
+        applications[0] = f"{applications[0]} Keep the execution tuned toward {desired_feeling.lower()}."
+
+    if avoid:
+        applications[-1] = f"{applications[-1]} Avoid drifting into {avoid.lower()}."
+
+    return applications
