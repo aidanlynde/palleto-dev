@@ -18,7 +18,7 @@ type OnboardingScreenProps = {
 };
 
 type Question = {
-  id: string;
+  id: keyof OnboardingSurveyAnswers;
   kicker: string;
   options: string[];
   prompt: string;
@@ -26,22 +26,56 @@ type Question = {
 
 const questions: Question[] = [
   {
-    id: "notices",
+    id: "looking_for",
     kicker: "Taste calibration",
-    prompt: "What caught your eye first?",
-    options: ["Color", "Texture", "Movement", "Contrast", "Street detail", "Graphic shape"]
-  },
-  {
-    id: "collecting_for",
-    kicker: "Creative intent",
-    prompt: "What would you use a reference like this for?",
-    options: ["Brand identity", "Packaging", "Art direction", "Moodboard", "Product idea", "Personal archive"]
+    prompt: "What do you usually want to pull out of a reference first?",
+    options: [
+      "Color systems",
+      "Materials and texture",
+      "Typography direction",
+      "Composition",
+      "Mood and tone",
+      "Graphic forms"
+    ]
   },
   {
     id: "help_with",
-    kicker: "Analysis style",
-    prompt: "How should Palleto read references for you?",
-    options: ["More editorial", "More practical", "More luxury", "More experimental", "More minimal"]
+    kicker: "Creative intent",
+    prompt: "What kind of work are you usually shaping?",
+    options: [
+      "Clothing brand",
+      "Brand identity",
+      "Campaign world",
+      "Interior concept",
+      "Product design",
+      "Personal archive"
+    ]
+  },
+  {
+    id: "must_feel_like",
+    kicker: "Positive cues",
+    prompt: "When Palleto translates inspiration for you, what should it feel like?",
+    options: [
+      "Organic and hand-touched",
+      "Quiet luxury",
+      "Editorial and cultured",
+      "Raw and lived-in",
+      "Technical and precise",
+      "Playful and expressive"
+    ]
+  },
+  {
+    id: "must_not_feel_like",
+    kicker: "Negative cues",
+    prompt: "What should it stay away from?",
+    options: [
+      "Corporate and sterile",
+      "Blocky and utilitarian",
+      "Over-designed and noisy",
+      "Too trend-driven",
+      "Soft wellness minimalism",
+      "Generic streetwear"
+    ]
   }
 ];
 
@@ -91,6 +125,11 @@ const projectApplications: Record<string, string[]> = {
     "Limited-run packaging that feels street-found and collectible."
   ],
   "Art direction": [
+    "Campaign imagery with diagonal motion and high-contrast animal symbolism.",
+    "Poster compositions that let one color carry the entire visual charge.",
+    "A reference system for urban folklore, movement, and imperfect mark-making."
+  ],
+  "Campaign world": [
     "Campaign imagery with diagonal motion and high-contrast animal symbolism.",
     "Poster compositions that let one color carry the entire visual charge.",
     "A reference system for urban folklore, movement, and imperfect mark-making."
@@ -162,27 +201,33 @@ const searchLanguage = [
 
 export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<OnboardingSurveyAnswers>({});
+  const [answers, setAnswers] = useState<OnboardingSurveyAnswers>({
+    help_with: [],
+    looking_for: [],
+    must_feel_like: [],
+    must_not_feel_like: [],
+  });
   const [processingIndex, setProcessingIndex] = useState(0);
 
-  const totalSteps = 7;
+  const totalSteps = 8;
   const currentQuestion = questions[step - 2];
   const isQuestionStep = Boolean(currentQuestion);
   const selectedAnswers = currentQuestion ? answers[currentQuestion.id] ?? [] : [];
   const canContinue = !isQuestionStep || selectedAnswers.length > 0;
 
   const summaryLine = useMemo(() => {
-    const intent = answers.collecting_for?.slice(0, 2).join(" and ") || "creative direction";
-    const notices = answers.notices?.slice(0, 3).join(", ") || "color, texture, and contrast";
-    const style = answers.help_with?.[0]?.toLowerCase() || "editorial";
+    const projectType = answers.help_with?.[0] || "Brand identity";
+    const lookingFor = answers.looking_for?.slice(0, 3).join(", ") || "color, texture, and type";
+    const feel = answers.must_feel_like?.slice(0, 2).join(" + ") || "editorial and specific";
+    const avoid = answers.must_not_feel_like?.slice(0, 2).join(" + ") || "generic outputs";
 
-    return `Tuned for ${intent}. Prioritizing ${notices}. Reading references with a ${style} lens.`;
+    return `Tuned for ${projectType}. Prioritizing ${lookingFor}. Pushing toward ${feel} while avoiding ${avoid}.`;
   }, [answers]);
-  const selectedProject = answers.collecting_for?.[0] || "Brand identity";
+  const selectedProject = answers.help_with?.[0] || "Brand identity";
   const activeApplications = projectApplications[selectedProject] ?? fallbackApplications;
 
   useEffect(() => {
-    if (step !== 5) {
+    if (step !== 6) {
       return;
     }
 
@@ -201,7 +246,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         clearInterval(interval);
         setTimeout(() => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setStep(6);
+          setStep(7);
         }, 450);
         return current;
       });
@@ -237,7 +282,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (step === 6) {
+    if (step === 7) {
       onComplete(answers);
       return;
     }
@@ -311,7 +356,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
           <View style={styles.questionPanel}>
             <Text style={styles.kicker}>{currentQuestion.kicker}</Text>
             <Text style={styles.questionTitle}>{currentQuestion.prompt}</Text>
-            <Text style={styles.questionHint}>Choose what fits. Palleto uses this to tune the read.</Text>
+        <Text style={styles.questionHint}>Choose what fits. This becomes the brief behind every scan.</Text>
             <View style={styles.optionGrid}>
               {currentQuestion.options.map((option) => {
                 const isSelected = selectedAnswers.includes(option);
@@ -340,10 +385,10 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     );
   }
 
-  if (step === 5) {
+  if (step === 6) {
     return (
       <View style={styles.processingContainer}>
-        <Progress current={6} total={totalSteps} />
+        <Progress current={7} total={totalSteps} />
         <Image
           source={require("../../assets/demo/koi-street-reference.png")}
           style={styles.processingImage}
@@ -369,7 +414,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
   return (
     <ScrollView style={styles.cardContainer} contentContainerStyle={styles.cardContent}>
-      <Progress current={7} total={totalSteps} />
+      <Progress current={8} total={totalSteps} />
       <View style={styles.demoHeader}>
         <Text style={styles.kicker}>Generated card</Text>
         <Text style={styles.cardIntro}>This is what every scan becomes.</Text>

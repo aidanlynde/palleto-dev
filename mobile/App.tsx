@@ -21,6 +21,7 @@ import { getActiveProject, InspirationCard, saveActiveProject } from "./src/serv
 import { firebaseAuth } from "./src/services/firebase";
 import {
   completeOnboarding,
+  getOnboardingSurveyAnswers,
   hasCompletedOnboarding,
   OnboardingSurveyAnswers
 } from "./src/services/onboarding";
@@ -70,6 +71,7 @@ export default function App() {
   const [isProjectContextReady, setIsProjectContextReady] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [onboardingAnswers, setOnboardingAnswers] = useState<OnboardingSurveyAnswers | null>(null);
   const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const [selectedCard, setSelectedCard] = useState<InspirationCard | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
@@ -86,6 +88,8 @@ export default function App() {
   useEffect(() => {
     async function loadOnboardingState() {
       const hasCompleted = await hasCompletedOnboarding();
+      const savedAnswers = await getOnboardingSurveyAnswers();
+      setOnboardingAnswers(savedAnswers);
       setOnboardingComplete(hasCompleted);
       setIsOnboardingReady(true);
     }
@@ -116,6 +120,7 @@ export default function App() {
 
   async function finishOnboarding(surveyAnswers: OnboardingSurveyAnswers) {
     await completeOnboarding(surveyAnswers);
+    setOnboardingAnswers(surveyAnswers);
     setOnboardingComplete(true);
   }
 
@@ -153,6 +158,7 @@ export default function App() {
           <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
             {() => (
               <ProjectIntakeScreen
+                initialValues={buildInitialProjectFromOnboarding(onboardingAnswers)}
                 onComplete={setProjectContext}
                 onSave={handleSaveProject}
               />
@@ -267,4 +273,50 @@ export default function App() {
       </Stack.Navigator>
     </NavigationContainer>
   );
+}
+
+function buildInitialProjectFromOnboarding(
+  answers: OnboardingSurveyAnswers | null
+): Partial<ProjectContextInput> | undefined {
+  if (!answers) {
+    return undefined;
+  }
+
+  const projectType = answers.help_with?.[0] ?? "";
+  const desiredFeeling = answers.must_feel_like?.join(", ") || null;
+  const avoid = answers.must_not_feel_like?.join(", ") || null;
+
+  return {
+    avoid,
+    desiredFeeling,
+    directionTags: normalizeDirectionTags(answers.must_feel_like ?? []),
+    priorities: answers.looking_for ?? [],
+    projectType,
+  };
+}
+
+function normalizeDirectionTags(tags: string[]) {
+  return tags.map((tag) => {
+    if (tag === "Organic and hand-touched") {
+      return "Organic";
+    }
+
+    if (tag === "Quiet luxury") {
+      return "Luxury";
+    }
+
+    if (tag === "Editorial and cultured") {
+      return "Editorial";
+    }
+
+    if (tag === "Raw and lived-in") {
+      return "Experimental";
+    }
+
+    if (tag === "Technical and precise") {
+      return "Technical";
+    }
+
+    return "Experimental";
+  });
 }

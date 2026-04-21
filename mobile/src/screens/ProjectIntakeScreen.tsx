@@ -16,6 +16,7 @@ import { theme } from "../theme";
 
 type ProjectIntakeScreenProps = {
   initialProject?: ProjectContext | null;
+  initialValues?: Partial<ProjectContextInput>;
   onCancel?: () => void;
   onComplete: (project: ProjectContext) => void;
   onSave: (project: ProjectContextInput) => Promise<ProjectContext>;
@@ -45,24 +46,26 @@ const priorities = ["Color systems", "Materials", "Typography", "Patterns", "Com
 
 export function ProjectIntakeScreen({
   initialProject,
+  initialValues,
   onCancel,
   onComplete,
   onSave
 }: ProjectIntakeScreenProps) {
+  const seedValues = initialProject ?? initialValues;
   const [step, setStep] = useState(0);
-  const [description, setDescription] = useState(initialProject?.description ?? "");
-  const [projectType, setProjectType] = useState(initialProject?.projectType ?? "");
+  const [description, setDescription] = useState(seedValues?.description ?? "");
+  const [projectType, setProjectType] = useState(seedValues?.projectType ?? "");
   const [selectedDirectionTags, setSelectedDirectionTags] = useState<string[]>(
-    initialProject?.directionTags ?? []
+    seedValues?.directionTags ?? []
   );
   const [selectedPriorities, setSelectedPriorities] = useState<string[]>(
-    initialProject?.priorities ?? []
+    seedValues?.priorities ?? []
   );
-  const [audience, setAudience] = useState(initialProject?.audience ?? "");
-  const [desiredFeeling, setDesiredFeeling] = useState(initialProject?.desiredFeeling ?? "");
-  const [avoid, setAvoid] = useState(initialProject?.avoid ?? "");
+  const [audience, setAudience] = useState(seedValues?.audience ?? "");
+  const [desiredFeeling, setDesiredFeeling] = useState(seedValues?.desiredFeeling ?? "");
+  const [avoid, setAvoid] = useState(seedValues?.avoid ?? "");
   const [referenceLinks, setReferenceLinks] = useState(
-    initialProject?.referenceLinks.join("\n") ?? ""
+    seedValues?.referenceLinks?.join("\n") ?? ""
   );
   const [isSaving, setIsSaving] = useState(false);
   const totalSteps = 6;

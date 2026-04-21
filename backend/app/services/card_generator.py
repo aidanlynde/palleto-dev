@@ -62,20 +62,7 @@ def generate_card_payload(project_context: ProjectContextPayload | None) -> dict
                 avoid=avoid,
             ),
         },
-        "type_direction": [
-            {
-                "style": "Compressed grotesk",
-                "use": "For street-poster urgency, product names, and campaign headlines.",
-            },
-            {
-                "style": "Ink-trap sans",
-                "use": "For sharper cultural edge without losing legibility.",
-            },
-            {
-                "style": "Utility mono",
-                "use": "For captions, archive labels, specs, and drop information.",
-            },
-        ],
+        "type_direction": _type_directions(direction_tags, desired_feeling, avoid),
         "search_language": [
             "koi symbolism",
             "urban stencil",
@@ -186,3 +173,69 @@ def _applications_for_project(
         applications[-1] = f"{applications[-1]} Avoid drifting into {avoid.lower()}."
 
     return applications
+
+
+def _type_directions(
+    direction_tags: list[str],
+    desired_feeling: str | None,
+    avoid: str | None,
+) -> list[dict]:
+    direction_text = " ".join(direction_tags).lower()
+    feeling_text = (desired_feeling or "").lower()
+    avoid_text = (avoid or "").lower()
+    context = " ".join([direction_text, feeling_text])
+
+    if any(keyword in context for keyword in ["organic", "hand-touched", "editorial", "luxury", "soft"]):
+        return [
+            {
+                "style": "Soft editorial serif",
+                "use": "For brand signatures, hero headlines, and cultured framing with more warmth than severity.",
+            },
+            {
+                "style": "Humanist sans",
+                "use": "For product names and supporting hierarchy that still feels shaped by the hand.",
+            },
+            {
+                "style": "Refined italic accent",
+                "use": "For notes, story text, or seasonal language that adds movement without going ornamental.",
+            },
+        ]
+
+    if any(keyword in context for keyword in ["technical", "precise", "industrial", "minimal"]):
+        return [
+            {
+                "style": "Structured neo-grotesk",
+                "use": "For headlines and product naming where the system needs clarity and compression.",
+            },
+            {
+                "style": "Utility mono",
+                "use": "For specs, captions, and archive language that should feel deliberate and exact.",
+            },
+            {
+                "style": "Narrow grotesk",
+                "use": "For secondary hierarchy when you want precision without looking cold.",
+            },
+        ]
+
+    base_directions = [
+        {
+            "style": "Compressed grotesk",
+            "use": "For street-poster urgency, product names, and campaign headlines.",
+        },
+        {
+            "style": "Ink-trap sans",
+            "use": "For sharper cultural edge without losing legibility.",
+        },
+        {
+            "style": "Utility mono",
+            "use": "For captions, archive labels, specs, and drop information.",
+        },
+    ]
+
+    if "blocky" in avoid_text or "utilitarian" in avoid_text:
+        base_directions[2] = {
+            "style": "Calligraphic sans accent",
+            "use": "For captions or side notes that keep the system lively without falling back to a hard utilitarian voice.",
+        }
+
+    return base_directions

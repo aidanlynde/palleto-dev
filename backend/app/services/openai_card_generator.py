@@ -151,6 +151,8 @@ Rules:
 - project_lens.summary must be a strong "what to steal" takeaway: one clear creative idea a user can apply from this image.
 - project_lens.applications must be concrete project-specific uses for the active project, not generic observations.
 - When project context includes audience, desired feeling, avoid cues, or reference links, treat them as real constraints rather than loose flavor.
+- Prioritize the project context in this order: project type and current goal, desired feeling, positive direction tags, avoid cues, then reference links.
+- If the project context contains both positive and negative cues, resolve the output toward the positive cues while explicitly steering away from the negative ones.
 - Type direction must respect the requested feeling and avoid list. If the context suggests organic, soft, handmade, editorial, or luxurious qualities, do not default to blocky utilitarian type unless the image evidence strongly demands that tension.
 - Design moves must be short action lines that can support the translation, but avoid repeating project_lens.applications.
 - Related links should be specific public webpages that are likely to unfurl with real link preview images: design articles, museum/archive pages, type foundries, brand case studies, editorial references, Are.na channels, Pinterest boards, or other stable inspiration pages.
