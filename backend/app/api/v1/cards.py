@@ -7,11 +7,18 @@ from sqlalchemy import desc
 from app.core.auth import FirebaseUser, get_current_firebase_user
 from app.db.models import Card, CardRefinement, User
 from app.db.session import DbSession, create_db_and_tables
-from app.schemas.card import CardRead, CardRefinementCreate, CardRefinementRead, ProjectContextPayload
+from app.schemas.card import (
+    CardRead,
+    CardRefinementCreate,
+    CardRefinementRead,
+    CardShareRead,
+    ProjectContextPayload,
+)
 from app.schemas.project import ActiveProjectRead
 from app.services.card_refinements import serialize_card
 from app.services.openai_card_generator import generate_card_payload_for_image, refine_card_payload
 from app.services.projects import get_active_project
+from app.services.shares import build_share_url, get_or_create_card_share
 from app.services.storage import delete_card_image, upload_card_image
 from app.services.users import get_or_create_user
 
@@ -169,6 +176,37 @@ def create_card_refinement(
     db.refresh(refinement)
 
     return refinement
+
+
+@router.post("/{card_id}/share", response_model=CardShareRead, status_code=status.HTTP_200_OK)
+def create_or_get_card_share(
+    card_id: str,
+    db: DbSession,
+    firebase_user: FirebaseUser = Depends(get_current_firebase_user),
+) -> CardShareRead:
+    create_db_and_tables()
+
+    user = get_or_create_user(db, firebase_user)
+    card = db.query(Card).filter(Card.id == card_id, Card.user_id == user.id).one_or_none()
+
+    if card is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Card not found.",
+        )
+
+    share = get_or_create_card_share(db, card)
+    db.commit()
+    db.refresh(share)
+
+    return CardShareRead(
+        id=share.id,
+        card_id=share.card_id,
+        share_token=share.share_token,
+        share_url=build_share_url(share.share_token),
+        created_at=share.created_at,
+        updated_at=share.updated_at,
+    )
 
 
 @router.delete("/{card_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -91,6 +91,15 @@ export type CardRefinement = {
   updated_at: string;
 };
 
+export type CardShare = {
+  id: string;
+  card_id: string;
+  share_token: string;
+  share_url: string;
+  created_at: string;
+  updated_at: string;
+};
+
 type UploadCardInput = {
   idToken: string;
   imageUri: string;
@@ -243,6 +252,24 @@ export async function createCardRefinement(
 
   if (!response.ok) {
     throw new Error(`Failed to refine card: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function createOrGetCardShare(
+  idToken: string,
+  cardId: string
+): Promise<CardShare> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/cards/${cardId}/share`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create share: ${response.status}`);
   }
 
   return response.json();

@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     app_name: str = "Palleto API"
     api_v1_prefix: str = "/api/v1"
     backend_cors_origins: str = ""
+    public_api_base_url: str = "http://localhost:8000"
+    public_share_base_url: str = "http://localhost:8000"
+    public_web_base_url: str = "http://localhost:8000"
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/palleto"
     firebase_credentials_path: str | None = None
     firebase_project_id: str | None = None

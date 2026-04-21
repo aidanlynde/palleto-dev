@@ -239,6 +239,7 @@ export default function App() {
                 selectedCard ? (
                     <CardResultScreen
                       card={selectedCard}
+                      firebaseUser={firebaseUser}
                       onDone={() => navigation.navigate("Home")}
                       onRefine={() => navigation.navigate("Refine")}
                       onViewLibrary={() => navigation.navigate("Home")}

@@ -4,7 +4,7 @@ import { User } from "firebase/auth";
 import { useState } from "react";
 import { Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
-import { deleteCard, InspirationCard } from "../services/api";
+import { createOrGetCardShare, deleteCard, InspirationCard } from "../services/api";
 import { theme } from "../theme";
 
 type PaletteColor = InspirationCard["palette"][number];
@@ -12,16 +12,29 @@ type RelatedLink = InspirationCard["related_links"][number];
 
 type CardResultScreenProps = {
   card: InspirationCard;
+  firebaseUser: User;
   onDone: () => void;
   onRefine: () => void;
   onViewLibrary: () => void;
 };
 
-export function CardResultScreen({ card, onDone, onRefine, onViewLibrary }: CardResultScreenProps) {
+export function CardResultScreen({
+  card,
+  firebaseUser,
+  onDone,
+  onRefine,
+  onViewLibrary
+}: CardResultScreenProps) {
   async function shareCard() {
-    await Share.share({
-      message: `${card.title}\n\n${card.one_line_read}\n\nMade with Palleto`
-    });
+    try {
+      const token = await firebaseUser.getIdToken();
+      const share = await createOrGetCardShare(token, card.id);
+      await Share.share({
+        message: `${card.title}\n\n${card.one_line_read}\n\n${share.share_url}`
+      });
+    } catch {
+      Alert.alert("Share failed", "Try again in a moment.");
+    }
   }
 
   return (
@@ -143,6 +156,18 @@ export function CardDetailScreen({
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
+  async function shareCard() {
+    try {
+      const token = await firebaseUser.getIdToken();
+      const share = await createOrGetCardShare(token, card.id);
+      await Share.share({
+        message: `${card.title}\n\n${card.one_line_read}\n\n${share.share_url}`
+      });
+    } catch {
+      Alert.alert("Share failed", "Try again in a moment.");
+    }
+  }
+
   function confirmDelete() {
     Alert.alert("Delete this card?", "This removes it from your library.", [
       { text: "Cancel", style: "cancel" },
@@ -171,6 +196,12 @@ export function CardDetailScreen({
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <CardDetail card={card} />
+      <Pressable
+        onPress={shareCard}
+        style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
+      >
+        <Text style={styles.primaryButtonText}>Share card</Text>
+      </Pressable>
       <Pressable
         onPress={onRefine}
         style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
