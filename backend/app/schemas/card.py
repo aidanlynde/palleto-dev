@@ -81,3 +81,20 @@ class CardRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class CardRefinementCreate(BaseModel):
+    instruction: str
+    preset_label: str | None = None
+
+
+class CardRefinementRead(BaseModel):
+    id: str
+    card_id: str
+    preset_label: str | None
+    instruction: str
+    refined_card: CardRead
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

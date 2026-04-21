@@ -81,6 +81,16 @@ export type InspirationCard = {
   updated_at: string;
 };
 
+export type CardRefinement = {
+  id: string;
+  card_id: string;
+  preset_label: string | null;
+  instruction: string;
+  refined_card: InspirationCard;
+  created_at: string;
+  updated_at: string;
+};
+
 type UploadCardInput = {
   idToken: string;
   imageUri: string;
@@ -195,6 +205,47 @@ export async function deleteCard(idToken: string, cardId: string): Promise<void>
   if (!response.ok) {
     throw new Error(`Failed to delete card: ${response.status}`);
   }
+}
+
+export async function listCardRefinements(
+  idToken: string,
+  cardId: string
+): Promise<CardRefinement[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/cards/${cardId}/refinements`, {
+    headers: {
+      Authorization: `Bearer ${idToken}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to load refinements: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function createCardRefinement(
+  idToken: string,
+  cardId: string,
+  input: { instruction: string; presetLabel?: string | null }
+): Promise<CardRefinement> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/cards/${cardId}/refinements`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      instruction: input.instruction,
+      preset_label: input.presetLabel ?? null
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to refine card: ${response.status}`);
+  }
+
+  return response.json();
 }
 
 function mapActiveProject(payload: ActiveProjectApiResponse): ProjectContext {

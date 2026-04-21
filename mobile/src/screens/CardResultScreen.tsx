@@ -13,10 +13,11 @@ type RelatedLink = InspirationCard["related_links"][number];
 type CardResultScreenProps = {
   card: InspirationCard;
   onDone: () => void;
+  onRefine: () => void;
   onViewLibrary: () => void;
 };
 
-export function CardResultScreen({ card, onDone, onViewLibrary }: CardResultScreenProps) {
+export function CardResultScreen({ card, onDone, onRefine, onViewLibrary }: CardResultScreenProps) {
   async function shareCard() {
     await Share.share({
       message: `${card.title}\n\n${card.one_line_read}\n\nMade with Palleto`
@@ -30,6 +31,9 @@ export function CardResultScreen({ card, onDone, onViewLibrary }: CardResultScre
       <View style={styles.actions}>
         <Pressable style={styles.primaryButton} onPress={shareCard}>
           <Text style={styles.primaryButtonText}>Share card</Text>
+        </Pressable>
+        <Pressable style={styles.secondaryButton} onPress={onRefine}>
+          <Text style={styles.secondaryButtonText}>Refine with AI</Text>
         </Pressable>
         <Pressable style={styles.secondaryButton} onPress={onViewLibrary}>
           <Text style={styles.secondaryButtonText}>View library</Text>
@@ -129,10 +133,12 @@ export function CardDetail({ card }: { card: InspirationCard }) {
 export function CardDetailScreen({
   card,
   firebaseUser,
+  onRefine,
   onDeleted
 }: {
   card: InspirationCard;
   firebaseUser: User;
+  onRefine: () => void;
   onDeleted: () => void;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
@@ -165,6 +171,12 @@ export function CardDetailScreen({
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <CardDetail card={card} />
+      <Pressable
+        onPress={onRefine}
+        style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
+      >
+        <Text style={styles.secondaryButtonText}>Refine with AI</Text>
+      </Pressable>
       <Pressable
         disabled={isDeleting}
         onPress={confirmDelete}

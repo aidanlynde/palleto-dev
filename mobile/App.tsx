@@ -16,6 +16,7 @@ import { MainScreen } from "./src/screens/MainScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProcessingScreen } from "./src/screens/ProcessingScreen";
 import { ProjectIntakeScreen } from "./src/screens/ProjectIntakeScreen";
+import { RefineCardScreen } from "./src/screens/RefineCardScreen";
 import { SplashScreen } from "./src/screens/SplashScreen";
 import { getActiveProject, InspirationCard, saveActiveProject } from "./src/services/api";
 import { firebaseAuth } from "./src/services/firebase";
@@ -36,6 +37,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Processing: undefined;
   ProjectIntake: undefined;
+  Refine: undefined;
   Result: undefined;
   Splash: undefined;
 };
@@ -238,6 +240,7 @@ export default function App() {
                     <CardResultScreen
                       card={selectedCard}
                       onDone={() => navigation.navigate("Home")}
+                      onRefine={() => navigation.navigate("Refine")}
                       onViewLibrary={() => navigation.navigate("Home")}
                     />
                 ) : (
@@ -260,10 +263,22 @@ export default function App() {
                   <CardDetailScreen
                     card={selectedCard}
                     firebaseUser={firebaseUser}
+                    onRefine={() => navigation.navigate("Refine")}
                     onDeleted={() => {
                       setSelectedCard(null);
                       navigation.navigate("Home");
                     }}
+                  />
+                ) : null
+              }
+            </Stack.Screen>
+            <Stack.Screen name="Refine" options={{ title: "Refine with AI" }}>
+              {() =>
+                selectedCard ? (
+                  <RefineCardScreen
+                    card={selectedCard}
+                    firebaseUser={firebaseUser}
+                    onRefined={setSelectedCard}
                   />
                 ) : null
               }

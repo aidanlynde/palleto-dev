@@ -71,6 +71,28 @@ def generate_card_payload_for_image(
         return _fallback_payload(project_context)
 
 
+def refine_card_payload(
+    *,
+    image_url: str,
+    base_card: dict,
+    instruction: str,
+    project_context: ProjectContextPayload | None,
+) -> dict:
+    if not settings.openai_api_key:
+        return _fallback_refinement(base_card, instruction)
+
+    try:
+        return _refine_with_openai(
+            image_url=image_url,
+            base_card=base_card,
+            instruction=instruction,
+            project_context=project_context,
+        )
+    except Exception:
+        logger.exception("OpenAI card refinement failed; using placeholder refinement")
+        return _fallback_refinement(base_card, instruction)
+
+
 def _generate_with_openai(
     *,
     image_url: str,
@@ -124,10 +146,91 @@ def _generate_with_openai(
     return payload
 
 
+def _refine_with_openai(
+    *,
+    image_url: str,
+    base_card: dict,
+    instruction: str,
+    project_context: ProjectContextPayload | None,
+) -> dict:
+    client = OpenAI(api_key=settings.openai_api_key)
+    project_context_json = (
+        project_context.model_dump_json(exclude_none=True) if project_context else "{}"
+    )
+
+    response = client.responses.parse(
+        model=settings.openai_model,
+        input=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": _refinement_system_prompt(),
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": (
+                            "Refine this existing Palleto card for the same image. "
+                            f"Project context JSON: {project_context_json}\n\n"
+                            f"User instruction: {instruction}\n\n"
+                            f"Current card JSON: {base_card}"
+                        ),
+                    },
+                    {
+                        "type": "input_image",
+                        "image_url": image_url,
+                        "detail": "high",
+                    },
+                ],
+            },
+        ],
+        text_format=GeneratedCardPayload,
+    )
+
+    parsed = response.output_parsed
+    payload = parsed.model_dump()
+    payload["related_links"] = enrich_related_links(
+        _normalize_related_links(payload["related_links"])
+    )
+
+    return payload
+
+
 def _fallback_payload(project_context: ProjectContextPayload | None) -> dict:
     payload = generate_card_payload(project_context)
     payload["related_links"] = enrich_related_links(payload["related_links"])
     return payload
+
+
+def _fallback_refinement(base_card: dict, instruction: str) -> dict:
+    refined_card = dict(base_card)
+    refined_card["creative_direction"] = (
+        f"{base_card['creative_direction']} Refined direction: {instruction.strip()}."
+    )
+    refined_card["project_lens"] = {
+        **base_card["project_lens"],
+        "summary": f"{base_card['project_lens']['summary']} Refine it toward {instruction.strip().lower()}.",
+        "applications": [
+            f"{application} Push it toward {instruction.strip().lower()}."
+            if index == 0
+            else application
+            for index, application in enumerate(base_card["project_lens"]["applications"])
+        ],
+    }
+    refined_card["type_direction"] = [
+        {
+            "style": direction["style"],
+            "use": f"{direction['use']} Tuned toward {instruction.strip().lower()}.",
+        }
+        for direction in base_card["type_direction"]
+    ]
+    return refined_card
 
 
 def _system_prompt() -> str:
@@ -161,6 +264,24 @@ Rules:
 - Keep every text field concise enough for a mobile card.
 
 Return only the structured card.
+""".strip()
+
+
+def _refinement_system_prompt() -> str:
+    return """
+You are Palleto, refining an existing inspiration card with the user.
+
+Take the current card as the baseline. Do not restart from scratch unless the instruction clearly asks for a new angle.
+
+Rules:
+- Keep the refined output tied to the same image evidence.
+- Respect the user's refinement instruction as a concrete change request.
+- Preserve what is already strong in the card while making the requested shift obvious.
+- Tighten project translation, type direction, and applications first when the user asks for a stylistic change.
+- Do not bloat the amount of text. Make the refinement feel sharper, not longer.
+- Keep related links credible and likely to unfurl with real preview images.
+
+Return only the structured refined card.
 """.strip()
 
 

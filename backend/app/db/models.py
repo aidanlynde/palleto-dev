@@ -105,3 +105,34 @@ class Card(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="cards")
+    refinements: Mapped[list["CardRefinement"]] = relationship(
+        back_populates="card",
+        cascade="all, delete-orphan",
+    )
+
+
+class CardRefinement(Base):
+    __tablename__ = "card_refinements"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    card_id: Mapped[str] = mapped_column(
+        ForeignKey("cards.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    preset_label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    instruction: Mapped[str] = mapped_column(Text, nullable=False)
+    refined_card: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    card: Mapped[Card] = relationship(back_populates="refinements")

@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, Upl
 from sqlalchemy import desc
 
 from app.core.auth import FirebaseUser, get_current_firebase_user
-from app.db.models import Card, User
+from app.db.models import Card, CardRefinement, User
 from app.db.session import DbSession, create_db_and_tables
-from app.schemas.card import CardRead, ProjectContextPayload
+from app.schemas.card import CardRead, CardRefinementCreate, CardRefinementRead, ProjectContextPayload
 from app.schemas.project import ActiveProjectRead
-from app.services.openai_card_generator import generate_card_payload_for_image
+from app.services.card_refinements import serialize_card
+from app.services.openai_card_generator import generate_card_payload_for_image, refine_card_payload
 from app.services.projects import get_active_project
 from app.services.storage import delete_card_image, upload_card_image
 from app.services.users import get_or_create_user
@@ -97,6 +98,77 @@ def get_card(
         )
 
     return card
+
+
+@router.get("/{card_id}/refinements", response_model=list[CardRefinementRead])
+def list_card_refinements(
+    card_id: str,
+    db: DbSession,
+    firebase_user: FirebaseUser = Depends(get_current_firebase_user),
+) -> list[CardRefinement]:
+    create_db_and_tables()
+
+    user = get_or_create_user(db, firebase_user)
+    card = db.query(Card).filter(Card.id == card_id, Card.user_id == user.id).one_or_none()
+
+    if card is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Card not found.",
+        )
+
+    return (
+        db.query(CardRefinement)
+        .filter(CardRefinement.card_id == card.id)
+        .order_by(desc(CardRefinement.created_at))
+        .all()
+    )
+
+
+@router.post("/{card_id}/refinements", response_model=CardRefinementRead, status_code=status.HTTP_201_CREATED)
+def create_card_refinement(
+    card_id: str,
+    payload: CardRefinementCreate,
+    db: DbSession,
+    firebase_user: FirebaseUser = Depends(get_current_firebase_user),
+) -> CardRefinement:
+    create_db_and_tables()
+
+    user = get_or_create_user(db, firebase_user)
+    card = db.query(Card).filter(Card.id == card_id, Card.user_id == user.id).one_or_none()
+
+    if card is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Card not found.",
+        )
+
+    project_context = _resolve_project_context(db=db, user=user, project_context=None)
+    refined_card = refine_card_payload(
+        image_url=card.image_url,
+        base_card=serialize_card(card),
+        instruction=payload.instruction,
+        project_context=project_context,
+    )
+
+    refinement = CardRefinement(
+        card_id=card.id,
+        preset_label=payload.preset_label,
+        instruction=payload.instruction,
+        refined_card={
+            **refined_card,
+            "id": card.id,
+            "image_url": card.image_url,
+            "source_type": card.source_type,
+            "created_at": card.created_at.isoformat(),
+            "updated_at": card.updated_at.isoformat(),
+        },
+    )
+    db.add(refinement)
+    db.commit()
+    db.refresh(refinement)
+
+    return refinement
 
 
 @router.delete("/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
