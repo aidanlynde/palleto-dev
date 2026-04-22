@@ -1,8 +1,9 @@
 import * as Haptics from "expo-haptics";
-import { useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
   Image,
   ImageBackground,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,6 @@ import {
   View
 } from "react-native";
 
-import { CardDetail } from "./CardResultScreen";
 import { InspirationCard } from "../services/api";
 import {
   createEmptyOnboardingSurveyAnswers,
@@ -105,14 +105,19 @@ const processingStages = [
   "Building your first scan"
 ];
 
-const demoImageUrl =
-  "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80";
+const koiImageUrl = Image.resolveAssetSource(
+  require("../../assets/demo/koi-street-reference.png")
+).uri;
 
-const relatedPreviewImages = [
-  "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=640&q=80",
-  "https://images.unsplash.com/photo-1515405295579-ba7b45403062?auto=format&fit=crop&w=640&q=80",
-  "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=640&q=80"
-];
+const koiPreviewUrl = Image.resolveAssetSource(
+  require("../../assets/demo/koi-street-reference.png")
+).uri;
+const stainedGlassPreviewUrl = Image.resolveAssetSource(
+  require("../../assets/demo/stained-glass-reference.png")
+).uri;
+const gardenPreviewUrl = Image.resolveAssetSource(
+  require("../../assets/demo/garden-objects-reference.png")
+).uri;
 
 export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) {
   const [step, setStep] = useState(0);
@@ -121,15 +126,14 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
   );
   const [processingIndex, setProcessingIndex] = useState(0);
 
-  const totalSteps = 8;
+  const totalSteps = 9;
   const currentQuestion = step >= 1 && step <= questions.length ? questions[step - 1] : null;
   const selectedAnswers = currentQuestion ? answers[currentQuestion.id] : [];
   const canContinue = !currentQuestion || selectedAnswers.length > 0;
   const demoCard = useMemo(() => buildDemoCard(answers), [answers]);
-  const summaryLine = useMemo(() => buildSummaryLine(answers), [answers]);
 
   useEffect(() => {
-    if (step !== questions.length + 1) {
+    if (step !== questions.length + 2) {
       return;
     }
 
@@ -148,7 +152,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
         clearInterval(interval);
         setTimeout(() => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setStep(questions.length + 2);
+          setStep(questions.length + 3);
         }, 450);
         return current;
       });
@@ -221,8 +225,11 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
 
   if (currentQuestion) {
     return (
-      <View style={styles.questionScreen}>
-        <TopRow onSkip={onSkip} />
+      <ScrollView
+        style={styles.questionScreen}
+        contentContainerStyle={styles.questionScreenContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.questionHeader}>
           <Progress current={step + 1} total={totalSteps} />
           <Text style={styles.kicker}>{currentQuestion.kicker}</Text>
@@ -252,22 +259,58 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
           })}
         </View>
 
-        <View style={styles.summaryPanel}>
-          <Text style={styles.summaryEyebrow}>So far</Text>
-          <Text style={styles.summaryText}>{summaryLine}</Text>
-        </View>
-
         <FooterButton disabled={!canContinue} label="Continue" onPress={continueFlow} />
-      </View>
+      </ScrollView>
     );
   }
 
   if (step === questions.length + 1) {
     return (
+      <ImageBackground source={{ uri: koiImageUrl }} style={styles.fullscreen} resizeMode="cover">
+        <View style={styles.scanScrim}>
+          <Progress current={questions.length + 2} total={totalSteps} />
+          <View style={styles.scanTopBlock}>
+            <View style={styles.scanHeaderCard}>
+              <Text style={styles.kicker}>First scan</Text>
+              <Text style={styles.scanTitle}>Imagine you caught this walking home.</Text>
+              <Text style={styles.scanBody}>
+                Snap the koi, keep moving, and let Palleto turn it into something you can actually use.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.scanFocusArea}>
+            <View style={styles.scanFrame}>
+              <View style={[styles.scanCorner, styles.scanCornerTopLeft]} />
+              <View style={[styles.scanCorner, styles.scanCornerTopRight]} />
+              <View style={[styles.scanCorner, styles.scanCornerBottomLeft]} />
+              <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
+              <View style={styles.scanLine} />
+              <View style={styles.scanTargetBadge}>
+                <Text style={styles.scanTargetBadgeText}>Koi signal found</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.scanFooter}>
+            <View style={styles.scanFooterCard}>
+              <Text style={styles.scanFooterTitle}>Capture now, refine later.</Text>
+              <Text style={styles.scanFooterBody}>
+                The point is to get the first read fast, then open this back up when you have time.
+              </Text>
+            </View>
+            <FooterButton label="Scan this reference" onPress={continueFlow} />
+          </View>
+        </View>
+      </ImageBackground>
+    );
+  }
+
+  if (step === questions.length + 2) {
+    return (
       <View style={styles.processingContainer}>
-        <TopRow onSkip={onSkip} />
-        <Progress current={questions.length + 2} total={totalSteps} />
-        <Image source={{ uri: demoImageUrl }} style={styles.processingImage} resizeMode="cover" />
+        <Progress current={questions.length + 3} total={totalSteps} />
+        <Image source={{ uri: koiImageUrl }} style={styles.processingImage} resizeMode="cover" />
         <Text style={styles.kicker}>Building your first scan</Text>
         <Text style={styles.processingTitle}>{processingStages[processingIndex]}</Text>
         <View style={styles.stageList}>
@@ -286,7 +329,6 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
 
   return (
     <ScrollView style={styles.previewContainer} contentContainerStyle={styles.previewContent}>
-      <TopRow onSkip={onSkip} />
       <Progress current={totalSteps} total={totalSteps} />
       <View style={styles.previewHeader}>
         <Text style={styles.kicker}>Your first scan</Text>
@@ -296,12 +338,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
         </Text>
       </View>
 
-      <CardDetail card={demoCard} />
-
-      <View style={styles.summaryPanel}>
-        <Text style={styles.summaryEyebrow}>What this is tuned for</Text>
-        <Text style={styles.summaryText}>{summaryLine}</Text>
-      </View>
+      <PreviewScanCard card={demoCard} />
 
       <FooterButton label="Create my first scan" onPress={continueFlow} />
     </ScrollView>
@@ -360,13 +397,159 @@ function FooterButton({
   );
 }
 
-function buildSummaryLine(answers: OnboardingSurveyAnswers) {
-  const work = answers.work_for[0] || "creative work";
-  const extract = answers.extract_from_reference.slice(0, 3).join(", ") || "clear design signal";
-  const useful = answers.useful_scan.slice(0, 2).join(" + ") || "a usable next move";
-  const avoid = answers.avoid.slice(0, 2).join(" + ") || "generic output";
+function PreviewScanCard({ card }: { card: InspirationCard }) {
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
-  return `Built for ${work}. Prioritizing ${extract}. Useful means ${useful}. Avoiding ${avoid}.`;
+  function toggleSection(section: string) {
+    setExpandedSection((current) => (current === section ? null : section));
+  }
+
+  return (
+    <View style={styles.previewCard}>
+      <Image source={{ uri: card.image_url }} style={styles.previewCardImage} resizeMode="cover" />
+      <View style={styles.previewCardBody}>
+        <Text style={styles.previewCardTitle}>{card.title}</Text>
+        <Text style={styles.previewCardRead}>{card.one_line_read}</Text>
+        <Text numberOfLines={4} style={styles.previewCardDirection}>
+          {card.creative_direction}
+        </Text>
+
+        <CollapsibleSection
+          expanded={expandedSection === "palette"}
+          onPress={() => toggleSection("palette")}
+          subtitle={`${card.palette.length} colors with copyable hex`}
+          title="Palette"
+        >
+          <View style={styles.previewPaletteList}>
+            {card.palette.map((color) => (
+              <View key={color.hex} style={styles.previewPaletteItem}>
+                <View style={[styles.previewPaletteSwatch, { backgroundColor: color.hex }]} />
+                <View style={styles.previewPaletteMeta}>
+                  <Text style={styles.previewPaletteLabel}>{color.label}</Text>
+                  <Text style={styles.previewPaletteRole}>{color.role}</Text>
+                </View>
+                <Text style={styles.previewPaletteHex}>{color.hex.toUpperCase()}</Text>
+              </View>
+            ))}
+          </View>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          expanded={expandedSection === "links"}
+          onPress={() => toggleSection("links")}
+          subtitle="Real references with previews"
+          title="Related inspiration"
+        >
+          <View style={styles.previewLinksList}>
+            {card.related_links.map((link) => (
+              <Pressable
+                key={link.url}
+                onPress={() => Linking.openURL(link.url)}
+                style={({ pressed }) => [styles.previewLinkItem, pressed && styles.pressed]}
+              >
+                {link.thumbnail_url ? (
+                  <Image
+                    source={{ uri: link.thumbnail_url }}
+                    style={styles.previewLinkImage}
+                    resizeMode="cover"
+                  />
+                ) : null}
+                <View style={styles.previewLinkCopy}>
+                  <Text style={styles.previewLinkTitle}>{link.title}</Text>
+                  {link.reason ? <Text style={styles.previewLinkReason}>{link.reason}</Text> : null}
+                  <Text style={styles.previewLinkProvider}>{link.provider}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          expanded={expandedSection === "translation"}
+          onPress={() => toggleSection("translation")}
+          subtitle="What to steal and how to use it"
+          title="Creative translation"
+        >
+          <Text style={styles.previewTranslationTitle}>{card.project_lens.summary}</Text>
+          <View style={styles.previewApplicationList}>
+            {card.project_lens.applications.map((application, index) => (
+              <View key={application} style={styles.previewApplicationRow}>
+                <Text style={styles.previewApplicationIndex}>
+                  {String(index + 1).padStart(2, "0")}
+                </Text>
+                <Text style={styles.previewApplicationText}>{application}</Text>
+              </View>
+            ))}
+          </View>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          expanded={expandedSection === "type"}
+          onPress={() => toggleSection("type")}
+          subtitle="Typography direction from the same scan"
+          title="Type direction"
+        >
+          <View style={styles.previewTypeList}>
+            {card.type_direction.map((direction) => (
+              <View key={direction.style} style={styles.previewTypeItem}>
+                <Text style={styles.previewTypeStyle}>{direction.style}</Text>
+                <Text style={styles.previewTypeUse}>{direction.use}</Text>
+              </View>
+            ))}
+          </View>
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          expanded={expandedSection === "refine"}
+          onPress={() => toggleSection("refine")}
+          subtitle="A paid layer for deeper creative work"
+          title="Refine with AI"
+        >
+          <Text style={styles.previewRefineLead}>
+            When the first scan sparks something, you can keep going instead of starting over.
+          </Text>
+          <View style={styles.previewRefinePromptList}>
+            {[
+              "Make this feel more organic and less corporate",
+              "Push this toward a luxury fashion direction",
+              "Give me stronger type options for this project"
+            ].map((prompt) => (
+              <View key={prompt} style={styles.previewRefinePrompt}>
+                <Text style={styles.previewRefinePromptText}>{prompt}</Text>
+              </View>
+            ))}
+          </View>
+        </CollapsibleSection>
+      </View>
+    </View>
+  );
+}
+
+function CollapsibleSection({
+  children,
+  expanded,
+  onPress,
+  subtitle,
+  title
+}: {
+  children: ReactNode;
+  expanded: boolean;
+  onPress: () => void;
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <View style={styles.previewSection}>
+      <Pressable onPress={onPress} style={({ pressed }) => [styles.previewSectionHeader, pressed && styles.pressed]}>
+        <View style={styles.previewSectionHeading}>
+          <Text style={styles.previewSectionTitle}>{title}</Text>
+          <Text style={styles.previewSectionSubtitle}>{subtitle}</Text>
+        </View>
+        <Text style={styles.previewSectionToggle}>{expanded ? "Hide" : "Open"}</Text>
+      </Pressable>
+      {expanded ? <View style={styles.previewSectionContent}>{children}</View> : null}
+    </View>
+  );
 }
 
 function buildDemoCard(answers: OnboardingSurveyAnswers): InspirationCard {
@@ -378,64 +561,64 @@ function buildDemoCard(answers: OnboardingSurveyAnswers): InspirationCard {
 
   return {
     id: "demo-onboarding-card",
-    image_url: demoImageUrl,
+    image_url: koiImageUrl,
     source_type: "camera",
-    title: "Found Ornament System",
+    title: "Street Koi Signal",
     one_line_read:
-      "A faded street-side surface becomes a repeatable language of framed color, worn texture, and ornamental rhythm.",
-    creative_direction: `This kind of reference becomes powerful when it stops being just a photo and starts acting like a system. Pull the framed edges, the weathered surface, and the restrained warm-cool palette into something that feels ${leanToward.toLowerCase()} without slipping into ${avoid.toLowerCase()}.`,
+      "A street-found graphic system built from pavement grit, symbolic animal forms, and one sharp orange interruption.",
+    creative_direction: `This reference works because it turns an ordinary sidewalk into a graphic mark with memory. The koi forms feel handmade and symbolic, while the black, white, and orange palette gives the image instant poster energy. Push it toward ${leanToward.toLowerCase()} without letting it drift into ${avoid.toLowerCase()}.`,
     palette: [
-      { hex: "#1C1B1A", label: "Ink black", role: "anchor" },
-      { hex: "#F4EFE6", label: "Stone white", role: "relief" },
-      { hex: "#D97A3C", label: "Burnt apricot", role: "warm accent" },
-      { hex: "#6FA7CF", label: "Icy cyan", role: "cool accent" },
-      { hex: "#8A5771", label: "Dusty plum", role: "depth" }
+      { hex: "#F26A21", label: "Signal orange", role: "accent" },
+      { hex: "#111111", label: "Tar black", role: "anchor" },
+      { hex: "#F4F1EA", label: "Chalk white", role: "relief" },
+      { hex: "#67675F", label: "Weathered concrete", role: "field" },
+      { hex: "#2D2F2A", label: "Soft shadow", role: "depth" }
     ],
     visual_dna: {
-      composition: "A framed field holds the eye inside a bordered surface instead of letting the image drift outward.",
-      contrast: "Pale negative space, dusty color, and a few darker anchors create a restrained but tactile hierarchy.",
-      shape_language: "Rounded border intervals, soft rectangles, hand-shaped interruptions, and repeatable edge logic.",
-      texture: "Weathered pigment, chalky wear, paper-like abrasion, and visible hand-touched surface irregularity."
+      composition: "Two offset forms create diagonal movement and a quiet negative-space tension.",
+      contrast: "Hard black and white separation with one saturated orange interruption.",
+      shape_language: "Organic koi silhouettes, tapered motion, and stencil-like edge behavior.",
+      texture: "Rough pavement grain, sprayed pigment, chalky wear, and soft outdoor shadow."
     },
     design_moves: [
-      "Use a contained border system instead of a floating composition.",
-      "Keep one warm accent and one cool accent doing most of the work.",
-      "Let age and abrasion stay visible rather than cleaning every edge."
+      "Use one saturated accent as the emotional charge instead of overfilling the palette.",
+      "Let rough surface texture stay visible instead of cleaning the mark up.",
+      "Pair symbolic illustrated form with more disciplined typography."
     ],
     project_lens: {
       applications: buildApplications(projectType),
       project_type: projectType,
-      summary: `${bigIdea.replace(/^A /, "").replace(/^a /, "")}. Treat this reference like a portable visual system, not a one-off mood image.`
+      summary: `${bigIdea.replace(/^A /, "").replace(/^a /, "")}. Treat the koi as a repeatable symbol system, not just an image motif.`
     },
     type_direction: typeDirections,
     search_language: [
-      "ornamental textile collage",
-      "scalloped border design",
-      "worn painted surface",
-      "editorial material palette",
-      "framed decorative composition"
+      "koi symbolism graphic design",
+      "urban stencil poster reference",
+      "pavement texture identity",
+      "signal orange visual system",
+      "handmade street mark"
     ],
     related_links: [
       {
-        provider: "Are.na",
-        reason: "A board lane for framed ornament, layered surface, and decorative composition.",
-        thumbnail_url: relatedPreviewImages[0],
-        title: "Ornament and framed surface references",
-        url: "https://www.are.na/search?q=ornament%20framed%20surface"
+        provider: "Behance",
+        reason: "A tight brand-identity lane for symbolic koi forms, controlled color, and disciplined framing.",
+        thumbnail_url: koiPreviewUrl,
+        title: "Koi. Restaurant Brand Identity",
+        url: "https://www.behance.net/gallery/166466327/Koi-Restaurant-Brand-Identity"
       },
       {
-        provider: "Pinterest",
-        reason: "Useful for pulling textile borders, decorative framing, and repeatable edge language.",
-        thumbnail_url: relatedPreviewImages[1],
-        title: "Scalloped border textile references",
-        url: "https://www.pinterest.com/search/pins/?q=scalloped%20border%20textile%20design"
+        provider: "Design Shack",
+        reason: "Useful when you want the output to stay hand-touched, imperfect, and visibly made instead of generic.",
+        thumbnail_url: stainedGlassPreviewUrl,
+        title: "Hand-Drawn & Illustrated Posters: A Return to Organic Design",
+        url: "https://designshack.net/articles/graphics/hand-drawn-illustrated-posters/"
       },
       {
-        provider: "Google Images",
-        reason: "A broader lane for layered painted surfaces and collage-like material texture.",
-        thumbnail_url: relatedPreviewImages[2],
-        title: "Layered abstract framed painting textile",
-        url: "https://www.google.com/search?tbm=isch&q=layered%20abstract%20framed%20painting%20textile"
+        provider: "MaterialDriven",
+        reason: "A strong reference for translating rough material cues and tactile surfaces into emotionally charged graphic systems.",
+        thumbnail_url: gardenPreviewUrl,
+        title: "Tactile and Emotive Graphic Design from Design&Practice",
+        url: "https://www.materialdriven.com/blog/2017/12/6/tactile-and-emotive-graphic-design-from-designpractice"
       }
     ],
     created_at: "2026-04-22T00:00:00.000Z",
@@ -562,12 +745,13 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   skipButton: {
-    paddingVertical: theme.spacing.xs
+    paddingVertical: theme.spacing.xs,
+    opacity: 0.36
   },
   skipButtonText: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "800"
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700"
   },
   heroContent: {
     gap: theme.spacing.md
@@ -596,10 +780,14 @@ const styles = StyleSheet.create({
   },
   questionScreen: {
     flex: 1,
+    backgroundColor: theme.colors.background
+  },
+  questionScreenContent: {
+    flexGrow: 1,
     paddingHorizontal: theme.spacing.lg,
     paddingTop: 56,
     paddingBottom: 34,
-    backgroundColor: theme.colors.background
+    gap: theme.spacing.lg
   },
   questionHeader: {
     gap: theme.spacing.md
@@ -705,6 +893,129 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 34
   },
+  scanScrim: {
+    flex: 1,
+    justifyContent: "space-between",
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: 56,
+    paddingBottom: 34,
+    backgroundColor: "rgba(0,0,0,0.42)"
+  },
+  scanTopBlock: {
+    alignItems: "flex-start"
+  },
+  scanHeaderCard: {
+    maxWidth: 316,
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    borderRadius: theme.radius.small,
+    backgroundColor: "rgba(0,0,0,0.58)"
+  },
+  scanTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 34
+  },
+  scanBody: {
+    color: theme.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  scanFocusArea: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  scanFrame: {
+    position: "relative",
+    alignSelf: "center",
+    width: "78%",
+    aspectRatio: 0.82,
+    borderRadius: theme.radius.small,
+    backgroundColor: "rgba(0,0,0,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)"
+  },
+  scanCorner: {
+    position: "absolute",
+    width: 26,
+    height: 26,
+    borderColor: theme.colors.textPrimary
+  },
+  scanCornerTopLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3,
+    borderLeftWidth: 3
+  },
+  scanCornerTopRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3,
+    borderRightWidth: 3
+  },
+  scanCornerBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3
+  },
+  scanCornerBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3,
+    borderRightWidth: 3
+  },
+  scanLine: {
+    position: "absolute",
+    left: 14,
+    right: 14,
+    top: "52%",
+    height: 2,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    shadowColor: "#FFFFFF",
+    shadowOpacity: 0.45,
+    shadowRadius: 8
+  },
+  scanTargetBadge: {
+    position: "absolute",
+    left: theme.spacing.sm,
+    bottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: theme.radius.small,
+    backgroundColor: "rgba(0,0,0,0.62)"
+  },
+  scanTargetBadgeText: {
+    color: theme.colors.textPrimary,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  scanFooter: {
+    gap: theme.spacing.md
+  },
+  scanFooterCard: {
+    gap: 4,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: theme.radius.small,
+    backgroundColor: "rgba(0,0,0,0.52)"
+  },
+  scanFooterTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "800"
+  },
+  scanFooterBody: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
+  },
   stageList: {
     gap: theme.spacing.sm
   },
@@ -739,6 +1050,205 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 15,
     lineHeight: 22
+  },
+  previewCard: {
+    overflow: "hidden",
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  previewCardImage: {
+    width: "100%",
+    height: 228
+  },
+  previewCardBody: {
+    gap: theme.spacing.md,
+    padding: theme.spacing.md
+  },
+  previewCardTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 28,
+    fontWeight: "800",
+    lineHeight: 32
+  },
+  previewCardRead: {
+    color: theme.colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 22
+  },
+  previewCardDirection: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 21
+  },
+  previewSection: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: theme.spacing.md
+  },
+  previewSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: theme.spacing.md
+  },
+  previewSectionHeading: {
+    flex: 1,
+    gap: 3
+  },
+  previewSectionTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  previewSectionSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
+  },
+  previewSectionToggle: {
+    color: theme.colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "800"
+  },
+  previewSectionContent: {
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md
+  },
+  previewPaletteList: {
+    gap: theme.spacing.sm
+  },
+  previewPaletteItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm
+  },
+  previewPaletteSwatch: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radius.small
+  },
+  previewPaletteMeta: {
+    flex: 1,
+    gap: 2
+  },
+  previewPaletteLabel: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  previewPaletteRole: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase"
+  },
+  previewPaletteHex: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800"
+  },
+  previewLinksList: {
+    gap: theme.spacing.sm
+  },
+  previewLinkItem: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    padding: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.small
+  },
+  previewLinkImage: {
+    width: 72,
+    height: 72,
+    borderRadius: theme.radius.small
+  },
+  previewLinkCopy: {
+    flex: 1,
+    gap: 3
+  },
+  previewLinkTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 18
+  },
+  previewLinkReason: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18
+  },
+  previewLinkProvider: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  previewTranslationTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 24
+  },
+  previewApplicationList: {
+    gap: theme.spacing.sm
+  },
+  previewApplicationRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm
+  },
+  previewApplicationIndex: {
+    width: 24,
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800"
+  },
+  previewApplicationText: {
+    flex: 1,
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20
+  },
+  previewTypeList: {
+    gap: theme.spacing.sm
+  },
+  previewTypeItem: {
+    gap: 3
+  },
+  previewTypeStyle: {
+    color: theme.colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "800"
+  },
+  previewTypeUse: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
+  },
+  previewRefineLead: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 21
+  },
+  previewRefinePromptList: {
+    gap: theme.spacing.sm
+  },
+  previewRefinePrompt: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.small
+  },
+  previewRefinePromptText: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
   },
   pressed: {
     opacity: 0.72
