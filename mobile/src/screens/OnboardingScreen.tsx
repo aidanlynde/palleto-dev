@@ -10,11 +10,17 @@ import {
   View
 } from "react-native";
 
-import { OnboardingSurveyAnswers } from "../services/onboarding";
+import { CardDetail } from "./CardResultScreen";
+import { InspirationCard } from "../services/api";
+import {
+  createEmptyOnboardingSurveyAnswers,
+  OnboardingSurveyAnswers
+} from "../services/onboarding";
 import { theme } from "../theme";
 
 type OnboardingScreenProps = {
   onComplete: (surveyAnswers: OnboardingSurveyAnswers) => void;
+  onSkip?: () => void;
 };
 
 type Question = {
@@ -26,208 +32,104 @@ type Question = {
 
 const questions: Question[] = [
   {
-    id: "looking_for",
-    kicker: "Taste calibration",
-    prompt: "What do you usually want to pull out of a reference first?",
-    options: [
-      "Color systems",
-      "Materials and texture",
-      "Typography direction",
-      "Composition",
-      "Mood and tone",
-      "Graphic forms"
-    ]
-  },
-  {
-    id: "help_with",
-    kicker: "Creative intent",
-    prompt: "What kind of work are you usually shaping?",
+    id: "work_for",
+    kicker: "How You Use It",
+    prompt: "What kind of work are you collecting inspiration for most often?",
     options: [
       "Clothing brand",
       "Brand identity",
-      "Campaign world",
-      "Interior concept",
-      "Product design",
+      "Campaign and art direction",
+      "Interior or spatial direction",
+      "Product or object design",
       "Personal archive"
     ]
   },
   {
-    id: "must_feel_like",
-    kicker: "Positive cues",
-    prompt: "When Palleto translates inspiration for you, what should it feel like?",
+    id: "extract_from_reference",
+    kicker: "What You Extract",
+    prompt: "When you save a reference, what are you usually trying to pull out of it?",
+    options: [
+      "Color systems",
+      "Texture and material language",
+      "Typography direction",
+      "Composition and framing",
+      "Mood and emotional tone",
+      "How it could translate into a project"
+    ]
+  },
+  {
+    id: "useful_scan",
+    kicker: "What Makes It Useful",
+    prompt: "What would make a scan immediately useful instead of just interesting?",
+    options: [
+      "A clear big idea I can steal",
+      "Project-specific applications",
+      "Stronger type direction",
+      "Better reference links",
+      "A share-ready summary",
+      "A cleaner next creative move"
+    ]
+  },
+  {
+    id: "lean_toward",
+    kicker: "What To Lean Toward",
+    prompt: "When Palleto translates references for you, what should it lean toward?",
     options: [
       "Organic and hand-touched",
       "Quiet luxury",
       "Editorial and cultured",
       "Raw and lived-in",
       "Technical and precise",
-      "Playful and expressive"
+      "Minimal and restrained"
     ]
   },
   {
-    id: "must_not_feel_like",
-    kicker: "Negative cues",
-    prompt: "What should it stay away from?",
+    id: "avoid",
+    kicker: "What To Avoid",
+    prompt: "What should the AI stay away from when it turns a reference into direction?",
     options: [
       "Corporate and sterile",
       "Blocky and utilitarian",
+      "Generic streetwear",
       "Over-designed and noisy",
-      "Too trend-driven",
       "Soft wellness minimalism",
-      "Generic streetwear"
+      "Too trend-driven"
     ]
   }
 ];
 
 const processingStages = [
-  "Reading palette",
-  "Studying contrast",
-  "Finding texture",
-  "Building direction"
+  "Reading visual signal",
+  "Translating into project direction",
+  "Pulling references and type lanes",
+  "Building your first scan"
 ];
 
-const palette = [
-  { hex: "#F26A21", label: "Signal orange", role: "accent" },
-  { hex: "#111111", label: "Tar black", role: "anchor" },
-  { hex: "#F4F1EA", label: "Chalk white", role: "relief" },
-  { hex: "#67675F", label: "Weathered concrete", role: "field" },
-  { hex: "#2D2F2A", label: "Soft shadow", role: "depth" }
+const demoImageUrl =
+  "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1200&q=80";
+
+const relatedPreviewImages = [
+  "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=640&q=80",
+  "https://images.unsplash.com/photo-1515405295579-ba7b45403062?auto=format&fit=crop&w=640&q=80",
+  "https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=640&q=80"
 ];
 
-const visualDna = [
-  {
-    label: "Contrast",
-    value: "Hard black and white separation with one saturated orange interruption."
-  },
-  {
-    label: "Shape",
-    value: "Organic koi silhouettes, tapered motion, stencil-like edge behavior."
-  },
-  {
-    label: "Texture",
-    value: "Rough pavement grain, sprayed pigment, chalky wear, soft outdoor shadow."
-  },
-  {
-    label: "Composition",
-    value: "Two offset forms create diagonal movement and a quiet negative-space tension."
-  }
-];
-
-const projectApplications: Record<string, string[]> = {
-  "Brand identity": [
-    "Mascot-adjacent mark system with one aggressive accent color.",
-    "Hang tags, stickers, and launch graphics built from rough pavement crops.",
-    "Symbolic identity world that avoids clean heritage nostalgia."
-  ],
-  Packaging: [
-    "Stamped seals, box tape, and label closures with one orange hit.",
-    "Matte concrete-gray substrates with black illustration and white utility type.",
-    "Limited-run packaging that feels street-found and collectible."
-  ],
-  "Art direction": [
-    "Campaign imagery with diagonal motion and high-contrast animal symbolism.",
-    "Poster compositions that let one color carry the entire visual charge.",
-    "A reference system for urban folklore, movement, and imperfect mark-making."
-  ],
-  "Campaign world": [
-    "Campaign imagery with diagonal motion and high-contrast animal symbolism.",
-    "Poster compositions that let one color carry the entire visual charge.",
-    "A reference system for urban folklore, movement, and imperfect mark-making."
-  ],
-  Moodboard: [
-    "A board direction around graphic street marks, pavement texture, and signal color.",
-    "Pair with worn signage, stencil typography, asphalt, and cropped animal forms.",
-    "Use as a counterweight to cleaner studio references."
-  ],
-  "Product idea": [
-    "Surface graphics for bags, cases, decks, or small accessories.",
-    "A product drop where the accent color becomes the recognition system.",
-    "Embossed or printed texture that keeps the sidewalk energy intact."
-  ],
-  "Personal archive": [
-    "A saved reference for high-contrast street graphics and found symbolism.",
-    "Useful when a future project needs movement without polish.",
-    "A reminder to preserve the environment around the mark, not just the motif."
-  ]
-};
-
-const fallbackApplications = [
-  "Identity marks, packaging stamps, editorial openers, or street-level campaign graphics.",
-  "A reference for making rough surfaces feel intentional and designed.",
-  "A compact visual system built from one motif, one accent, and one texture field."
-];
-
-const relatedInspiration = [
-  {
-    provider: "Are.na",
-    title: "Street marks and found symbols",
-    reason: "A board direction for rough public graphics, pavement texture, and symbolic marks."
-  },
-  {
-    provider: "Pinterest",
-    title: "Koi graphic identity references",
-    reason: "Useful for translating animal symbolism into labels, posters, and surface graphics."
-  },
-  {
-    provider: "Archive",
-    title: "Pavement texture and stencil language",
-    reason: "A material lane for keeping rough surfaces visible instead of over-polished."
-  }
-];
-
-const typeDirections = [
-  {
-    style: "Compressed grotesk",
-    use: "For street-poster urgency, product names, and campaign headlines."
-  },
-  {
-    style: "Ink-trap sans",
-    use: "For sharper cultural edge without losing legibility."
-  },
-  {
-    style: "Utility mono",
-    use: "For captions, archive labels, specs, and drop information."
-  }
-];
-
-const searchLanguage = [
-  "koi symbolism",
-  "urban stencil",
-  "signal orange identity",
-  "pavement texture",
-  "high contrast street mark",
-  "Japanese fish motif"
-];
-
-export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
+export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) {
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<OnboardingSurveyAnswers>({
-    help_with: [],
-    looking_for: [],
-    must_feel_like: [],
-    must_not_feel_like: [],
-  });
+  const [answers, setAnswers] = useState<OnboardingSurveyAnswers>(
+    createEmptyOnboardingSurveyAnswers()
+  );
   const [processingIndex, setProcessingIndex] = useState(0);
 
   const totalSteps = 8;
-  const currentQuestion = questions[step - 2];
-  const isQuestionStep = Boolean(currentQuestion);
-  const selectedAnswers = currentQuestion ? answers[currentQuestion.id] ?? [] : [];
-  const canContinue = !isQuestionStep || selectedAnswers.length > 0;
-
-  const summaryLine = useMemo(() => {
-    const projectType = answers.help_with?.[0] || "Brand identity";
-    const lookingFor = answers.looking_for?.slice(0, 3).join(", ") || "color, texture, and type";
-    const feel = answers.must_feel_like?.slice(0, 2).join(" + ") || "editorial and specific";
-    const avoid = answers.must_not_feel_like?.slice(0, 2).join(" + ") || "generic outputs";
-
-    return `Tuned for ${projectType}. Prioritizing ${lookingFor}. Pushing toward ${feel} while avoiding ${avoid}.`;
-  }, [answers]);
-  const selectedProject = answers.help_with?.[0] || "Brand identity";
-  const activeApplications = projectApplications[selectedProject] ?? fallbackApplications;
+  const currentQuestion = step >= 1 && step <= questions.length ? questions[step - 1] : null;
+  const selectedAnswers = currentQuestion ? answers[currentQuestion.id] : [];
+  const canContinue = !currentQuestion || selectedAnswers.length > 0;
+  const demoCard = useMemo(() => buildDemoCard(answers), [answers]);
+  const summaryLine = useMemo(() => buildSummaryLine(answers), [answers]);
 
   useEffect(() => {
-    if (step !== 6) {
+    if (step !== questions.length + 1) {
       return;
     }
 
@@ -246,11 +148,11 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         clearInterval(interval);
         setTimeout(() => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setStep(7);
+          setStep(questions.length + 2);
         }, 450);
         return current;
       });
-    }, 760);
+    }, 720);
 
     return () => clearInterval(interval);
   }, [step]);
@@ -263,7 +165,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     Haptics.selectionAsync();
 
     setAnswers((current) => {
-      const currentAnswers = current[currentQuestion.id] ?? [];
+      const currentAnswers = current[currentQuestion.id];
       const nextAnswers = currentAnswers.includes(option)
         ? currentAnswers.filter((answer) => answer !== option)
         : [...currentAnswers, option];
@@ -282,7 +184,7 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (step === 7) {
+    if (step === totalSteps - 1) {
       onComplete(answers);
       return;
     }
@@ -297,19 +199,18 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
         style={styles.fullscreen}
         resizeMode="cover"
       >
-        <View style={styles.imageScrim}>
-          <View>
+        <View style={styles.heroScrim}>
+          <TopRow onSkip={onSkip} />
+          <View style={styles.heroContent}>
             <Image
               source={require("../../assets/brand/palleto-logo-transparent.png")}
               style={styles.logo}
               resizeMode="contain"
             />
-          </View>
-          <View style={styles.introCopy}>
             <Text style={styles.kicker}>Palleto</Text>
-            <Text style={styles.heroTitle}>For the references you notice before anyone else.</Text>
+            <Text style={styles.heroTitle}>Turn references from the wild into usable creative direction.</Text>
             <Text style={styles.heroBody}>
-              Capture the color, texture, type, material, and mood hiding in everyday life.
+              Capture something real, get an immediate read, and refine it later when you have time.
             </Text>
           </View>
           <FooterButton label="Begin" onPress={continueFlow} />
@@ -318,224 +219,107 @@ export function OnboardingScreen({ onComplete }: OnboardingScreenProps) {
     );
   }
 
-  if (step === 1) {
+  if (currentQuestion) {
     return (
-      <ImageBackground
-        source={require("../../assets/demo/koi-street-reference.png")}
-        style={styles.fullscreen}
-        resizeMode="cover"
-      >
-        <View style={styles.captureScrim}>
-          <Progress current={2} total={totalSteps} />
-          <View style={styles.captureChrome}>
-            <Text style={styles.captureLabel}>Street reference</Text>
-            <View style={styles.scanFrame}>
-              <View style={[styles.corner, styles.cornerTopLeft]} />
-              <View style={[styles.corner, styles.cornerTopRight]} />
-              <View style={[styles.corner, styles.cornerBottomLeft]} />
-              <View style={[styles.corner, styles.cornerBottomRight]} />
-              <View style={styles.scanLine} />
-            </View>
-            <Text style={styles.captureHint}>Imagine you spotted this walking home.</Text>
-          </View>
-          <FooterButton label="Capture reference" onPress={continueFlow} />
-        </View>
-      </ImageBackground>
-    );
-  }
-
-  if (isQuestionStep && currentQuestion) {
-    return (
-      <ImageBackground
-        source={require("../../assets/demo/koi-street-reference.png")}
-        style={styles.fullscreen}
-        resizeMode="cover"
-      >
-        <View style={styles.questionScrim}>
+      <View style={styles.questionScreen}>
+        <TopRow onSkip={onSkip} />
+        <View style={styles.questionHeader}>
           <Progress current={step + 1} total={totalSteps} />
-          <View style={styles.questionPanel}>
-            <Text style={styles.kicker}>{currentQuestion.kicker}</Text>
-            <Text style={styles.questionTitle}>{currentQuestion.prompt}</Text>
-        <Text style={styles.questionHint}>Choose what fits. This becomes the brief behind every scan.</Text>
-            <View style={styles.optionGrid}>
-              {currentQuestion.options.map((option) => {
-                const isSelected = selectedAnswers.includes(option);
-
-                return (
-                  <Pressable
-                    key={option}
-                    onPress={() => toggleAnswer(option)}
-                    style={({ pressed }) => [
-                      styles.option,
-                      isSelected && styles.optionSelected,
-                      pressed && styles.pressed
-                    ]}
-                  >
-                    <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
-                      {option}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-          <FooterButton disabled={!canContinue} label="Continue" onPress={continueFlow} />
+          <Text style={styles.kicker}>{currentQuestion.kicker}</Text>
+          <Text style={styles.questionTitle}>{currentQuestion.prompt}</Text>
+          <Text style={styles.questionHint}>Choose what fits. This becomes the brief behind your scans.</Text>
         </View>
-      </ImageBackground>
+
+        <View style={styles.optionGrid}>
+          {currentQuestion.options.map((option) => {
+            const isSelected = selectedAnswers.includes(option);
+
+            return (
+              <Pressable
+                key={option}
+                onPress={() => toggleAnswer(option)}
+                style={({ pressed }) => [
+                  styles.option,
+                  isSelected && styles.optionSelected,
+                  pressed && styles.pressed
+                ]}
+              >
+                <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
+                  {option}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.summaryPanel}>
+          <Text style={styles.summaryEyebrow}>So far</Text>
+          <Text style={styles.summaryText}>{summaryLine}</Text>
+        </View>
+
+        <FooterButton disabled={!canContinue} label="Continue" onPress={continueFlow} />
+      </View>
     );
   }
 
-  if (step === 6) {
+  if (step === questions.length + 1) {
     return (
       <View style={styles.processingContainer}>
-        <Progress current={7} total={totalSteps} />
-        <Image
-          source={require("../../assets/demo/koi-street-reference.png")}
-          style={styles.processingImage}
-          resizeMode="cover"
-        />
-        <View style={styles.processingCopy}>
-          <Text style={styles.kicker}>Analyzing reference</Text>
-          <Text style={styles.processingTitle}>{processingStages[processingIndex]}</Text>
-          <View style={styles.stageList}>
-            {processingStages.map((stage, index) => (
-              <Text
-                key={stage}
-                style={[styles.stageText, index <= processingIndex && styles.stageTextActive]}
-              >
-                {stage}
-              </Text>
-            ))}
-          </View>
+        <TopRow onSkip={onSkip} />
+        <Progress current={questions.length + 2} total={totalSteps} />
+        <Image source={{ uri: demoImageUrl }} style={styles.processingImage} resizeMode="cover" />
+        <Text style={styles.kicker}>Building your first scan</Text>
+        <Text style={styles.processingTitle}>{processingStages[processingIndex]}</Text>
+        <View style={styles.stageList}>
+          {processingStages.map((stage, index) => (
+            <Text
+              key={stage}
+              style={[styles.stageText, index <= processingIndex && styles.stageTextActive]}
+            >
+              {stage}
+            </Text>
+          ))}
         </View>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.cardContainer} contentContainerStyle={styles.cardContent}>
-      <Progress current={8} total={totalSteps} />
-      <View style={styles.demoHeader}>
-        <Text style={styles.kicker}>Generated card</Text>
-        <Text style={styles.cardIntro}>This is what every scan becomes.</Text>
-        <Text style={styles.cardIntroBody}>
-          Palleto turns a reference into a visual system, then adapts the read to what you are
-          building.
+    <ScrollView style={styles.previewContainer} contentContainerStyle={styles.previewContent}>
+      <TopRow onSkip={onSkip} />
+      <Progress current={totalSteps} total={totalSteps} />
+      <View style={styles.previewHeader}>
+        <Text style={styles.kicker}>Your first scan</Text>
+        <Text style={styles.previewTitle}>This is the kind of card Palleto will generate from a real capture.</Text>
+        <Text style={styles.previewBody}>
+          Same palette treatment, same links, same creative translation, same share-ready artifact.
         </Text>
       </View>
 
-      <View style={styles.card}>
-        <Image
-          source={require("../../assets/demo/koi-street-reference.png")}
-          style={styles.cardImage}
-          resizeMode="cover"
-        />
-        <View style={styles.cardBody}>
-          <Text style={styles.cardTitle}>Street Koi Signal</Text>
-          <Text style={styles.oneLineRead}>
-            A street-found graphic system built from pavement grit, animal symbolism, and one
-            sharp orange interruption.
-          </Text>
-          <Text style={styles.cardDirection}>
-            This reference works because it turns an ordinary sidewalk into a graphic mark. The koi
-            forms feel symbolic and handmade, while the black, white, and orange palette gives the
-            image instant poster energy. Use this direction when you want something urban, tactile,
-            and expressive without becoming messy.
-          </Text>
-
-          <SectionLabel label="Palette" />
-          <View style={styles.paletteRow}>
-            {palette.map((color) => (
-              <View key={color.hex} style={styles.paletteCard}>
-                <View style={[styles.swatch, { backgroundColor: color.hex }]} />
-                <View style={styles.paletteCopy}>
-                  <Text style={styles.swatchLabel}>{color.label}</Text>
-                  <Text style={styles.swatchRole}>{color.role}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <SectionLabel label="Related inspiration" />
-          <View style={styles.relatedList}>
-            {relatedInspiration.map((link) => (
-              <View key={link.title} style={styles.relatedTile}>
-                <View style={styles.relatedCopy}>
-                  <Text style={styles.relatedTitle}>{link.title}</Text>
-                  <Text style={styles.relatedReason}>{link.reason}</Text>
-                  <Text style={styles.relatedProvider}>{link.provider} / open link</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-
-          <SectionLabel label="Creative translation" />
-          <View style={styles.translationPanel}>
-            <ImageBackground
-              source={require("../../assets/demo/koi-street-reference.png")}
-              style={styles.translationHero}
-              imageStyle={styles.translationHeroImage}
-              resizeMode="cover"
-            >
-              <View style={styles.translationHeroShade} />
-              <View style={styles.translationHeroCopy}>
-                <Text style={styles.translationEyebrow}>What to steal</Text>
-                <Text style={styles.translationTitle}>
-                  Street-found animal symbolism turned into a compact graphic system.
-                </Text>
-              </View>
-            </ImageBackground>
-
-            <View style={styles.translationBody}>
-              <View style={styles.projectUseHeader}>
-                <Text style={styles.translationEyebrow}>Use it for</Text>
-                <Text style={styles.projectUseTitle}>{selectedProject}</Text>
-              </View>
-
-              <View style={styles.moveList}>
-                {activeApplications.slice(0, 4).map((application, index) => (
-                  <View key={application} style={styles.moveRow}>
-                    <Text style={styles.moveNumber}>{String(index + 1).padStart(2, "0")}</Text>
-                    <Text style={styles.moveText}>{application}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.systemNotes}>
-                {visualDna.map((item) => (
-                  <View key={item.label} style={styles.systemNote}>
-                    <Text style={styles.systemNoteLabel}>
-                      {item.label === "Shape" ? "Form" : item.label}
-                    </Text>
-                    <Text style={styles.systemNoteValue}>{item.value}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-
-          <SectionLabel label="Type direction" />
-          <View style={styles.typeList}>
-            {typeDirections.map((direction) => (
-              <View key={direction.style} style={styles.typeItem}>
-                <Text style={styles.typeStyle}>{direction.style}</Text>
-                <Text style={styles.typeUse}>{direction.use}</Text>
-              </View>
-            ))}
-          </View>
-
-          <SectionLabel label="Search language" />
-          <TagRow tags={searchLanguage} />
-        </View>
-      </View>
+      <CardDetail card={demoCard} />
 
       <View style={styles.summaryPanel}>
-        <Text style={styles.summaryTitle}>Your inspiration system is ready.</Text>
+        <Text style={styles.summaryEyebrow}>What this is tuned for</Text>
         <Text style={styles.summaryText}>{summaryLine}</Text>
       </View>
 
-      <FooterButton label="Start my library" onPress={continueFlow} />
+      <FooterButton label="Create my first scan" onPress={continueFlow} />
     </ScrollView>
+  );
+}
+
+function TopRow({ onSkip }: { onSkip?: () => void }) {
+  return (
+    <View style={styles.topRow}>
+      <View />
+      {onSkip ? (
+        <Pressable onPress={onSkip} style={({ pressed }) => [styles.skipButton, pressed && styles.pressed]}>
+          <Text style={styles.skipButtonText}>Skip</Text>
+        </Pressable>
+      ) : (
+        <View />
+      )}
+    </View>
   );
 }
 
@@ -547,22 +331,6 @@ function Progress({ current, total }: { current: number; total: number }) {
           key={index}
           style={[styles.progressDot, index < current && styles.progressDotActive]}
         />
-      ))}
-    </View>
-  );
-}
-
-function SectionLabel({ label }: { label: string }) {
-  return <Text style={styles.sectionLabel}>{label}</Text>;
-}
-
-function TagRow({ tags }: { tags: string[] }) {
-  return (
-    <View style={styles.tagRow}>
-      {tags.map((tag) => (
-        <View key={tag} style={styles.tag}>
-          <Text style={styles.tagText}>{tag}</Text>
-        </View>
       ))}
     </View>
   );
@@ -592,483 +360,249 @@ function FooterButton({
   );
 }
 
+function buildSummaryLine(answers: OnboardingSurveyAnswers) {
+  const work = answers.work_for[0] || "creative work";
+  const extract = answers.extract_from_reference.slice(0, 3).join(", ") || "clear design signal";
+  const useful = answers.useful_scan.slice(0, 2).join(" + ") || "a usable next move";
+  const avoid = answers.avoid.slice(0, 2).join(" + ") || "generic output";
+
+  return `Built for ${work}. Prioritizing ${extract}. Useful means ${useful}. Avoiding ${avoid}.`;
+}
+
+function buildDemoCard(answers: OnboardingSurveyAnswers): InspirationCard {
+  const projectType = mapProjectType(answers.work_for[0] || "Brand identity");
+  const bigIdea = answers.useful_scan[0] || "A clear big idea I can steal";
+  const leanToward = answers.lean_toward[0] || "Editorial and cultured";
+  const avoid = answers.avoid[0] || "Corporate and sterile";
+  const typeDirections = buildTypeDirections(answers.lean_toward);
+
+  return {
+    id: "demo-onboarding-card",
+    image_url: demoImageUrl,
+    source_type: "camera",
+    title: "Found Ornament System",
+    one_line_read:
+      "A faded street-side surface becomes a repeatable language of framed color, worn texture, and ornamental rhythm.",
+    creative_direction: `This kind of reference becomes powerful when it stops being just a photo and starts acting like a system. Pull the framed edges, the weathered surface, and the restrained warm-cool palette into something that feels ${leanToward.toLowerCase()} without slipping into ${avoid.toLowerCase()}.`,
+    palette: [
+      { hex: "#1C1B1A", label: "Ink black", role: "anchor" },
+      { hex: "#F4EFE6", label: "Stone white", role: "relief" },
+      { hex: "#D97A3C", label: "Burnt apricot", role: "warm accent" },
+      { hex: "#6FA7CF", label: "Icy cyan", role: "cool accent" },
+      { hex: "#8A5771", label: "Dusty plum", role: "depth" }
+    ],
+    visual_dna: {
+      composition: "A framed field holds the eye inside a bordered surface instead of letting the image drift outward.",
+      contrast: "Pale negative space, dusty color, and a few darker anchors create a restrained but tactile hierarchy.",
+      shape_language: "Rounded border intervals, soft rectangles, hand-shaped interruptions, and repeatable edge logic.",
+      texture: "Weathered pigment, chalky wear, paper-like abrasion, and visible hand-touched surface irregularity."
+    },
+    design_moves: [
+      "Use a contained border system instead of a floating composition.",
+      "Keep one warm accent and one cool accent doing most of the work.",
+      "Let age and abrasion stay visible rather than cleaning every edge."
+    ],
+    project_lens: {
+      applications: buildApplications(projectType),
+      project_type: projectType,
+      summary: `${bigIdea.replace(/^A /, "").replace(/^a /, "")}. Treat this reference like a portable visual system, not a one-off mood image.`
+    },
+    type_direction: typeDirections,
+    search_language: [
+      "ornamental textile collage",
+      "scalloped border design",
+      "worn painted surface",
+      "editorial material palette",
+      "framed decorative composition"
+    ],
+    related_links: [
+      {
+        provider: "Are.na",
+        reason: "A board lane for framed ornament, layered surface, and decorative composition.",
+        thumbnail_url: relatedPreviewImages[0],
+        title: "Ornament and framed surface references",
+        url: "https://www.are.na/search?q=ornament%20framed%20surface"
+      },
+      {
+        provider: "Pinterest",
+        reason: "Useful for pulling textile borders, decorative framing, and repeatable edge language.",
+        thumbnail_url: relatedPreviewImages[1],
+        title: "Scalloped border textile references",
+        url: "https://www.pinterest.com/search/pins/?q=scalloped%20border%20textile%20design"
+      },
+      {
+        provider: "Google Images",
+        reason: "A broader lane for layered painted surfaces and collage-like material texture.",
+        thumbnail_url: relatedPreviewImages[2],
+        title: "Layered abstract framed painting textile",
+        url: "https://www.google.com/search?tbm=isch&q=layered%20abstract%20framed%20painting%20textile"
+      }
+    ],
+    created_at: "2026-04-22T00:00:00.000Z",
+    updated_at: "2026-04-22T00:00:00.000Z"
+  };
+}
+
+function buildApplications(projectType: string) {
+  if (projectType === "Clothing brand") {
+    return [
+      "Seasonal graphic language for tees, labels, and woven trims.",
+      "Border treatment for hangtags, lookbook covers, and campaign frames.",
+      "A color and texture lane for washed garments, posters, and packaging."
+    ];
+  }
+
+  if (projectType === "Campaign") {
+    return [
+      "Poster framing system for hero stills and launch assets.",
+      "A repeatable visual lane for campaign copy, credits, and title cards.",
+      "A surface and color approach for set details, invites, and promo stills."
+    ];
+  }
+
+  if (projectType === "Interior concept") {
+    return [
+      "Material palette for wall finishes, printed matter, and soft furnishings.",
+      "Decorative border logic for signage, menus, and room collateral.",
+      "A warm-cool accent system that keeps the space layered instead of flat."
+    ];
+  }
+
+  return [
+    "A compact identity system built from one border logic, one surface attitude, and a few controlled colors.",
+    "A direction for packaging, graphics, or editorial assets that needs more soul than polish.",
+    "A useful reference when a project needs a strong big idea, not just another moodboard image."
+  ];
+}
+
+function buildTypeDirections(leanToward: string[]) {
+  const joined = leanToward.join(" ").toLowerCase();
+
+  if (joined.includes("organic") || joined.includes("editorial") || joined.includes("luxury")) {
+    return [
+      {
+        style: "Soft editorial serif",
+        use: "For hero headlines, brand marks, and cultured framing language."
+      },
+      {
+        style: "Humanist sans",
+        use: "For supporting hierarchy that still feels shaped by the hand."
+      },
+      {
+        style: "Refined italic accent",
+        use: "For notes, seasonal cues, or story text with a little movement."
+      }
+    ];
+  }
+
+  if (joined.includes("technical") || joined.includes("minimal")) {
+    return [
+      {
+        style: "Structured neo-grotesk",
+        use: "For headlines and hierarchy that need precision without deadness."
+      },
+      {
+        style: "Utility mono",
+        use: "For specs, captions, and archival details."
+      },
+      {
+        style: "Narrow grotesk",
+        use: "For secondary structure and compressed layouts."
+      }
+    ];
+  }
+
+  return [
+    {
+      style: "Compressed grotesk",
+      use: "For strong headlines and compact identity language."
+    },
+    {
+      style: "Humanist sans",
+      use: "For supporting hierarchy and product-facing text."
+    },
+    {
+      style: "Soft italic accent",
+      use: "For notes, story text, and a more expressive secondary voice."
+    }
+  ];
+}
+
+function mapProjectType(value: string) {
+  if (value === "Campaign and art direction") {
+    return "Campaign";
+  }
+
+  if (value === "Product or object design") {
+    return "Product design";
+  }
+
+  if (value === "Interior or spatial direction") {
+    return "Interior concept";
+  }
+
+  return value || "Brand identity";
+}
+
 const styles = StyleSheet.create({
   fullscreen: {
-    flex: 1,
-    backgroundColor: theme.colors.background
+    flex: 1
   },
-  imageScrim: {
+  heroScrim: {
     flex: 1,
     justifyContent: "space-between",
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: 64,
-    paddingBottom: 40,
-    backgroundColor: "rgba(0,0,0,0.34)"
+    paddingTop: 56,
+    paddingBottom: 34,
+    backgroundColor: "rgba(0,0,0,0.46)"
   },
-  logo: {
-    width: 52,
-    height: 52
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
   },
-  introCopy: {
+  skipButton: {
+    paddingVertical: theme.spacing.xs
+  },
+  skipButtonText: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "800"
+  },
+  heroContent: {
     gap: theme.spacing.md
   },
+  logo: {
+    width: 64,
+    height: 64
+  },
   kicker: {
-    color: theme.colors.textPrimary,
+    color: theme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
-    letterSpacing: 0,
     textTransform: "uppercase"
   },
   heroTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 38,
+    fontSize: 42,
     fontWeight: "800",
-    lineHeight: 42
+    lineHeight: 44
   },
   heroBody: {
-    maxWidth: 330,
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    lineHeight: 24
-  },
-  captureScrim: {
-    flex: 1,
-    justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: 64,
-    paddingBottom: 40,
-    backgroundColor: "rgba(0,0,0,0.18)"
-  },
-  captureChrome: {
-    gap: theme.spacing.lg
-  },
-  captureLabel: {
-    alignSelf: "flex-start",
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    overflow: "hidden",
-    color: theme.colors.textPrimary,
-    backgroundColor: "rgba(0,0,0,0.58)",
-    borderColor: "rgba(255,255,255,0.28)",
-    borderWidth: 1,
-    borderRadius: theme.radius.small,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  captureHint: {
-    maxWidth: 250,
-    color: theme.colors.textPrimary,
-    fontSize: 22,
-    fontWeight: "800",
-    lineHeight: 28
-  },
-  scanFrame: {
-    alignSelf: "center",
-    width: 260,
-    height: 340,
-    borderColor: "rgba(255,255,255,0.18)",
-    borderWidth: 1
-  },
-  corner: {
-    position: "absolute",
-    width: 34,
-    height: 34,
-    borderColor: theme.colors.textPrimary
-  },
-  cornerTopLeft: {
-    top: -1,
-    left: -1,
-    borderTopWidth: 2,
-    borderLeftWidth: 2
-  },
-  cornerTopRight: {
-    top: -1,
-    right: -1,
-    borderTopWidth: 2,
-    borderRightWidth: 2
-  },
-  cornerBottomLeft: {
-    bottom: -1,
-    left: -1,
-    borderBottomWidth: 2,
-    borderLeftWidth: 2
-  },
-  cornerBottomRight: {
-    right: -1,
-    bottom: -1,
-    borderRightWidth: 2,
-    borderBottomWidth: 2
-  },
-  scanLine: {
-    position: "absolute",
-    top: "48%",
-    left: 18,
-    right: 18,
-    height: 1,
-    backgroundColor: "rgba(255,255,255,0.72)"
-  },
-  questionScrim: {
-    flex: 1,
-    justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: 64,
-    paddingBottom: 40,
-    backgroundColor: "rgba(0,0,0,0.42)"
-  },
-  questionPanel: {
-    gap: theme.spacing.md,
-    padding: theme.spacing.md,
-    backgroundColor: "rgba(0,0,0,0.72)",
-    borderColor: "rgba(255,255,255,0.16)",
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  questionTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 31,
-    fontWeight: "800",
-    lineHeight: 36
-  },
-  questionHint: {
+    maxWidth: 360,
     color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  optionGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.sm
-  },
-  option: {
-    minHeight: 42,
-    justifyContent: "center",
-    paddingHorizontal: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.24)",
-    borderRadius: theme.radius.small,
-    backgroundColor: "rgba(255,255,255,0.04)"
-  },
-  optionSelected: {
-    backgroundColor: theme.colors.textPrimary,
-    borderColor: theme.colors.textPrimary
-  },
-  optionText: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "700"
-  },
-  optionTextSelected: {
-    color: theme.colors.background
-  },
-  processingContainer: {
-    flex: 1,
-    gap: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: 64,
-    paddingBottom: 40,
-    backgroundColor: theme.colors.background
-  },
-  processingImage: {
-    flex: 1,
-    width: "100%",
-    minHeight: 360,
-    borderRadius: theme.radius.small
-  },
-  processingCopy: {
-    gap: theme.spacing.md
-  },
-  processingTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 32,
-    fontWeight: "800",
-    lineHeight: 38
-  },
-  stageList: {
-    gap: theme.spacing.sm
-  },
-  stageText: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 20
-  },
-  stageTextActive: {
-    color: theme.colors.textPrimary
-  },
-  cardContainer: {
-    flex: 1,
-    backgroundColor: theme.colors.background
-  },
-  cardContent: {
-    gap: theme.spacing.lg,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: 64,
-    paddingBottom: 40
-  },
-  demoHeader: {
-    gap: theme.spacing.sm
-  },
-  cardIntro: {
-    color: theme.colors.textPrimary,
-    fontSize: 30,
-    fontWeight: "800",
-    lineHeight: 36
-  },
-  cardIntroBody: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22
-  },
-  card: {
-    overflow: "hidden",
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  cardImage: {
-    width: "100%",
-    height: 330
-  },
-  cardBody: {
-    gap: theme.spacing.md,
-    padding: theme.spacing.md
-  },
-  cardTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 28,
-    fontWeight: "800",
-    lineHeight: 34
-  },
-  oneLineRead: {
-    color: theme.colors.textPrimary,
     fontSize: 17,
-    fontWeight: "700",
-    lineHeight: 24
-  },
-  cardDirection: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 23
-  },
-  sectionLabel: {
-    marginTop: theme.spacing.xs,
-    color: theme.colors.textPrimary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  paletteRow: {
-    gap: theme.spacing.sm
-  },
-  paletteCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  swatch: {
-    width: 48,
-    height: 36,
-    borderColor: "rgba(255,255,255,0.18)",
-    borderWidth: 1,
-    borderRadius: 4
-  },
-  paletteCopy: {
-    flex: 1,
-    gap: 2
-  },
-  swatchLabel: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "700"
-  },
-  swatchRole: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase"
-  },
-  relatedList: {
-    gap: theme.spacing.sm
-  },
-  relatedTile: {
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  relatedCopy: {
-    gap: theme.spacing.xs
-  },
-  relatedTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "800"
-  },
-  relatedReason: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18
-  },
-  relatedProvider: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  translationPanel: {
-    overflow: "hidden",
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  translationHero: {
-    minHeight: 260,
-    justifyContent: "flex-end"
-  },
-  translationHeroImage: {
-    transform: [{ scale: 1.08 }]
-  },
-  translationHeroShade: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.5)"
-  },
-  translationHeroCopy: {
-    gap: theme.spacing.xs,
-    padding: theme.spacing.md,
-    paddingTop: 72
-  },
-  translationEyebrow: {
-    color: theme.colors.textPrimary,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase"
-  },
-  translationTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 22,
-    fontWeight: "900",
-    lineHeight: 28
-  },
-  translationBody: {
-    gap: theme.spacing.md,
-    padding: theme.spacing.md
-  },
-  projectUseHeader: {
-    gap: 2
-  },
-  projectUseTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 20,
-    fontWeight: "900",
     lineHeight: 25
   },
-  moveList: {
-    gap: theme.spacing.sm
-  },
-  moveRow: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.xs
-  },
-  moveNumber: {
-    width: 28,
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    lineHeight: 21
-  },
-  moveText: {
+  questionScreen: {
     flex: 1,
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "700",
-    lineHeight: 21
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: 56,
+    paddingBottom: 34,
+    backgroundColor: theme.colors.background
   },
-  systemNotes: {
-    gap: theme.spacing.sm
-  },
-  systemNote: {
-    gap: 2,
-    paddingTop: theme.spacing.sm,
-    borderTopColor: theme.colors.border,
-    borderTopWidth: 1
-  },
-  systemNoteLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase"
-  },
-  systemNoteValue: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20
-  },
-  typeList: {
-    gap: theme.spacing.sm
-  },
-  typeItem: {
-    gap: theme.spacing.xs,
-    padding: theme.spacing.sm,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  typeStyle: {
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "800"
-  },
-  typeUse: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  tagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm
-  },
-  tag: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 7,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  tagText: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "700"
-  },
-  summaryPanel: {
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  summaryTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 20,
-    fontWeight: "800",
-    lineHeight: 26
-  },
-  summaryText: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22
+  questionHeader: {
+    gap: theme.spacing.md
   },
   progressTrack: {
     flexDirection: "row",
@@ -1077,15 +611,73 @@ const styles = StyleSheet.create({
   progressDot: {
     flex: 1,
     height: 2,
-    backgroundColor: "rgba(255,255,255,0.22)"
+    backgroundColor: "rgba(255,255,255,0.16)"
   },
   progressDotActive: {
     backgroundColor: theme.colors.textPrimary
+  },
+  questionTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 34
+  },
+  questionHint: {
+    color: theme.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22
+  },
+  optionGrid: {
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xl
+  },
+  option: {
+    minHeight: 56,
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.surface
+  },
+  optionSelected: {
+    backgroundColor: theme.colors.textPrimary,
+    borderColor: theme.colors.textPrimary
+  },
+  optionText: {
+    color: theme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 22
+  },
+  optionTextSelected: {
+    color: theme.colors.background
+  },
+  summaryPanel: {
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.lg,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.surface
+  },
+  summaryEyebrow: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  summaryText: {
+    color: theme.colors.textPrimary,
+    fontSize: 15,
+    lineHeight: 22
   },
   footerButton: {
     alignItems: "center",
     justifyContent: "center",
     minHeight: 54,
+    marginTop: "auto",
     backgroundColor: theme.colors.textPrimary,
     borderRadius: theme.radius.small
   },
@@ -1093,6 +685,60 @@ const styles = StyleSheet.create({
     color: theme.colors.background,
     fontSize: 16,
     fontWeight: "800"
+  },
+  processingContainer: {
+    flex: 1,
+    gap: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: 56,
+    paddingBottom: 34,
+    backgroundColor: theme.colors.background
+  },
+  processingImage: {
+    width: "100%",
+    aspectRatio: 0.84,
+    borderRadius: theme.radius.small
+  },
+  processingTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 34
+  },
+  stageList: {
+    gap: theme.spacing.sm
+  },
+  stageText: {
+    color: "rgba(255,255,255,0.26)",
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  stageTextActive: {
+    color: theme.colors.textPrimary
+  },
+  previewContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background
+  },
+  previewContent: {
+    gap: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: 56,
+    paddingBottom: 34
+  },
+  previewHeader: {
+    gap: theme.spacing.sm
+  },
+  previewTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 34
+  },
+  previewBody: {
+    color: theme.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22
   },
   pressed: {
     opacity: 0.72

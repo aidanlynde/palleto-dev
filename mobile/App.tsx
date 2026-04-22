@@ -22,6 +22,7 @@ import { getActiveProject, InspirationCard, saveActiveProject } from "./src/serv
 import { firebaseAuth } from "./src/services/firebase";
 import {
   completeOnboarding,
+  createEmptyOnboardingSurveyAnswers,
   getOnboardingSurveyAnswers,
   hasCompletedOnboarding,
   OnboardingSurveyAnswers
@@ -101,7 +102,7 @@ export default function App() {
 
   useEffect(() => {
     async function loadProjectContext() {
-      if (!firebaseUser || !onboardingComplete) {
+      if (!firebaseUser) {
         setProjectContext(null);
         setIsProjectContextReady(true);
         return;
@@ -118,11 +119,24 @@ export default function App() {
     }
 
     loadProjectContext();
-  }, [firebaseUser, onboardingComplete]);
+  }, [firebaseUser]);
+
+  useEffect(() => {
+    if (firebaseUser && projectContext && !onboardingComplete) {
+      setOnboardingComplete(true);
+    }
+  }, [firebaseUser, onboardingComplete, projectContext]);
 
   async function finishOnboarding(surveyAnswers: OnboardingSurveyAnswers) {
     await completeOnboarding(surveyAnswers);
     setOnboardingAnswers(surveyAnswers);
+    setOnboardingComplete(true);
+  }
+
+  async function skipOnboarding() {
+    const emptyAnswers = createEmptyOnboardingSurveyAnswers();
+    await completeOnboarding(emptyAnswers);
+    setOnboardingAnswers(emptyAnswers);
     setOnboardingComplete(true);
   }
 
@@ -152,35 +166,40 @@ export default function App() {
       >
         {isLoading ? (
           <Stack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
-        ) : !onboardingComplete ? (
+        ) : !onboardingComplete && !projectContext ? (
           <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
-            {() => <OnboardingScreen onComplete={finishOnboarding} />}
-          </Stack.Screen>
-        ) : firebaseUser && !projectContext ? (
-          <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
-            {() => (
-              <ProjectIntakeScreen
-                initialValues={buildInitialProjectFromOnboarding(onboardingAnswers)}
-                onComplete={setProjectContext}
-                onSave={handleSaveProject}
-              />
-            )}
+            {() => <OnboardingScreen onComplete={finishOnboarding} onSkip={skipOnboarding} />}
           </Stack.Screen>
         ) : firebaseUser ? (
-          <Stack.Screen name="Home" options={{ title: "Palleto" }}>
-            {({ navigation }) => (
-              <MainScreen
-                firebaseUser={firebaseUser}
-                onEditProject={() => navigation.navigate("ProjectIntake")}
-                onScan={() => navigation.navigate("Capture")}
-                onSelectCard={(card) => {
-                  setSelectedCard(card);
-                  navigation.navigate("CardDetail");
-                }}
-                projectContext={projectContext}
-              />
-            )}
-          </Stack.Screen>
+          projectContext ? (
+            <Stack.Screen name="Home" options={{ title: "Palleto" }}>
+              {({ navigation }) => (
+                <MainScreen
+                  firebaseUser={firebaseUser}
+                  onEditProject={() => navigation.navigate("ProjectIntake")}
+                  onScan={() => navigation.navigate("Capture")}
+                  onSelectCard={(card) => {
+                    setSelectedCard(card);
+                    navigation.navigate("CardDetail");
+                  }}
+                  projectContext={projectContext}
+                />
+              )}
+            </Stack.Screen>
+          ) : (
+            <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
+              {({ navigation }) => (
+                <ProjectIntakeScreen
+                  initialValues={buildInitialProjectFromOnboarding(onboardingAnswers)}
+                  onComplete={(project) => {
+                    setProjectContext(project);
+                    navigation.replace("Home");
+                  }}
+                  onSave={handleSaveProject}
+                />
+              )}
+            </Stack.Screen>
+          )
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} options={{ title: "Sign in" }} />
         )}
@@ -220,19 +239,6 @@ export default function App() {
                   />
                 )
               }
-            </Stack.Screen>
-            <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
-              {({ navigation }) => (
-                <ProjectIntakeScreen
-                  initialProject={projectContext}
-                  onCancel={() => navigation.goBack()}
-                  onComplete={(project) => {
-                    setProjectContext(project);
-                    navigation.goBack();
-                  }}
-                  onSave={handleSaveProject}
-                />
-              )}
             </Stack.Screen>
             <Stack.Screen name="Result" options={{ title: "Inspiration card" }}>
               {({ navigation }) =>
@@ -286,6 +292,30 @@ export default function App() {
             </Stack.Screen>
           </>
         ) : null}
+        {firebaseUser && projectContext ? (
+          <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
+            {({ navigation }) => (
+              <ProjectIntakeScreen
+                initialProject={projectContext}
+                initialValues={
+                  projectContext ? undefined : buildInitialProjectFromOnboarding(onboardingAnswers)
+                }
+                onCancel={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+                onComplete={(project) => {
+                  setProjectContext(project);
+
+                  if (navigation.canGoBack()) {
+                    navigation.goBack();
+                    return;
+                  }
+
+                  navigation.replace("Home");
+                }}
+                onSave={handleSaveProject}
+              />
+            )}
+          </Stack.Screen>
+        ) : null}
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -298,15 +328,15 @@ function buildInitialProjectFromOnboarding(
     return undefined;
   }
 
-  const projectType = answers.help_with?.[0] ?? "";
-  const desiredFeeling = answers.must_feel_like?.join(", ") || null;
-  const avoid = answers.must_not_feel_like?.join(", ") || null;
+  const projectType = mapProjectType(answers.work_for?.[0] ?? "");
+  const desiredFeeling = buildDesiredFeeling(answers);
+  const avoid = answers.avoid?.join(", ") || null;
 
   return {
     avoid,
     desiredFeeling,
-    directionTags: normalizeDirectionTags(answers.must_feel_like ?? []),
-    priorities: answers.looking_for ?? [],
+    directionTags: normalizeDirectionTags(answers.lean_toward ?? []),
+    priorities: mapPriorities(answers.extract_from_reference ?? []),
     projectType,
   };
 }
@@ -333,6 +363,63 @@ function normalizeDirectionTags(tags: string[]) {
       return "Technical";
     }
 
+    if (tag === "Minimal and restrained") {
+      return "Minimal";
+    }
+
     return "Experimental";
   });
+}
+
+function mapProjectType(value: string) {
+  if (value === "Campaign and art direction") {
+    return "Campaign";
+  }
+
+  if (value === "Product or object design") {
+    return "Product design";
+  }
+
+  if (value === "Interior or spatial direction") {
+    return "Interior concept";
+  }
+
+  return value;
+}
+
+function mapPriorities(values: string[]) {
+  return values.map((value) => {
+    if (value === "Color systems") {
+      return "Color systems";
+    }
+
+    if (value === "Texture and material language") {
+      return "Materials";
+    }
+
+    if (value === "Typography direction") {
+      return "Typography";
+    }
+
+    if (value === "Composition and framing") {
+      return "Composition";
+    }
+
+    if (value === "Mood and emotional tone") {
+      return "Mood";
+    }
+
+    return "Patterns";
+  });
+}
+
+function buildDesiredFeeling(answers: OnboardingSurveyAnswers) {
+  const useful = answers.useful_scan?.slice(0, 2).join(", ");
+  const lean = answers.lean_toward?.slice(0, 2).join(", ");
+
+  if (useful && lean) {
+    return `${useful}. Lean toward ${lean}.`;
+  }
+
+  return useful || lean || null;
 }

@@ -4,11 +4,22 @@ const ONBOARDING_COMPLETE_KEY = "palleto:onboarding-complete";
 const ONBOARDING_SURVEY_KEY = "palleto:onboarding-survey";
 
 export type OnboardingSurveyAnswers = {
-  help_with: string[];
-  looking_for: string[];
-  must_not_feel_like: string[];
-  must_feel_like: string[];
+  avoid: string[];
+  extract_from_reference: string[];
+  lean_toward: string[];
+  useful_scan: string[];
+  work_for: string[];
 };
+
+export function createEmptyOnboardingSurveyAnswers(): OnboardingSurveyAnswers {
+  return {
+    avoid: [],
+    extract_from_reference: [],
+    lean_toward: [],
+    useful_scan: [],
+    work_for: [],
+  };
+}
 
 export async function hasCompletedOnboarding() {
   return (await AsyncStorage.getItem(ONBOARDING_COMPLETE_KEY)) === "true";
