@@ -16,6 +16,7 @@ from app.schemas.card import (
 )
 from app.schemas.project import ActiveProjectRead
 from app.services.card_refinements import serialize_card
+from app.services.link_preview import enrich_related_links
 from app.services.openai_card_generator import generate_card_payload_for_image, refine_card_payload
 from app.services.projects import get_active_project
 from app.services.shares import build_share_url, get_or_create_card_share
@@ -64,7 +65,7 @@ async def create_card(
     db.commit()
     db.refresh(card)
 
-    return card
+    return _refresh_card_related_links(card)
 
 
 @router.get("", response_model=list[CardRead])
@@ -77,12 +78,14 @@ def list_cards(
     user = get_or_create_user(db, firebase_user)
     db.commit()
 
-    return (
+    cards = (
         db.query(Card)
         .filter(Card.user_id == user.id)
         .order_by(desc(Card.created_at))
         .all()
     )
+
+    return [_refresh_card_related_links(card) for card in cards]
 
 
 @router.get("/{card_id}", response_model=CardRead)
@@ -104,7 +107,7 @@ def get_card(
             detail="Card not found.",
         )
 
-    return card
+    return _refresh_card_related_links(card)
 
 
 @router.get("/{card_id}/refinements", response_model=list[CardRefinementRead])
@@ -124,12 +127,19 @@ def list_card_refinements(
             detail="Card not found.",
         )
 
-    return (
+    refinements = (
         db.query(CardRefinement)
         .filter(CardRefinement.card_id == card.id)
         .order_by(desc(CardRefinement.created_at))
         .all()
     )
+
+    for refinement in refinements:
+        refinement.refined_card["related_links"] = enrich_related_links(
+            refinement.refined_card["related_links"]
+        )
+
+    return refinements
 
 
 @router.post("/{card_id}/refinements", response_model=CardRefinementRead, status_code=status.HTTP_201_CREATED)
@@ -157,6 +167,7 @@ def create_card_refinement(
         instruction=payload.instruction,
         project_context=project_context,
     )
+    refined_card["related_links"] = enrich_related_links(refined_card["related_links"])
 
     refinement = CardRefinement(
         card_id=card.id,
@@ -266,3 +277,8 @@ def _resolve_project_context(
     return ProjectContextPayload.from_active_project(
         ActiveProjectRead.model_validate(active_project)
     )
+
+
+def _refresh_card_related_links(card: Card) -> Card:
+    card.related_links = enrich_related_links(card.related_links)
+    return card

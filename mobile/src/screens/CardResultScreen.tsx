@@ -60,9 +60,16 @@ export function CardResultScreen({
 }
 
 export function CardDetail({ card }: { card: InspirationCard }) {
+  const [copiedHex, setCopiedHex] = useState<string | null>(null);
+
   async function copyHex(hex: string) {
-    await Clipboard.setStringAsync(hex.toUpperCase());
+    const normalizedHex = `#${hex.replace(/[^0-9a-f]/gi, "").slice(0, 6).toUpperCase()}`;
+    await Clipboard.setStringAsync(normalizedHex);
+    setCopiedHex(normalizedHex);
     Haptics.selectionAsync();
+    setTimeout(() => {
+      setCopiedHex((current) => (current === normalizedHex ? null : current));
+    }, 1400);
   }
 
   return (
@@ -87,7 +94,9 @@ export function CardDetail({ card }: { card: InspirationCard }) {
               <View style={styles.paletteCopy}>
                 <Text style={styles.swatchLabel}>{color.label}</Text>
                 <Text style={styles.swatchRole}>{color.role}</Text>
-                <Text style={styles.copyHint}>Tap to copy</Text>
+                <Text style={styles.copyHint}>
+                  {copiedHex === color.hex.toUpperCase() ? "Copied" : "Tap to copy"}
+                </Text>
               </View>
             </Pressable>
           ))}
