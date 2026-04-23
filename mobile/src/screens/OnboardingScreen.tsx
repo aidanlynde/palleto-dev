@@ -610,10 +610,10 @@ function CollapsibleSection({
 
 function buildDemoCard(answers: OnboardingSurveyAnswers): InspirationCard {
   const projectType = mapProjectType(answers.work_for[0] || "Brand identity");
-  const bigIdea = answers.useful_scan[0] || "A clear big idea I can steal";
   const leanToward = answers.lean_toward[0] || "Editorial and cultured";
   const avoid = answers.avoid[0] || "Corporate and sterile";
   const typeDirections = buildTypeDirections(answers.lean_toward);
+  const projectLensSummary = buildProjectLensSummary(answers, projectType);
 
   return {
     id: "demo-onboarding-card",
@@ -644,7 +644,7 @@ function buildDemoCard(answers: OnboardingSurveyAnswers): InspirationCard {
     project_lens: {
       applications: buildApplications(projectType),
       project_type: projectType,
-      summary: `${bigIdea.replace(/^A /, "").replace(/^a /, "")}. Treat the koi as a repeatable symbol system, not just an image motif.`
+      summary: projectLensSummary
     },
     type_direction: typeDirections,
     search_language: [
@@ -712,6 +712,47 @@ function buildApplications(projectType: string) {
     "A direction for packaging, graphics, or editorial assets that needs more soul than polish.",
     "A useful reference when a project needs a strong big idea, not just another moodboard image."
   ];
+}
+
+function buildProjectLensSummary(
+  answers: OnboardingSurveyAnswers,
+  projectType: string
+) {
+  const extract = answers.extract_from_reference[0] || "How it could translate into a project";
+  const useful = answers.useful_scan[0] || "A clear big idea I can steal";
+  const leanToward = answers.lean_toward[0] || "Editorial and cultured";
+
+  const extractMap: Record<string, string> = {
+    "Color systems": "Pull the black, chalk white, and signal orange into a tight color hierarchy",
+    "Texture and material language":
+      "Keep the pavement grain, sprayed pigment, and rough wear visible as part of the idea",
+    "Typography direction":
+      "Treat the koi mark like the image anchor and let type bring the discipline around it",
+    "Composition and framing":
+      "Use the diagonal koi silhouettes and negative space as the framing move for the whole system",
+    "Mood and emotional tone":
+      "Hold onto the found, symbolic energy and keep it emotionally charged instead of overpolished",
+    "How it could translate into a project":
+      `Turn the koi into a repeatable symbol system that can actually carry a ${projectType.toLowerCase()}`
+  };
+
+  const usefulMap: Record<string, string> = {
+    "A clear big idea I can steal": "Build around one simple move that can repeat across the whole direction.",
+    "Project-specific applications":
+      `Make the result feel immediately usable for a ${projectType.toLowerCase()}, not just interesting to look at.`,
+    "Stronger type direction":
+      "Use typography to sharpen the system and keep the mark from feeling loose or decorative.",
+    "Better reference links":
+      "Point the user toward stronger adjacent references that push the same symbol-and-surface lane further.",
+    "A share-ready summary":
+      "Condense the direction into a form that is easy to pitch, send, and revisit later without losing the core idea.",
+    "A cleaner next creative move":
+      "Give the user one strong next move instead of dumping too many disconnected possibilities."
+  };
+
+  return `${extractMap[extract] || extractMap["How it could translate into a project"]}. ${
+    usefulMap[useful] || usefulMap["A clear big idea I can steal"]
+  } Push it toward ${leanToward.toLowerCase()}.`;
 }
 
 function previewTypeStyle(style: string) {
