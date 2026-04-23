@@ -329,59 +329,48 @@ def render_public_share_preview_image(share_token: str) -> Response:
     image = Image.new("RGB", (1200, 630), "#050505")
     draw = ImageDraw.Draw(image)
 
-    preview_x = 370
-    preview_y = 34
-    preview_width = 460
-    preview_height = 562
-    image_height = 342
-    body_y = preview_y + image_height
+    canvas_width = 1200
+    canvas_height = 630
+    image_height = 412
+    body_y = image_height
 
-    _paste_card_image(image, card.image_url, preview_x, preview_y, preview_width, image_height)
-    draw.rounded_rectangle(
-        (preview_x, preview_y, preview_x + preview_width, preview_y + preview_height),
-        radius=16,
-        outline="#2A2A2A",
-        width=2,
-        fill=None,
-    )
-    draw.rectangle(
-        (preview_x, body_y, preview_x + preview_width, preview_y + preview_height),
-        fill="#000000",
-    )
+    _paste_card_image(image, card.image_url, 0, 0, canvas_width, image_height)
+    draw.rectangle((0, body_y, canvas_width, canvas_height), fill="#000000")
 
-    brand_font = _font(18, bold=True)
-    title_font = _font(46, bold=True)
-    body_font = _font(24, bold=False)
+    brand_font = _font(24, bold=True)
+    title_font = _font(54, bold=True)
+    body_font = _font(28, bold=False)
 
-    draw.text((preview_x + 26, body_y + 26), "PALLETO", fill="#FFFFFF", font=brand_font)
+    horizontal_padding = 48
+    draw.text((horizontal_padding, body_y + 34), "PALLETO", fill="#FFFFFF", font=brand_font)
 
     title_lines = _wrap_text(
         text=card.title,
         font=title_font,
-        max_width=preview_width - 52,
+        max_width=canvas_width - (horizontal_padding * 2),
         max_lines=2,
     )
-    title_y = body_y + 62
+    title_y = body_y + 82
     for line in title_lines:
-        draw.text((preview_x + 26, title_y), line, fill="#FFFFFF", font=title_font)
-        title_y += 48
+        draw.text((horizontal_padding, title_y), line, fill="#FFFFFF", font=title_font)
+        title_y += 56
 
     read_lines = _wrap_text(
         text=card.one_line_read,
         font=body_font,
-        max_width=preview_width - 52,
-        max_lines=3,
+        max_width=canvas_width - (horizontal_padding * 2),
+        max_lines=2,
     )
-    read_y = title_y + 10
+    read_y = title_y + 8
     for line in read_lines:
-        draw.text((preview_x + 26, read_y), line, fill="#CFCFCF", font=body_font)
-        read_y += 30
+        draw.text((horizontal_padding, read_y), line, fill="#BDBDBD", font=body_font)
+        read_y += 34
 
-    swatch_y = preview_y + preview_height - 34
+    swatch_y = canvas_height - 42
     for index, color in enumerate(card.palette[:5]):
-        swatch_x = preview_x + 26 + (index * 81)
+        swatch_x = horizontal_padding + (index * 86)
         draw.rectangle(
-            (swatch_x, swatch_y - 14, swatch_x + 65, swatch_y + 12),
+            (swatch_x, swatch_y - 16, swatch_x + 70, swatch_y + 14),
             fill=_safe_color(color["hex"]),
         )
 
