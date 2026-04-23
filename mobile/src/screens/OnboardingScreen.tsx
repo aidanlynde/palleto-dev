@@ -285,7 +285,9 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
     return (
       <View style={styles.processingContainer}>
         <Progress current={questions.length + 3} total={totalSteps} />
-        <Image source={koiImageSource} style={styles.processingImage} resizeMode="cover" />
+        <View style={styles.processingImageFrame}>
+          <Image source={koiImageSource} style={styles.processingImage} resizeMode="contain" />
+        </View>
         <Text style={styles.kicker}>Building your first scan</Text>
         <Text style={styles.processingTitle}>{processingStages[processingIndex]}</Text>
         <View style={styles.stageList}>
@@ -898,10 +900,16 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     backgroundColor: theme.colors.background
   },
-  processingImage: {
+  processingImageFrame: {
     width: "100%",
     aspectRatio: 0.75,
-    borderRadius: theme.radius.small
+    overflow: "hidden",
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.surface
+  },
+  processingImage: {
+    width: "100%",
+    height: "100%"
   },
   processingTitle: {
     color: theme.colors.textPrimary,
