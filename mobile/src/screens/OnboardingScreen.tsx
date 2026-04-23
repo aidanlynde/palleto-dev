@@ -306,7 +306,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
         <Text style={styles.kicker}>Your first scan</Text>
         <Text style={styles.previewTitle}>This is the kind of card Palleto will generate from a real capture.</Text>
         <Text style={styles.previewBody}>
-          Same palette treatment, same links, same creative translation, same share-ready artifact.
+          Same palette treatment, same links, same creative translation, and the same share card that opens as a public web link.
         </Text>
       </View>
 
