@@ -721,7 +721,6 @@ function buildProjectLensSummary(
   projectType: string
 ) {
   const extract = answers.extract_from_reference[0] || "How it could translate into a project";
-  const leanToward = answers.lean_toward[0] || "Editorial and cultured";
 
   const extractMap: Record<string, string> = {
     "Color systems": "Steal the sharp black, white, and signal-orange hierarchy.",
@@ -737,7 +736,7 @@ function buildProjectLensSummary(
       `Steal the koi as a repeatable symbol system for a ${projectType.toLowerCase()}.`
   };
 
-  return `${extractMap[extract] || extractMap["How it could translate into a project"]} Keep it ${leanToward.toLowerCase()}.`;
+  return extractMap[extract] || extractMap["How it could translate into a project"];
 }
 
 function previewTypeStyle(style: string) {
