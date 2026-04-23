@@ -1,7 +1,7 @@
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 
 import { createOrGetCardShare, deleteCard, InspirationCard } from "../services/api";
@@ -61,6 +61,7 @@ export function CardResultScreen({
 
 export function CardDetail({ card }: { card: InspirationCard }) {
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   async function copyHex(hex: string) {
     const normalizedHex = `#${hex.replace(/[^0-9a-f]/gi, "").slice(0, 6).toUpperCase()}`;
@@ -72,6 +73,10 @@ export function CardDetail({ card }: { card: InspirationCard }) {
     }, 1400);
   }
 
+  function toggleSection(section: string) {
+    setExpandedSection((current) => (current === section ? null : section));
+  }
+
   return (
     <View style={styles.card}>
       <Image source={{ uri: card.image_url }} style={styles.cardImage} resizeMode="cover" />
@@ -80,76 +85,118 @@ export function CardDetail({ card }: { card: InspirationCard }) {
         <Text style={styles.oneLine}>{card.one_line_read}</Text>
         <Text style={styles.direction}>{card.creative_direction}</Text>
 
-        <SectionLabel label="Palette" />
-        <View style={styles.paletteHero}>
-          {card.palette.map((color) => (
-            <Pressable
-              key={`${color.hex}-${color.role}`}
-              onPress={() => copyHex(color.hex)}
-              style={({ pressed }) => [styles.paletteColumn, pressed && styles.pressed]}
-            >
-              <View style={[styles.swatchBlock, { backgroundColor: color.hex }]}>
-                <Text style={styles.swatchHex}>{color.hex.toUpperCase()}</Text>
-              </View>
-              <View style={styles.paletteCopy}>
-                <Text style={styles.swatchLabel}>{color.label}</Text>
-                <Text style={styles.swatchRole}>{color.role}</Text>
-                <Text style={styles.copyHint}>
-                  {copiedHex === color.hex.toUpperCase() ? "Copied" : "Tap to copy"}
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-        <Text style={[styles.paletteStatus, copiedHex && styles.paletteStatusActive]}>
-          {copiedHex ? `Copied ${copiedHex}` : "Tap any color to copy the hex"}
-        </Text>
-
-        <SectionLabel label="Related inspiration" />
-        <RelatedInspiration links={card.related_links} />
-
-        <SectionLabel label="Creative translation" />
-        <CreativeTranslation card={card} />
-
-        <SectionLabel label="Type direction" />
-        {card.type_direction.map((direction) => (
-          <View key={direction.style} style={styles.typeItem}>
-            <Text style={[styles.typePreview, typePreviewStyle(direction.style)]}>
-              {direction.style}
-            </Text>
-            <Text style={styles.typeStyle}>{direction.style}</Text>
-            <Text style={styles.typeUse}>{direction.use}</Text>
+        <CollapsibleSection
+          expanded={expandedSection === "palette"}
+          icon="◐"
+          onPress={() => toggleSection("palette")}
+          subtitle={`${card.palette.length} colors with copyable hex`}
+          title="Palette"
+        >
+          <View style={styles.paletteHero}>
+            {card.palette.map((color) => (
+              <Pressable
+                key={`${color.hex}-${color.role}`}
+                onPress={() => copyHex(color.hex)}
+                style={({ pressed }) => [styles.paletteColumn, pressed && styles.pressed]}
+              >
+                <View style={[styles.swatchBlock, { backgroundColor: color.hex }]}>
+                  <Text style={styles.swatchHex}>{color.hex.toUpperCase()}</Text>
+                </View>
+                <View style={styles.paletteCopy}>
+                  <Text style={styles.swatchLabel}>{color.label}</Text>
+                  <Text style={styles.swatchRole}>{color.role}</Text>
+                  <Text style={styles.copyHint}>
+                    {copiedHex === color.hex.toUpperCase() ? "Copied" : "Tap to copy"}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
           </View>
-        ))}
+          <Text style={[styles.paletteStatus, copiedHex && styles.paletteStatusActive]}>
+            {copiedHex ? `Copied ${copiedHex}` : "Tap any color to copy the hex"}
+          </Text>
+        </CollapsibleSection>
 
-        <SectionLabel label="Share preview" />
-        <View style={styles.sharePreview}>
-          <Image source={{ uri: card.image_url }} style={styles.shareImage} resizeMode="cover" />
-          <View style={styles.shareBody}>
-            <Text style={styles.shareBrand}>PALLETO</Text>
-            <Text style={styles.shareTitle}>{card.title}</Text>
-            <Text style={styles.shareRead} numberOfLines={3}>
-              {card.one_line_read}
-            </Text>
-            <View style={styles.sharePalette}>
-              {card.palette.map((color) => (
-                <View
-                  key={`share-${color.hex}`}
-                  style={[styles.shareSwatch, { backgroundColor: color.hex }]}
-                />
-              ))}
+        <CollapsibleSection
+          expanded={expandedSection === "links"}
+          icon="↗"
+          onPress={() => toggleSection("links")}
+          subtitle="Real references with previews"
+          title="Related inspiration"
+        >
+          <RelatedInspiration links={card.related_links} />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          expanded={expandedSection === "translation"}
+          icon="✦"
+          onPress={() => toggleSection("translation")}
+          subtitle="What to steal and how to use it"
+          title="Creative translation"
+        >
+          <CreativeTranslation card={card} />
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          expanded={expandedSection === "type"}
+          icon="Aa"
+          onPress={() => toggleSection("type")}
+          subtitle="Typography direction from the same scan"
+          title="Type direction"
+        >
+          {card.type_direction.map((direction) => (
+            <View key={direction.style} style={styles.typeItem}>
+              <Text style={[styles.typePreview, typePreviewStyle(direction.style)]}>
+                {direction.style}
+              </Text>
+              <Text style={styles.typeStyle}>{direction.style}</Text>
+              <Text style={styles.typeUse}>{direction.use}</Text>
+            </View>
+          ))}
+        </CollapsibleSection>
+
+        <CollapsibleSection
+          expanded={expandedSection === "share"}
+          icon="⤴"
+          onPress={() => toggleSection("share")}
+          subtitle="A share card that opens as a public web link"
+          title="Share preview"
+        >
+          <View style={styles.sharePreview}>
+            <Image source={{ uri: card.image_url }} style={styles.shareImage} resizeMode="cover" />
+            <View style={styles.shareBody}>
+              <Text style={styles.shareBrand}>PALLETO</Text>
+              <Text style={styles.shareTitle}>{card.title}</Text>
+              <Text style={styles.shareRead} numberOfLines={3}>
+                {card.one_line_read}
+              </Text>
+              <View style={styles.sharePalette}>
+                {card.palette.map((color) => (
+                  <View
+                    key={`share-${color.hex}`}
+                    style={[styles.shareSwatch, { backgroundColor: color.hex }]}
+                  />
+                ))}
+              </View>
             </View>
           </View>
-        </View>
+        </CollapsibleSection>
 
-        <SectionLabel label="Search language" />
-        <View style={styles.tagRow}>
-          {card.search_language.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
-        </View>
+        <CollapsibleSection
+          expanded={expandedSection === "search"}
+          icon="⌕"
+          onPress={() => toggleSection("search")}
+          subtitle="Language to keep exploring this direction"
+          title="Search language"
+        >
+          <View style={styles.tagRow}>
+            {card.search_language.map((tag) => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        </CollapsibleSection>
       </View>
     </View>
   );
@@ -235,8 +282,39 @@ export function CardDetailScreen({
   );
 }
 
-function SectionLabel({ label }: { label: string }) {
-  return <Text style={styles.sectionLabel}>{label}</Text>;
+function CollapsibleSection({
+  children,
+  expanded,
+  icon,
+  onPress,
+  subtitle,
+  title
+}: {
+  children: ReactNode;
+  expanded: boolean;
+  icon: string;
+  onPress: () => void;
+  subtitle: string;
+  title: string;
+}) {
+  return (
+    <View style={styles.section}>
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [styles.sectionHeader, pressed && styles.pressed]}
+      >
+        <View style={styles.sectionHeading}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionIcon}>{icon}</Text>
+            <Text style={styles.sectionLabel}>{title}</Text>
+          </View>
+          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
+        </View>
+        <Text style={styles.sectionToggle}>{expanded ? "Hide" : "Open"}</Text>
+      </Pressable>
+      {expanded ? <View style={styles.sectionContent}>{children}</View> : null}
+    </View>
+  );
 }
 
 function RelatedInspiration({ links }: { links: RelatedLink[] }) {
@@ -376,12 +454,52 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 23
   },
+  section: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: theme.spacing.md
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: theme.spacing.md
+  },
+  sectionHeading: {
+    flex: 1,
+    gap: 3
+  },
+  sectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  sectionIcon: {
+    width: 18,
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
+    textAlign: "center"
+  },
   sectionLabel: {
-    marginTop: theme.spacing.xs,
     color: theme.colors.textPrimary,
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase"
+  },
+  sectionSubtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
+  },
+  sectionToggle: {
+    color: theme.colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "800"
+  },
+  sectionContent: {
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md
   },
   paletteHero: {
     flexDirection: "row",
