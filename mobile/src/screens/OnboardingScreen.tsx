@@ -20,8 +20,6 @@ import {
 import { theme } from "../theme";
 
 const koiImageSource = require("../../assets/demo/koi-street-reference.png");
-const stainedGlassSource = require("../../assets/demo/stained-glass-reference.png");
-const gardenObjectsSource = require("../../assets/demo/garden-objects-reference.png");
 
 type OnboardingScreenProps = {
   onComplete: (surveyAnswers: OnboardingSurveyAnswers) => void;
@@ -111,10 +109,6 @@ const processingStages = [
 ];
 
 const koiImageUrl = Image.resolveAssetSource(koiImageSource).uri;
-
-const koiPreviewUrl = Image.resolveAssetSource(koiImageSource).uri;
-const stainedGlassPreviewUrl = Image.resolveAssetSource(stainedGlassSource).uri;
-const gardenPreviewUrl = Image.resolveAssetSource(gardenObjectsSource).uri;
 
 export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) {
   const [step, setStep] = useState(0);
@@ -450,7 +444,13 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
                 onPress={() => Linking.openURL(link.url)}
                 style={({ pressed }) => [styles.previewLinkItem, pressed && styles.pressed]}
               >
-                <Image source={previewLinkImageSource(index)} style={styles.previewLinkImage} resizeMode="cover" />
+                {link.thumbnail_url ? (
+                  <Image
+                    source={{ uri: link.thumbnail_url }}
+                    style={styles.previewLinkImage}
+                    resizeMode="cover"
+                  />
+                ) : null}
                 <View style={styles.previewLinkCopy}>
                   <Text style={styles.previewLinkTitle}>{link.title}</Text>
                   {link.reason ? <Text style={styles.previewLinkReason}>{link.reason}</Text> : null}
@@ -611,21 +611,21 @@ function buildDemoCard(answers: OnboardingSurveyAnswers): InspirationCard {
       {
         provider: "Behance",
         reason: "A tight brand-identity lane for symbolic koi forms, controlled color, and disciplined framing.",
-        thumbnail_url: koiPreviewUrl,
+        thumbnail_url: "https://mir-s3-cdn-cf.behance.net/project_modules/1400/798b5e166466327.6418ee5226e7e.png",
         title: "Koi. Restaurant Brand Identity",
         url: "https://www.behance.net/gallery/166466327/Koi-Restaurant-Brand-Identity"
       },
       {
-        provider: "Design Shack",
-        reason: "Useful when you want the output to stay hand-touched, imperfect, and visibly made instead of generic.",
-        thumbnail_url: stainedGlassPreviewUrl,
-        title: "Hand-Drawn & Illustrated Posters: A Return to Organic Design",
-        url: "https://designshack.net/articles/graphics/hand-drawn-illustrated-posters/"
+        provider: "Behance",
+        reason: "A cleaner second lane for koi symbolism translated into more restrained identity and poster treatments.",
+        thumbnail_url: "https://mir-s3-cdn-cf.behance.net/project_modules/source/028faa202074787.667fbb8bcc30e.gif",
+        title: "KOI RESTAURANT Brand Identity",
+        url: "https://www.behance.net/gallery/202074787/KOI-RESTAURANT-Brand-Identity"
       },
       {
         provider: "MaterialDriven",
         reason: "A strong reference for translating rough material cues and tactile surfaces into emotionally charged graphic systems.",
-        thumbnail_url: gardenPreviewUrl,
+        thumbnail_url: "https://images.squarespace-cdn.com/content/v1/570a8015f699bb7295b31415/1512576487629-4R5I94QUH1B6VYV5VFSU/6.jpg",
         title: "Tactile and Emotive Graphic Design from Design&Practice",
         url: "https://www.materialdriven.com/blog/2017/12/6/tactile-and-emotive-graphic-design-from-designpractice"
       }
@@ -665,18 +665,6 @@ function buildApplications(projectType: string) {
     "A direction for packaging, graphics, or editorial assets that needs more soul than polish.",
     "A useful reference when a project needs a strong big idea, not just another moodboard image."
   ];
-}
-
-function previewLinkImageSource(index: number) {
-  if (index === 0) {
-    return koiImageSource;
-  }
-
-  if (index === 1) {
-    return stainedGlassSource;
-  }
-
-  return gardenObjectsSource;
 }
 
 function previewTypeStyle(style: string) {
