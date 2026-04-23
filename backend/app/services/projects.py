@@ -23,6 +23,7 @@ def upsert_active_project(db: Session, user: User, payload: ActiveProjectWrite) 
     project.avoid = _normalized_text(payload.avoid)
     project.direction_tags = _normalized_list(payload.direction_tags)
     project.priorities = _normalized_list(payload.priorities)
+    project.reference_images = _normalized_list(payload.reference_images)
     project.reference_links = _normalized_list(payload.reference_links)
 
     db.flush()

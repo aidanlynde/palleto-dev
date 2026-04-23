@@ -1,3 +1,4 @@
+import { OnboardingSurveyAnswers } from "./onboarding";
 import { ProjectContext } from "./projectContext";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -36,9 +37,37 @@ type ActiveProjectApiResponse = {
   avoid: string | null;
   direction_tags: string[];
   priorities: string[];
+  reference_images: string[];
   reference_links: string[];
   created_at: string;
   updated_at: string;
+};
+
+export type ProjectChatMessage = {
+  role: "assistant" | "user";
+  content: string;
+};
+
+export type ProjectBriefDraft = {
+  name: string | null;
+  description: string | null;
+  projectType: string | null;
+  audience: string | null;
+  desiredFeeling: string | null;
+  avoid: string | null;
+  directionTags: string[];
+  priorities: string[];
+  referenceLinks: string[];
+  referenceImages: string[];
+};
+
+export type ProjectChatResponse = {
+  assistantMessage: string;
+  suggestedReplies: string[];
+  draft: ProjectBriefDraft;
+  briefSummary: string;
+  missingFields: string[];
+  isReadyToSave: boolean;
 };
 
 export type InspirationCard = {
@@ -178,6 +207,7 @@ export async function saveActiveProject(
       name: project.name,
       priorities: project.priorities,
       project_type: project.projectType,
+      reference_images: project.referenceImages,
       reference_links: project.referenceLinks
     })
   });
@@ -201,6 +231,90 @@ export async function listCards(idToken: string): Promise<InspirationCard[]> {
   }
 
   return response.json();
+}
+
+export async function saveTasteProfile(
+  idToken: string,
+  onboardingAnswers: OnboardingSurveyAnswers
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/taste-profile`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      onboarding_answers: onboardingAnswers
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to save taste profile: ${response.status}`);
+  }
+}
+
+export async function respondProjectChat(
+  idToken: string,
+  input: {
+    draft?: ProjectBriefDraft | null;
+    history?: ProjectChatMessage[];
+    message?: string | null;
+    referenceImages?: string[];
+    referenceLinks?: string[];
+  }
+): Promise<ProjectChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/chat/respond`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      draft: input.draft ? mapDraftToApi(input.draft) : null,
+      history: input.history ?? [],
+      message: input.message ?? null,
+      reference_images: input.referenceImages ?? [],
+      reference_links: input.referenceLinks ?? []
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to continue project chat: ${response.status}`);
+  }
+
+  return mapProjectChatResponse(await response.json());
+}
+
+export async function uploadProjectReferenceImage(
+  idToken: string,
+  input: {
+    imageUri: string;
+    mimeType?: string | null;
+  }
+): Promise<string> {
+  const formData = new FormData();
+  const fileName = input.imageUri.split("/").pop() || "reference.jpg";
+
+  formData.append("image", {
+    name: fileName,
+    type: input.mimeType || "image/jpeg",
+    uri: input.imageUri
+  } as unknown as Blob);
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/reference-image`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`
+    },
+    body: formData
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to upload project reference image: ${response.status}`);
+  }
+
+  const payload = (await response.json()) as { image_url: string };
+  return payload.image_url;
 }
 
 export async function deleteCard(idToken: string, cardId: string): Promise<void> {
@@ -287,7 +401,63 @@ function mapActiveProject(payload: ActiveProjectApiResponse): ProjectContext {
     name: payload.name,
     priorities: payload.priorities,
     projectType: payload.project_type,
+    referenceImages: payload.reference_images,
     referenceLinks: payload.reference_links,
     updatedAt: payload.updated_at
+  };
+}
+
+function mapProjectChatResponse(payload: {
+  assistant_message: string;
+  suggested_replies: string[];
+  draft: {
+    name?: string | null;
+    description?: string | null;
+    project_type?: string | null;
+    audience?: string | null;
+    desired_feeling?: string | null;
+    avoid?: string | null;
+    direction_tags?: string[];
+    priorities?: string[];
+    reference_links?: string[];
+    reference_images?: string[];
+  };
+  brief_summary: string;
+  missing_fields: string[];
+  is_ready_to_save: boolean;
+}): ProjectChatResponse {
+  return {
+    assistantMessage: payload.assistant_message,
+    briefSummary: payload.brief_summary,
+    draft: {
+      audience: payload.draft.audience ?? null,
+      avoid: payload.draft.avoid ?? null,
+      description: payload.draft.description ?? null,
+      desiredFeeling: payload.draft.desired_feeling ?? null,
+      directionTags: payload.draft.direction_tags ?? [],
+      name: payload.draft.name ?? null,
+      priorities: payload.draft.priorities ?? [],
+      projectType: payload.draft.project_type ?? null,
+      referenceImages: payload.draft.reference_images ?? [],
+      referenceLinks: payload.draft.reference_links ?? []
+    },
+    isReadyToSave: payload.is_ready_to_save,
+    missingFields: payload.missing_fields,
+    suggestedReplies: payload.suggested_replies
+  };
+}
+
+function mapDraftToApi(draft: ProjectBriefDraft) {
+  return {
+    audience: draft.audience,
+    avoid: draft.avoid,
+    description: draft.description,
+    desired_feeling: draft.desiredFeeling,
+    direction_tags: draft.directionTags,
+    name: draft.name,
+    priorities: draft.priorities,
+    project_type: draft.projectType,
+    reference_images: draft.referenceImages,
+    reference_links: draft.referenceLinks
   };
 }

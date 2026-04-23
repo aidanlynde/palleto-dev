@@ -10,11 +10,14 @@ def generate_card_payload(project_context: ProjectContextPayload | None) -> dict
     desired_feeling = project_context.desiredFeeling if project_context else None
     avoid = project_context.avoid if project_context else None
     reference_links = project_context.referenceLinks if project_context else []
+    taste_extract = project_context.tasteProfileExtractFromReference if project_context else []
+    taste_lean = project_context.tasteProfileLeanToward if project_context else []
+    taste_avoid = project_context.tasteProfileAvoid if project_context else []
 
     project_summary = _project_summary(
         project_type,
-        priorities,
-        direction_tags,
+        priorities or taste_extract,
+        direction_tags or taste_lean,
         audience,
         desired_feeling,
     )
@@ -62,7 +65,11 @@ def generate_card_payload(project_context: ProjectContextPayload | None) -> dict
                 avoid=avoid,
             ),
         },
-        "type_direction": _type_directions(direction_tags, desired_feeling, avoid),
+        "type_direction": _type_directions(
+            direction_tags or taste_lean,
+            desired_feeling,
+            " ".join(filter(None, [avoid, ", ".join(taste_avoid)])) or None,
+        ),
         "search_language": [
             "koi symbolism",
             "urban stencil",

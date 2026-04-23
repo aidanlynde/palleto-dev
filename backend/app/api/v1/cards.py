@@ -14,13 +14,14 @@ from app.schemas.card import (
     CardShareRead,
     ProjectContextPayload,
 )
-from app.schemas.project import ActiveProjectRead
 from app.services.card_refinements import serialize_card
 from app.services.link_preview import enrich_related_links
 from app.services.openai_card_generator import generate_card_payload_for_image, refine_card_payload
 from app.services.projects import get_active_project
+from app.services.project_context import build_project_context_payload
 from app.services.shares import build_share_url, get_or_create_card_share
 from app.services.storage import delete_card_image, upload_card_image
+from app.services.taste_profiles import get_taste_profile
 from app.services.users import get_or_create_user
 
 router = APIRouter(prefix="/cards", tags=["cards"])
@@ -265,17 +266,13 @@ def _resolve_project_context(
     project_context: str | None,
 ) -> ProjectContextPayload | None:
     parsed_project_context = _parse_project_context(project_context)
-
-    if parsed_project_context is not None:
-        return parsed_project_context
-
     active_project = get_active_project(db, user)
+    taste_profile = get_taste_profile(db, user)
 
-    if active_project is None:
-        return None
-
-    return ProjectContextPayload.from_active_project(
-        ActiveProjectRead.model_validate(active_project)
+    return build_project_context_payload(
+        active_project=active_project,
+        taste_profile=taste_profile,
+        override=parsed_project_context,
     )
 
 

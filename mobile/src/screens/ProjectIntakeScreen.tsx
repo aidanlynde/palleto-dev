@@ -1,6 +1,9 @@
 import * as Haptics from "expo-haptics";
-import { useMemo, useState } from "react";
+import * as ImagePicker from "expo-image-picker";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,7 +13,15 @@ import {
   TextInput,
   View
 } from "react-native";
+import { User } from "firebase/auth";
 
+import {
+  ProjectBriefDraft,
+  ProjectChatMessage,
+  respondProjectChat,
+  uploadProjectReferenceImage
+} from "../services/api";
+import { firebaseAuth } from "../services/firebase";
 import { ProjectContext, ProjectContextInput } from "../services/projectContext";
 import { theme } from "../theme";
 
@@ -22,28 +33,6 @@ type ProjectIntakeScreenProps = {
   onSave: (project: ProjectContextInput) => Promise<ProjectContext>;
 };
 
-const projectTypes = [
-  "Clothing brand",
-  "Brand identity",
-  "Interior concept",
-  "Product design",
-  "Campaign",
-  "Personal archive"
-];
-
-const directionTags = [
-  "Minimal",
-  "Luxury",
-  "Street",
-  "Editorial",
-  "Organic",
-  "Industrial",
-  "Technical",
-  "Experimental"
-];
-
-const priorities = ["Color systems", "Materials", "Typography", "Patterns", "Composition", "Mood"];
-
 export function ProjectIntakeScreen({
   initialProject,
   initialValues,
@@ -51,87 +40,171 @@ export function ProjectIntakeScreen({
   onComplete,
   onSave
 }: ProjectIntakeScreenProps) {
-  const seedValues = initialProject ?? initialValues;
-  const [step, setStep] = useState(0);
-  const [description, setDescription] = useState(seedValues?.description ?? "");
-  const [projectType, setProjectType] = useState(seedValues?.projectType ?? "");
-  const [selectedDirectionTags, setSelectedDirectionTags] = useState<string[]>(
-    seedValues?.directionTags ?? []
+  const [draft, setDraft] = useState<ProjectBriefDraft>(() =>
+    buildDraftFromSeed(initialProject ?? initialValues)
   );
-  const [selectedPriorities, setSelectedPriorities] = useState<string[]>(
-    seedValues?.priorities ?? []
-  );
-  const [audience, setAudience] = useState(seedValues?.audience ?? "");
-  const [desiredFeeling, setDesiredFeeling] = useState(seedValues?.desiredFeeling ?? "");
-  const [avoid, setAvoid] = useState(seedValues?.avoid ?? "");
-  const [referenceLinks, setReferenceLinks] = useState(
-    seedValues?.referenceLinks?.join("\n") ?? ""
-  );
+  const [messages, setMessages] = useState<ProjectChatMessage[]>([]);
+  const [composer, setComposer] = useState("");
+  const [briefSummary, setBriefSummary] = useState("Loading your project brief...");
+  const [suggestedReplies, setSuggestedReplies] = useState<string[]>([]);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [isReadyToSave, setIsReadyToSave] = useState(false);
+  const [isBooting, setIsBooting] = useState(true);
+  const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const totalSteps = 6;
+  const [error, setError] = useState<string | null>(null);
   const isEditing = Boolean(initialProject);
 
-  const canContinue = useMemo(() => {
-    if (step === 0) {
-      return description.trim().length >= 8;
+  const referenceCount = draft.referenceLinks.length + draft.referenceImages.length;
+  const disableSend = isBooting || isSending || !composer.trim().length;
+
+  useEffect(() => {
+    void bootstrapConversation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveLabel = useMemo(() => {
+    if (isSaving) {
+      return "Saving";
     }
 
-    if (step === 1) {
-      return Boolean(projectType);
+    if (isEditing) {
+      return "Update project context";
     }
 
-    if (step === 2) {
-      return selectedDirectionTags.length > 0;
+    return "Save project context";
+  }, [isEditing, isSaving]);
+
+  async function bootstrapConversation() {
+    setIsBooting(true);
+    setError(null);
+
+    try {
+      const token = await getIdToken();
+      const response = await respondProjectChat(token, {
+        draft,
+        history: [],
+        message: null
+      });
+
+      setDraft(response.draft);
+      setBriefSummary(response.briefSummary);
+      setSuggestedReplies(response.suggestedReplies);
+      setMissingFields(response.missingFields);
+      setIsReadyToSave(response.isReadyToSave);
+      setMessages([{ role: "assistant", content: response.assistantMessage }]);
+    } catch (caughtError) {
+      setError("Could not load the project brief conversation.");
+    } finally {
+      setIsBooting(false);
     }
-
-    if (step === 3) {
-      return selectedPriorities.length > 0;
-    }
-
-    return true;
-  }, [description, projectType, selectedDirectionTags, selectedPriorities, step]);
-
-  function toggleOption(option: string, selected: string[], setSelected: (value: string[]) => void) {
-    Haptics.selectionAsync();
-    setSelected(
-      selected.includes(option)
-        ? selected.filter((selectedOption) => selectedOption !== option)
-        : [...selected, option]
-    );
   }
 
-  async function continueFlow() {
-    if (!canContinue || isSaving) {
+  async function sendMessage(message: string, input?: { referenceImages?: string[] }) {
+    const trimmed = message.trim();
+    if ((!trimmed && !(input?.referenceImages?.length ?? 0)) || isSending) {
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const userMessage = trimmed || "Use this reference image to sharpen the project world.";
+    const nextHistory = [...messages, { role: "user" as const, content: userMessage }];
 
-    if (step < totalSteps - 1) {
-      setStep(step + 1);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setComposer("");
+    setError(null);
+    setMessages(nextHistory);
+    setIsSending(true);
+
+    try {
+      const token = await getIdToken();
+      const response = await respondProjectChat(token, {
+        draft,
+        history: nextHistory,
+        message: userMessage,
+        referenceImages: input?.referenceImages ?? [],
+        referenceLinks: []
+      });
+
+      setDraft(response.draft);
+      setBriefSummary(response.briefSummary);
+      setSuggestedReplies(response.suggestedReplies);
+      setMissingFields(response.missingFields);
+      setIsReadyToSave(response.isReadyToSave);
+      setMessages([...nextHistory, { role: "assistant", content: response.assistantMessage }]);
+    } catch (caughtError) {
+      setError("Could not update the project brief.");
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  async function handlePickReferenceImage() {
+    if (isSending || isBooting) {
+      return;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: false,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 1
+    });
+
+    if (result.canceled || !result.assets.length) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    setError(null);
+
+    try {
+      setIsSending(true);
+      const token = await getIdToken();
+      const imageUrl = await uploadProjectReferenceImage(token, {
+        imageUri: asset.uri,
+        mimeType: asset.mimeType
+      });
+      setIsSending(false);
+      await sendMessage("Use this reference image to sharpen the project world.", {
+        referenceImages: [imageUrl]
+      });
+    } catch (caughtError) {
+      setError("Could not upload that reference image.");
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!isReadyToSave || isSaving) {
       return;
     }
 
     setIsSaving(true);
+    setError(null);
 
     try {
       const project = await onSave({
-        avoid: avoid.trim() || null,
-        audience: audience.trim() || null,
-        description: description.trim(),
-        desiredFeeling: desiredFeeling.trim() || null,
-        directionTags: selectedDirectionTags,
-        name: initialProject?.name ?? inferProjectName(description, projectType),
-        priorities: selectedPriorities,
-        projectType,
-        referenceLinks: referenceLinks
-          .split("\n")
-          .map((value) => value.trim())
-          .filter(Boolean)
+        avoid: draft.avoid,
+        audience: draft.audience,
+        description: draft.description?.trim() ?? "",
+        desiredFeeling: draft.desiredFeeling,
+        directionTags: draft.directionTags,
+        name: inferProjectName(draft),
+        priorities: draft.priorities,
+        projectType: draft.projectType?.trim() ?? "",
+        referenceImages: draft.referenceImages,
+        referenceLinks: draft.referenceLinks
       });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onComplete(project);
+    } catch (caughtError) {
+      setError("Could not save the project context.");
     } finally {
       setIsSaving(false);
     }
@@ -143,217 +216,158 @@ export function ProjectIntakeScreen({
       style={styles.container}
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {onCancel ? (
-          <View style={styles.topBar}>
+        <View style={styles.topBar}>
+          {onCancel ? (
             <Pressable
               onPress={onCancel}
               style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
             >
               <Text style={styles.backButtonText}>Back</Text>
             </Pressable>
+          ) : (
+            <View />
+          )}
+          <Text style={styles.topBarTitle}>Project context</Text>
+          <View style={styles.topBarSpacer} />
+        </View>
+
+        <View style={styles.hero}>
+          <Text style={styles.heroEyebrow}>Active project</Text>
+          <Text style={styles.heroTitle}>
+            {isEditing
+              ? "Keep shaping what Palleto reads every scan through."
+              : "Build the brief once, then keep refining it as the project sharpens."}
+          </Text>
+          <Text style={styles.heroBody}>
+            This is a live conversation. Reply naturally, paste links, or attach reference images.
+          </Text>
+        </View>
+
+        <View style={styles.summaryCard}>
+          <Text style={styles.cardLabel}>Current brief</Text>
+          <Text style={styles.summaryText}>{briefSummary}</Text>
+          <View style={styles.metaRow}>
+            <MetaPill label={draft.projectType || "Project type pending"} />
+            <MetaPill label={referenceCount ? `${referenceCount} references` : "No references yet"} />
+            <MetaPill label={missingFields.length ? `${missingFields.length} open points` : "Ready to save"} />
           </View>
-        ) : null}
-        <View style={styles.progressTrack}>
-          {Array.from({ length: totalSteps }).map((_, index) => (
-            <View
-              key={index}
-              style={[styles.progressDot, index <= step && styles.progressDotActive]}
-            />
-          ))}
+          <BriefGrid draft={draft} />
         </View>
 
         <View style={styles.thread}>
-          <AssistantMessage
-            eyebrow="Project context"
-            message={
-              isEditing
-                ? "Update what you are building right now. Future scans will read through this brief."
-                : "Before you start scanning, tell Palleto what you are working on. The better the context, the sharper every inspiration card gets."
-            }
-          />
+          {messages.map((message, index) =>
+            message.role === "assistant" ? (
+              <AssistantMessage key={`${message.role}-${index}`} message={message.content} />
+            ) : (
+              <UserMessage key={`${message.role}-${index}`} message={message.content} />
+            )
+          )}
 
-          {step === 0 ? (
-            <View style={styles.answerBlock}>
-              <Text style={styles.question}>What are you working on right now?</Text>
-              <TextInput
-                multiline
-                onChangeText={setDescription}
-                placeholder="A small clothing brand inspired by racing graphics, city signage, and worn-in technical gear."
-                placeholderTextColor={theme.colors.textSecondary}
-                style={styles.textInput}
-                value={description}
-              />
-            </View>
-          ) : null}
-
-          {step >= 1 ? (
-            <UserMessage message={description.trim()} />
-          ) : null}
-
-          {step === 1 ? (
-            <ChoiceStep
-              options={projectTypes}
-              prompt="What kind of project is it?"
-              selected={[projectType]}
-              onSelect={(option) => {
-                Haptics.selectionAsync();
-                setProjectType(option);
-              }}
-            />
-          ) : null}
-
-          {step >= 2 ? <UserMessage message={projectType} /> : null}
-
-          {step === 2 ? (
-            <ChoiceStep
-              multiSelect
-              options={directionTags}
-              prompt="What direction are you drawn to?"
-              selected={selectedDirectionTags}
-              onSelect={(option) =>
-                toggleOption(option, selectedDirectionTags, setSelectedDirectionTags)
-              }
-            />
-          ) : null}
-
-          {step >= 3 ? <UserMessage message={selectedDirectionTags.join(", ")} /> : null}
-
-          {step === 3 ? (
-            <ChoiceStep
-              multiSelect
-              options={priorities}
-              prompt="What should Palleto help you find?"
-              selected={selectedPriorities}
-              onSelect={(option) => toggleOption(option, selectedPriorities, setSelectedPriorities)}
-            />
-          ) : null}
-
-          {step >= 4 ? <UserMessage message={selectedPriorities.join(", ")} /> : null}
-
-          {step === 4 ? (
-            <View style={styles.answerBlock}>
-              <AssistantMessage
-                eyebrow="Project lens"
-                message="Who is this for, and what should the work feel like when it is dialed?"
-              />
-              <TextInput
-                onChangeText={setAudience}
-                placeholder="Audience or customer"
-                placeholderTextColor={theme.colors.textSecondary}
-                style={styles.singleLineInput}
-                value={audience}
-              />
-              <TextInput
-                multiline
-                onChangeText={setDesiredFeeling}
-                placeholder="Soft editorial, hand-touched, quiet confidence, more sculptural than corporate."
-                placeholderTextColor={theme.colors.textSecondary}
-                style={styles.textInput}
-                value={desiredFeeling}
-              />
-            </View>
-          ) : null}
-
-          {step >= 5 ? (
-            <UserMessage
-              message={[audience.trim(), desiredFeeling.trim()].filter(Boolean).join(" • ") || "No extra project lens"}
-            />
-          ) : null}
-
-          {step === 5 ? (
-            <View style={styles.answerBlock}>
-              <AssistantMessage
-                eyebrow="Guardrails"
-                message="Anything Palleto should avoid, or any links that define the world you want?"
-              />
-              <TextInput
-                multiline
-                onChangeText={setAvoid}
-                placeholder="No generic streetwear, no beige wellness branding, nothing too polished."
-                placeholderTextColor={theme.colors.textSecondary}
-                style={styles.textInput}
-                value={avoid}
-              />
-              <TextInput
-                multiline
-                onChangeText={setReferenceLinks}
-                placeholder="Paste one reference link per line"
-                placeholderTextColor={theme.colors.textSecondary}
-                style={styles.textInput}
-                value={referenceLinks}
-              />
+          {isSending ? (
+            <View style={styles.assistantMessage}>
+              <ActivityIndicator color={theme.colors.textPrimary} />
             </View>
           ) : null}
         </View>
+
+        {suggestedReplies.length ? (
+          <View style={styles.suggestions}>
+            {suggestedReplies.map((reply) => (
+              <Pressable
+                key={reply}
+                onPress={() => void sendMessage(reply)}
+                style={({ pressed }) => [styles.suggestionChip, pressed && styles.pressed]}
+              >
+                <Text style={styles.suggestionText}>{reply}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {draft.referenceImages.length ? (
+          <View style={styles.referencesBlock}>
+            <Text style={styles.blockTitle}>Reference images</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.referenceImageRow}>
+                {draft.referenceImages.map((imageUrl) => (
+                  <Image key={imageUrl} source={{ uri: imageUrl }} style={styles.referenceImage} />
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        ) : null}
+
+        {draft.referenceLinks.length ? (
+          <View style={styles.referencesBlock}>
+            <Text style={styles.blockTitle}>Reference links</Text>
+            <View style={styles.referenceLinkList}>
+              {draft.referenceLinks.map((link) => (
+                <View key={link} style={styles.referenceLink}>
+                  <Text numberOfLines={1} style={styles.referenceLinkText}>
+                    {link}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={styles.composerShell}>
+        <View style={styles.composerActions}>
+          <Pressable
+            onPress={() => void handlePickReferenceImage()}
+            style={({ pressed }) => [styles.attachButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.attachButtonText}>Add image</Text>
+          </Pressable>
+          <Text style={styles.helperText}>Paste a link or describe the project naturally.</Text>
+        </View>
+
+        <View style={styles.composerRow}>
+          <TextInput
+            multiline
+            onChangeText={setComposer}
+            placeholder="What are you building, what should it feel like, or what should it avoid?"
+            placeholderTextColor={theme.colors.textSecondary}
+            style={styles.composerInput}
+            value={composer}
+          />
+          <Pressable
+            disabled={disableSend}
+            onPress={() => void sendMessage(composer)}
+            style={({ pressed }) => [
+              styles.sendButton,
+              pressed && styles.pressed,
+              disableSend && styles.disabled
+            ]}
+          >
+            <Text style={styles.sendButtonText}>Send</Text>
+          </Pressable>
+        </View>
+
         <Pressable
-          disabled={!canContinue || isSaving}
-          onPress={continueFlow}
+          disabled={!isReadyToSave || isSaving}
+          onPress={() => void handleSave()}
           style={({ pressed }) => [
-            styles.footerButton,
+            styles.saveButton,
             pressed && styles.pressed,
-            (!canContinue || isSaving) && styles.disabled
+            (!isReadyToSave || isSaving) && styles.disabled
           ]}
         >
-          <Text style={styles.footerButtonText}>
-            {step === totalSteps - 1 ? (isSaving ? "Saving" : "Save project context") : "Continue"}
-          </Text>
+          <Text style={styles.saveButtonText}>{saveLabel}</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-function ChoiceStep({
-  multiSelect,
-  onSelect,
-  options,
-  prompt,
-  selected
-}: {
-  multiSelect?: boolean;
-  onSelect: (option: string) => void;
-  options: string[];
-  prompt: string;
-  selected: string[];
-}) {
-  return (
-    <View style={styles.answerBlock}>
-      <AssistantMessage
-        eyebrow={multiSelect ? "Choose any that fit" : "Choose one"}
-        message={prompt}
-      />
-      <View style={styles.optionGrid}>
-        {options.map((option) => {
-          const isSelected = selected.includes(option);
-
-          return (
-            <Pressable
-              key={option}
-              onPress={() => onSelect(option)}
-              style={({ pressed }) => [
-                styles.option,
-                isSelected && styles.optionSelected,
-                pressed && styles.pressed
-              ]}
-            >
-              <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>
-                {option}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-function AssistantMessage({ eyebrow, message }: { eyebrow: string; message: string }) {
+function AssistantMessage({ message }: { message: string }) {
   return (
     <View style={styles.assistantMessage}>
-      <Text style={styles.eyebrow}>{eyebrow}</Text>
+      <Text style={styles.messageEyebrow}>Palleto</Text>
       <Text style={styles.assistantText}>{message}</Text>
     </View>
   );
@@ -367,14 +381,78 @@ function UserMessage({ message }: { message: string }) {
   );
 }
 
-function inferProjectName(description: string, projectType: string) {
-  const firstSentence = description.split(/[.!?]/)[0]?.trim();
+function MetaPill({ label }: { label: string }) {
+  return (
+    <View style={styles.metaPill}>
+      <Text style={styles.metaPillText}>{label}</Text>
+    </View>
+  );
+}
 
-  if (firstSentence && firstSentence.length <= 42) {
-    return firstSentence;
+function BriefGrid({ draft }: { draft: ProjectBriefDraft }) {
+  const rows = [
+    ["Project", draft.projectType || draft.name || "Still defining the project"],
+    ["Use it for", draft.description || "Describe what you are actually building."],
+    ["Desired feel", draft.desiredFeeling || "Add the emotional or creative target."],
+    ["Avoid", draft.avoid || "No guardrails yet."],
+    [
+      "What to pull",
+      draft.priorities.length ? draft.priorities.join(", ") : "Let the AI infer what matters."
+    ]
+  ];
+
+  return (
+    <View style={styles.briefGrid}>
+      {rows.map(([label, value]) => (
+        <View key={label} style={styles.briefRow}>
+          <Text style={styles.briefLabel}>{label}</Text>
+          <Text style={styles.briefValue}>{value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function buildDraftFromSeed(
+  seed: ProjectContext | Partial<ProjectContextInput> | null | undefined
+): ProjectBriefDraft {
+  return {
+    audience: seed?.audience ?? null,
+    avoid: seed?.avoid ?? null,
+    description: seed?.description ?? null,
+    desiredFeeling: seed?.desiredFeeling ?? null,
+    directionTags: seed?.directionTags ?? [],
+    name: seed?.name ?? null,
+    priorities: seed?.priorities ?? [],
+    projectType: seed?.projectType ?? null,
+    referenceImages: seed?.referenceImages ?? [],
+    referenceLinks: seed?.referenceLinks ?? []
+  };
+}
+
+function inferProjectName(draft: ProjectBriefDraft) {
+  if (draft.name?.trim()) {
+    return draft.name.trim();
   }
 
-  return projectType;
+  if (draft.description?.trim()) {
+    const firstSentence = draft.description.split(/[.!?]/)[0]?.trim();
+    if (firstSentence && firstSentence.length <= 42) {
+      return firstSentence;
+    }
+  }
+
+  return draft.projectType?.trim() || "Active project";
+}
+
+async function getIdToken() {
+  const user = firebaseAuth.currentUser as User | null;
+
+  if (!user) {
+    throw new Error("User must be signed in.");
+  }
+
+  return user.getIdToken();
 }
 
 const styles = StyleSheet.create({
@@ -383,15 +461,26 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background
   },
   content: {
-    gap: theme.spacing.xl,
     paddingHorizontal: theme.spacing.lg,
     paddingTop: 64,
-    paddingBottom: 120
+    paddingBottom: 220,
+    gap: theme.spacing.lg
   },
   topBar: {
-    flexDirection: "row"
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  topBarTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "800"
+  },
+  topBarSpacer: {
+    width: 40
   },
   backButton: {
+    minWidth: 40,
     paddingVertical: theme.spacing.xs
   },
   backButtonText: {
@@ -399,20 +488,83 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800"
   },
-  progressTrack: {
+  hero: {
+    gap: theme.spacing.sm
+  },
+  heroEyebrow: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  heroTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 28,
+    fontWeight: "800",
+    lineHeight: 34
+  },
+  heroBody: {
+    color: theme.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22
+  },
+  summaryCard: {
+    gap: theme.spacing.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.small,
+    borderWidth: 1,
+    borderColor: theme.colors.border
+  },
+  cardLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  summaryText: {
+    color: theme.colors.textPrimary,
+    fontSize: 18,
+    fontWeight: "700",
+    lineHeight: 25
+  },
+  metaRow: {
     flexDirection: "row",
-    gap: theme.spacing.xs
+    flexWrap: "wrap",
+    gap: theme.spacing.sm
   },
-  progressDot: {
-    flex: 1,
-    height: 2,
-    backgroundColor: "rgba(255,255,255,0.22)"
+  metaPill: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.background,
+    borderWidth: 1,
+    borderColor: theme.colors.border
   },
-  progressDotActive: {
-    backgroundColor: theme.colors.textPrimary
+  metaPillText: {
+    color: theme.colors.textPrimary,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  briefGrid: {
+    gap: theme.spacing.sm
+  },
+  briefRow: {
+    gap: 6
+  },
+  briefLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  briefValue: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20
   },
   thread: {
-    gap: theme.spacing.lg
+    gap: theme.spacing.md
   },
   assistantMessage: {
     alignSelf: "flex-start",
@@ -420,55 +572,21 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     padding: theme.spacing.md,
     backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
+    borderRadius: theme.radius.small,
     borderWidth: 1,
-    borderRadius: theme.radius.small
+    borderColor: theme.colors.border
   },
-  eyebrow: {
+  messageEyebrow: {
     color: theme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
-    letterSpacing: 0,
     textTransform: "uppercase"
   },
   assistantText: {
     color: theme.colors.textPrimary,
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
-    lineHeight: 28
-  },
-  answerBlock: {
-    gap: theme.spacing.md
-  },
-  question: {
-    color: theme.colors.textPrimary,
-    fontSize: 28,
-    fontWeight: "800",
-    lineHeight: 34
-  },
-  textInput: {
-    minHeight: 136,
-    padding: theme.spacing.md,
-    color: theme.colors.textPrimary,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small,
-    fontSize: 16,
-    lineHeight: 23,
-    textAlignVertical: "top"
-  },
-  singleLineInput: {
-    minHeight: 52,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    color: theme.colors.textPrimary,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small,
-    fontSize: 16,
-    lineHeight: 22
+    lineHeight: 27
   },
   userMessage: {
     alignSelf: "flex-end",
@@ -483,33 +601,61 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 22
   },
-  optionGrid: {
+  suggestions: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: theme.spacing.sm
   },
-  option: {
-    minHeight: 42,
-    justifyContent: "center",
+  suggestionChip: {
     paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.background
+    borderRadius: theme.radius.small
   },
-  optionSelected: {
-    backgroundColor: theme.colors.textPrimary,
-    borderColor: theme.colors.textPrimary
-  },
-  optionText: {
+  suggestionText: {
     color: theme.colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700"
   },
-  optionTextSelected: {
-    color: theme.colors.background
+  referencesBlock: {
+    gap: theme.spacing.sm
   },
-  footer: {
+  blockTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "800"
+  },
+  referenceImageRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm
+  },
+  referenceImage: {
+    width: 108,
+    height: 108,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.surface
+  },
+  referenceLinkList: {
+    gap: theme.spacing.sm
+  },
+  referenceLink: {
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.small,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface
+  },
+  referenceLinkText: {
+    color: theme.colors.textPrimary,
+    fontSize: 14
+  },
+  errorText: {
+    color: theme.colors.error,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  composerShell: {
     position: "absolute",
     left: 0,
     right: 0,
@@ -517,26 +663,82 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: 34,
+    gap: theme.spacing.sm,
     backgroundColor: theme.colors.background,
-    borderTopColor: theme.colors.border,
-    borderTopWidth: 1
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border
   },
-  footerButton: {
+  composerActions: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    minHeight: 54,
-    backgroundColor: theme.colors.textPrimary,
-    borderRadius: theme.radius.small
+    gap: theme.spacing.sm
   },
-  footerButtonText: {
+  attachButton: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 10,
+    borderRadius: theme.radius.small,
+    borderWidth: 1,
+    borderColor: theme.colors.border
+  },
+  attachButtonText: {
+    color: theme.colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  helperText: {
+    flex: 1,
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17
+  },
+  composerRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: theme.spacing.sm
+  },
+  composerInput: {
+    flex: 1,
+    minHeight: 54,
+    maxHeight: 120,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    color: theme.colors.textPrimary,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.small,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    fontSize: 15,
+    lineHeight: 21,
+    textAlignVertical: "top"
+  },
+  sendButton: {
+    minHeight: 54,
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.textPrimary
+  },
+  sendButtonText: {
     color: theme.colors.background,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "800"
   },
-  pressed: {
-    opacity: 0.72
+  saveButton: {
+    minHeight: 52,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.textPrimary
+  },
+  saveButtonText: {
+    color: theme.colors.background,
+    fontSize: 15,
+    fontWeight: "800"
   },
   disabled: {
-    opacity: 0.35
+    opacity: 0.4
+  },
+  pressed: {
+    opacity: 0.8
   }
 });

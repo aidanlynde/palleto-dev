@@ -33,6 +33,11 @@ class User(Base):
         cascade="all, delete-orphan",
         uselist=False,
     )
+    taste_profile: Mapped["TasteProfile | None"] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
     cards: Mapped[list["Card"]] = relationship(back_populates="user")
 
 
@@ -55,6 +60,7 @@ class ActiveProject(Base):
     direction_tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     priorities: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     reference_links: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    reference_images: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -68,6 +74,38 @@ class ActiveProject(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="active_project")
+
+
+class TasteProfile(Base):
+    __tablename__ = "taste_profiles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        unique=True,
+        index=True,
+        nullable=False,
+    )
+    onboarding_answers: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    work_for: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    extract_from_reference: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    useful_scan: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    lean_toward: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    avoid: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped[User] = relationship(back_populates="taste_profile")
 
 
 class Card(Base):

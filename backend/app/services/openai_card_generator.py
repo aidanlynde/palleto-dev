@@ -254,7 +254,9 @@ Rules:
 - project_lens.summary must be a strong "what to steal" takeaway: one clear creative idea a user can apply from this image.
 - project_lens.applications must be concrete project-specific uses for the active project, not generic observations.
 - When project context includes audience, desired feeling, avoid cues, or reference links, treat them as real constraints rather than loose flavor.
+- When project context includes taste profile signals, use them as prior creative bias and extraction priorities without parroting survey language back verbatim.
 - Prioritize the project context in this order: project type and current goal, desired feeling, positive direction tags, avoid cues, then reference links.
+- Then use taste profile work-for, extraction priorities, lean-toward cues, and avoid cues to sharpen the card so it feels specific to the user.
 - If the project context contains both positive and negative cues, resolve the output toward the positive cues while explicitly steering away from the negative ones.
 - Type direction must respect the requested feeling and avoid list. If the context suggests organic, soft, handmade, editorial, or luxurious qualities, do not default to blocky utilitarian type unless the image evidence strongly demands that tension.
 - Design moves must be short action lines that can support the translation, but avoid repeating project_lens.applications.

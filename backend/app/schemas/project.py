@@ -13,6 +13,7 @@ class ActiveProjectBase(BaseModel):
     direction_tags: list[str] = []
     priorities: list[str] = []
     reference_links: list[str] = []
+    reference_images: list[str] = []
 
 
 class ActiveProjectWrite(ActiveProjectBase):

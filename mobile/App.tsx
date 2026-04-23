@@ -18,7 +18,12 @@ import { ProcessingScreen } from "./src/screens/ProcessingScreen";
 import { ProjectIntakeScreen } from "./src/screens/ProjectIntakeScreen";
 import { RefineCardScreen } from "./src/screens/RefineCardScreen";
 import { SplashScreen } from "./src/screens/SplashScreen";
-import { getActiveProject, InspirationCard, saveActiveProject } from "./src/services/api";
+import {
+  getActiveProject,
+  InspirationCard,
+  saveActiveProject,
+  saveTasteProfile
+} from "./src/services/api";
 import { firebaseAuth } from "./src/services/firebase";
 import {
   completeOnboarding,
@@ -72,6 +77,7 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isOnboardingReady, setIsOnboardingReady] = useState(false);
   const [isProjectContextReady, setIsProjectContextReady] = useState(false);
+  const [isTasteProfileReady, setIsTasteProfileReady] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [onboardingAnswers, setOnboardingAnswers] = useState<OnboardingSurveyAnswers | null>(null);
@@ -99,6 +105,27 @@ export default function App() {
 
     loadOnboardingState();
   }, []);
+
+  useEffect(() => {
+    async function syncTasteProfile() {
+      if (!firebaseUser || !onboardingAnswers) {
+        setIsTasteProfileReady(true);
+        return;
+      }
+
+      try {
+        setIsTasteProfileReady(false);
+        const token = await firebaseUser.getIdToken();
+        await saveTasteProfile(token, onboardingAnswers);
+      } catch (error) {
+        console.warn("Failed to sync onboarding taste profile", error);
+      } finally {
+        setIsTasteProfileReady(true);
+      }
+    }
+
+    syncTasteProfile();
+  }, [firebaseUser, onboardingAnswers]);
 
   useEffect(() => {
     async function loadProjectContext() {
@@ -151,7 +178,12 @@ export default function App() {
     return savedProject;
   }
 
-  const isLoading = !fontsLoaded || !isAuthReady || !isOnboardingReady || !isProjectContextReady;
+  const isLoading =
+    !fontsLoaded ||
+    !isAuthReady ||
+    !isOnboardingReady ||
+    !isProjectContextReady ||
+    !isTasteProfileReady;
 
   return (
     <NavigationContainer theme={navigationTheme}>

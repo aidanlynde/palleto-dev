@@ -9,6 +9,7 @@ export type ProjectContext = {
   name: string;
   priorities: string[];
   projectType: string;
+  referenceImages: string[];
   referenceLinks: string[];
   updatedAt: string;
 };
@@ -25,6 +26,7 @@ export function createEmptyProjectContextInput(): ProjectContextInput {
     name: "",
     priorities: [],
     projectType: "",
+    referenceImages: [],
     referenceLinks: [],
   };
 }
