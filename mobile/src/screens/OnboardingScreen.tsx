@@ -273,18 +273,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
             </Text>
           </View>
 
-          <View style={styles.scanFocusArea}>
-            <View style={styles.scanFrame}>
-              <View style={[styles.scanCorner, styles.scanCornerTopLeft]} />
-              <View style={[styles.scanCorner, styles.scanCornerTopRight]} />
-              <View style={[styles.scanCorner, styles.scanCornerBottomLeft]} />
-              <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
-              <View style={styles.scanLine} />
-              <View style={styles.scanTargetBadge}>
-                <Text style={styles.scanTargetBadgeText}>Koi signal found</Text>
-              </View>
-            </View>
-          </View>
+          <View style={styles.scanSpacer} />
 
           <FooterButton label="Scan this reference" onPress={continueFlow} />
         </View>
@@ -940,83 +929,15 @@ const styles = StyleSheet.create({
     lineHeight: 34
   },
   scanBody: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.textPrimary,
     fontSize: 15,
     lineHeight: 22,
     textShadowColor: "rgba(0,0,0,0.55)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4
   },
-  scanFocusArea: {
+  scanSpacer: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  scanFrame: {
-    position: "relative",
-    alignSelf: "center",
-    width: "78%",
-    aspectRatio: 0.82,
-    borderRadius: theme.radius.small,
-    backgroundColor: "rgba(0,0,0,0.18)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)"
-  },
-  scanCorner: {
-    position: "absolute",
-    width: 26,
-    height: 26,
-    borderColor: theme.colors.textPrimary
-  },
-  scanCornerTopLeft: {
-    top: 0,
-    left: 0,
-    borderTopWidth: 3,
-    borderLeftWidth: 3
-  },
-  scanCornerTopRight: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 3,
-    borderRightWidth: 3
-  },
-  scanCornerBottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3
-  },
-  scanCornerBottomRight: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 3,
-    borderRightWidth: 3
-  },
-  scanLine: {
-    position: "absolute",
-    left: 14,
-    right: 14,
-    top: "52%",
-    height: 2,
-    backgroundColor: "rgba(255,255,255,0.92)",
-    shadowColor: "#FFFFFF",
-    shadowOpacity: 0.45,
-    shadowRadius: 8
-  },
-  scanTargetBadge: {
-    position: "absolute",
-    left: theme.spacing.sm,
-    bottom: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: theme.radius.small,
-    backgroundColor: "rgba(0,0,0,0.44)"
-  },
-  scanTargetBadgeText: {
-    color: theme.colors.textPrimary,
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase"
   },
   stageList: {
     gap: theme.spacing.sm
