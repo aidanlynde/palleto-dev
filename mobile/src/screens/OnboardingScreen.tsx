@@ -1,3 +1,4 @@
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
@@ -376,9 +377,20 @@ function FooterButton({
 
 function PreviewScanCard({ card }: { card: InspirationCard }) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [copiedHex, setCopiedHex] = useState<string | null>(null);
 
   function toggleSection(section: string) {
     setExpandedSection((current) => (current === section ? null : section));
+  }
+
+  async function copyHex(hex: string) {
+    const normalizedHex = `#${hex.replace(/[^0-9a-f]/gi, "").slice(0, 6).toUpperCase()}`;
+    await Clipboard.setStringAsync(normalizedHex);
+    setCopiedHex(normalizedHex);
+    Haptics.selectionAsync();
+    setTimeout(() => {
+      setCopiedHex((current) => (current === normalizedHex ? null : current));
+    }, 1400);
   }
 
   return (
@@ -399,17 +411,30 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
         >
           <View style={styles.previewPaletteGrid}>
             {card.palette.map((color) => (
-              <View key={color.hex} style={styles.previewPaletteCard}>
+              <Pressable
+                key={color.hex}
+                onPress={() => copyHex(color.hex)}
+                style={({ pressed }) => [
+                  styles.previewPaletteCard,
+                  pressed && styles.pressed
+                ]}
+              >
                 <View style={[styles.previewPaletteBlock, { backgroundColor: color.hex }]}>
                   <Text style={styles.previewPaletteBlockHex}>{color.hex.toUpperCase()}</Text>
                 </View>
                 <View style={styles.previewPaletteMeta}>
                   <Text style={styles.previewPaletteLabel}>{color.label}</Text>
                   <Text style={styles.previewPaletteRole}>{color.role}</Text>
+                  <Text style={styles.previewPaletteHint}>
+                    {copiedHex === color.hex.toUpperCase() ? "Copied" : "Tap to copy"}
+                  </Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </View>
+          <Text style={[styles.previewPaletteStatus, copiedHex && styles.previewPaletteStatusActive]}>
+            {copiedHex ? `Copied ${copiedHex}` : "Tap any color to copy the hex"}
+          </Text>
         </CollapsibleSection>
 
         <CollapsibleSection
@@ -1095,6 +1120,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase"
+  },
+  previewPaletteHint: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "700"
+  },
+  previewPaletteStatus: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  previewPaletteStatusActive: {
+    color: theme.colors.textPrimary
   },
   previewLinksList: {
     gap: theme.spacing.sm
