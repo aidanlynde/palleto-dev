@@ -3,6 +3,10 @@
     {
       "source": "/s/:token",
       "destination": "/api/share?token=:token"
+    },
+    {
+      "source": "/og/share/:token.png",
+      "destination": "/api/share-image?token=:token"
     }
   ]
 }
