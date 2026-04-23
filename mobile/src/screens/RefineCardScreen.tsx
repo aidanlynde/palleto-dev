@@ -162,6 +162,8 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
   const activeVersion =
     versions.find((version) => version.id === activeRefinementId) ?? versions[0];
   const latestVersionId = versions[versions.length - 1]?.id ?? null;
+  const latestVersion =
+    versions.find((version) => version.id === latestVersionId) ?? versions[0];
 
   async function submitRefinement(nextInstruction: string, presetLabel?: string) {
     const trimmedInstruction = nextInstruction.trim();
@@ -232,6 +234,24 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
           <Text style={styles.activeVersionSummary}>
             {activeVersion.summary || "No summary yet."}
           </Text>
+          <View style={styles.activeActions}>
+            {!activeVersion.isOriginal ? (
+              <Pressable
+                onPress={() => setActiveRefinementId(null)}
+                style={({ pressed }) => [styles.activeActionChip, pressed && styles.pressed]}
+              >
+                <Text style={styles.activeActionChipText}>Branch from Original</Text>
+              </Pressable>
+            ) : null}
+            {activeVersion.id !== latestVersion.id ? (
+              <Pressable
+                onPress={() => setActiveRefinementId(latestVersion.id)}
+                style={({ pressed }) => [styles.activeActionChip, pressed && styles.pressed]}
+              >
+                <Text style={styles.activeActionChipText}>Jump to Latest</Text>
+              </Pressable>
+            ) : null}
+          </View>
           {activeVersion.instruction ? (
             <View style={styles.promptSummary}>
               <Text style={styles.promptSummaryLabel}>Applied prompt</Text>
@@ -251,6 +271,11 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
 
         <View style={styles.panel}>
           <Text style={styles.panelLabel}>Versions</Text>
+          <Text style={styles.meta}>
+            {history.length
+              ? `${history.length} saved refinements plus the original card.`
+              : "The original card stays pinned here as the base version."}
+          </Text>
           {isLoadingHistory ? (
             <Text style={styles.meta}>Loading saved refinements...</Text>
           ) : (
@@ -534,6 +559,24 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontSize: 15,
     lineHeight: 22,
+  },
+  activeActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.sm,
+  },
+  activeActionChip: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 8,
+    borderRadius: theme.radius.small,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  activeActionChipText: {
+    color: theme.colors.textPrimary,
+    fontSize: 12,
+    fontWeight: "800",
   },
   promptSummary: {
     gap: 6,
