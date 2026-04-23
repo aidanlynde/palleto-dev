@@ -721,7 +721,6 @@ function buildProjectLensSummary(
   projectType: string
 ) {
   const extract = answers.extract_from_reference[0] || "How it could translate into a project";
-  const useful = answers.useful_scan[0] || "A clear big idea I can steal";
   const leanToward = answers.lean_toward[0] || "Editorial and cultured";
 
   const extractMap: Record<string, string> = {
@@ -738,23 +737,7 @@ function buildProjectLensSummary(
       `Steal the koi as a repeatable symbol system for a ${projectType.toLowerCase()}.`
   };
 
-  const usefulMap: Record<string, string> = {
-    "A clear big idea I can steal": "Build the direction around one simple repeatable move.",
-    "Project-specific applications":
-      `Make it feel immediately usable for a ${projectType.toLowerCase()}.`,
-    "Stronger type direction":
-      "Let typography sharpen the system instead of decorating it.",
-    "Better reference links":
-      "Use the mark as a lane into stronger adjacent references.",
-    "A share-ready summary":
-      "Keep the idea easy to pitch, send, and revisit later.",
-    "A cleaner next creative move":
-      "Give yourself one clear next creative move."
-  };
-
-  return `${extractMap[extract] || extractMap["How it could translate into a project"]} ${
-    usefulMap[useful] || usefulMap["A clear big idea I can steal"]
-  } Keep it ${leanToward.toLowerCase()}.`;
+  return `${extractMap[extract] || extractMap["How it could translate into a project"]} Keep it ${leanToward.toLowerCase()}.`;
 }
 
 function previewTypeStyle(style: string) {
