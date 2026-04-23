@@ -467,16 +467,33 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
           subtitle="What to steal and how to use it"
           title="Creative translation"
         >
-          <Text style={styles.previewTranslationTitle}>{card.project_lens.summary}</Text>
-          <View style={styles.previewApplicationList}>
-            {card.project_lens.applications.map((application, index) => (
-              <View key={application} style={styles.previewApplicationRow}>
-                <Text style={styles.previewApplicationIndex}>
-                  {String(index + 1).padStart(2, "0")}
-                </Text>
-                <Text style={styles.previewApplicationText}>{application}</Text>
+          <View style={styles.previewTranslationPanel}>
+            <View style={styles.previewTranslationHero}>
+              <Image source={koiImageSource} style={styles.previewTranslationHeroImage} resizeMode="cover" />
+              <View style={styles.previewTranslationHeroShade} />
+              <View style={styles.previewTranslationHeroCopy}>
+                <Text style={styles.previewTranslationEyebrow}>What to steal</Text>
+                <Text style={styles.previewTranslationTitle}>{card.project_lens.summary}</Text>
               </View>
-            ))}
+            </View>
+
+            <View style={styles.previewTranslationBody}>
+              <View style={styles.previewProjectUseHeader}>
+                <Text style={styles.previewTranslationEyebrow}>Use it for</Text>
+                <Text style={styles.previewProjectUseTitle}>{card.project_lens.project_type}</Text>
+              </View>
+
+              <View style={styles.previewApplicationList}>
+                {card.project_lens.applications.map((application, index) => (
+                  <View key={application} style={styles.previewApplicationRow}>
+                    <Text style={styles.previewApplicationIndex}>
+                      {String(index + 1).padStart(2, "0")}
+                    </Text>
+                    <Text style={styles.previewApplicationText}>{application}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
           </View>
         </CollapsibleSection>
 
@@ -1189,11 +1206,58 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textTransform: "uppercase"
   },
+  previewTranslationPanel: {
+    overflow: "hidden",
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  previewTranslationHero: {
+    minHeight: 208,
+    overflow: "hidden",
+    backgroundColor: theme.colors.surface
+  },
+  previewTranslationHeroImage: {
+    position: "absolute",
+    width: "100%",
+    minHeight: 208,
+    transform: [{ scale: 1.06 }]
+  },
+  previewTranslationHeroShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.44)"
+  },
+  previewTranslationHeroCopy: {
+    justifyContent: "flex-end",
+    minHeight: 208,
+    gap: theme.spacing.xs,
+    padding: theme.spacing.md
+  },
+  previewTranslationEyebrow: {
+    color: theme.colors.textPrimary,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
   previewTranslationTitle: {
     color: theme.colors.textPrimary,
+    fontSize: 20,
+    fontWeight: "900",
+    lineHeight: 25
+  },
+  previewTranslationBody: {
+    gap: theme.spacing.md,
+    padding: theme.spacing.md
+  },
+  previewProjectUseHeader: {
+    gap: 2
+  },
+  previewProjectUseTitle: {
+    color: theme.colors.textPrimary,
     fontSize: 18,
-    fontWeight: "800",
-    lineHeight: 24
+    fontWeight: "900",
+    lineHeight: 23
   },
   previewApplicationList: {
     gap: theme.spacing.sm
