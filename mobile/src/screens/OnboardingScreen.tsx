@@ -564,23 +564,28 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
             <View style={styles.previewRefineBadge}>
               <Text style={styles.previewRefineBadgeText}>Paid feature</Text>
             </View>
-            <Text style={styles.previewRefineHero}>Keep talking to the scan until the idea gets sharp.</Text>
+            <Text style={styles.previewRefineHero}>Keep building from the first read.</Text>
             <Text style={styles.previewRefineLead}>
-              Ask for alternate directions, stronger type, better applications, or a cleaner point of view without starting over.
+              Refinement lets you turn a saved scan into tighter type, sharper applications, and alternate creative directions.
             </Text>
-            <View style={styles.previewRefinePromptList}>
-              {[
-                "Make this feel more organic and less corporate",
-                "Push this toward a luxury fashion direction",
-                "Give me stronger type options for this project"
-              ].map((prompt) => (
-                <View key={prompt} style={styles.previewRefinePrompt}>
-                  <Text style={styles.previewRefinePromptText}>{prompt}</Text>
+            <View style={styles.previewRefineVideoSlot}>
+              <View style={styles.previewRefinePlay}>
+                <Text style={styles.previewRefinePlayIcon}>▶</Text>
+              </View>
+              <Text style={styles.previewRefineVideoTitle}>Refinement preview</Text>
+              <Text style={styles.previewRefineVideoBody}>
+                This space is ready for a short screen recording showing a real card being refined.
+              </Text>
+            </View>
+            <View style={styles.previewRefineChipRow}>
+              {["Sharper type", "New angle", "Project fit"].map((chip) => (
+                <View key={chip} style={styles.previewRefineChip}>
+                  <Text style={styles.previewRefineChipText}>{chip}</Text>
                 </View>
               ))}
             </View>
             <View style={styles.previewRefineButton}>
-              <Text style={styles.previewRefineButtonText}>Refine with AI</Text>
+              <Text style={styles.previewRefineButtonText}>Unlock refinement</Text>
             </View>
           </View>
         </CollapsibleSection>
@@ -1434,20 +1439,61 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 24
   },
-  previewRefinePromptList: {
-    gap: theme.spacing.sm
+  previewRefineVideoSlot: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 190,
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.small,
+    backgroundColor: "#171717"
   },
-  previewRefinePrompt: {
+  previewRefinePlay: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: theme.colors.textPrimary
+  },
+  previewRefinePlayIcon: {
+    color: theme.colors.background,
+    fontSize: 18,
+    fontWeight: "900",
+    marginLeft: 2
+  },
+  previewRefineVideoTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 17,
+    fontWeight: "900",
+    lineHeight: 22,
+    textAlign: "center"
+  },
+  previewRefineVideoBody: {
+    maxWidth: 230,
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center"
+  },
+  previewRefineChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.xs
+  },
+  previewRefineChip: {
     paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.small
   },
-  previewRefinePromptText: {
+  previewRefineChipText: {
     color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18
+    fontSize: 12,
+    fontWeight: "800"
   },
   previewRefineButton: {
     alignItems: "center",
