@@ -29,6 +29,18 @@ def _apply_schema_updates() -> None:
         ALTER TABLE active_projects
         ADD COLUMN IF NOT EXISTS reference_images JSON NOT NULL DEFAULT '[]'::json
         """,
+        """
+        ALTER TABLE card_refinements
+        ADD COLUMN IF NOT EXISTS based_on_refinement_id VARCHAR(36)
+        """,
+        """
+        ALTER TABLE card_refinements
+        ADD COLUMN IF NOT EXISTS summary TEXT
+        """,
+        """
+        ALTER TABLE card_refinements
+        ADD COLUMN IF NOT EXISTS changed_sections JSON NOT NULL DEFAULT '[]'::json
+        """,
     ]
 
     with engine.begin() as connection:

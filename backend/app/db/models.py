@@ -165,6 +165,9 @@ class CardRefinement(Base):
     )
     preset_label: Mapped[str | None] = mapped_column(String(120), nullable=True)
     instruction: Mapped[str] = mapped_column(Text, nullable=False)
+    based_on_refinement_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    changed_sections: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     refined_card: Mapped[dict] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

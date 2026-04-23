@@ -113,8 +113,13 @@ export type InspirationCard = {
 export type CardRefinement = {
   id: string;
   card_id: string;
+  based_on_refinement_id: string | null;
+  changed_sections: string[];
+  label: string;
   preset_label: string | null;
   instruction: string;
+  summary: string | null;
+  version_index: number;
   refined_card: InspirationCard;
   created_at: string;
   updated_at: string;
@@ -350,7 +355,7 @@ export async function listCardRefinements(
 export async function createCardRefinement(
   idToken: string,
   cardId: string,
-  input: { instruction: string; presetLabel?: string | null }
+  input: { instruction: string; presetLabel?: string | null; baseRefinementId?: string | null }
 ): Promise<CardRefinement> {
   const response = await fetch(`${API_BASE_URL}/api/v1/cards/${cardId}/refinements`, {
     method: "POST",
@@ -360,7 +365,8 @@ export async function createCardRefinement(
     },
     body: JSON.stringify({
       instruction: input.instruction,
-      preset_label: input.presetLabel ?? null
+      preset_label: input.presetLabel ?? null,
+      base_refinement_id: input.baseRefinementId ?? null
     })
   });
 

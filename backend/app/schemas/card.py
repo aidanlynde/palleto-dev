@@ -77,13 +77,19 @@ class CardRead(BaseModel):
 class CardRefinementCreate(BaseModel):
     instruction: str
     preset_label: str | None = None
+    base_refinement_id: str | None = None
 
 
 class CardRefinementRead(BaseModel):
     id: str
     card_id: str
+    based_on_refinement_id: str | None = None
+    changed_sections: list[str] = []
+    label: str
+    summary: str | None = None
     preset_label: str | None
     instruction: str
+    version_index: int
     refined_card: CardRead
     created_at: datetime
     updated_at: datetime

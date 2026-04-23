@@ -2,7 +2,7 @@ import json
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
-from sqlalchemy import desc
+from sqlalchemy import asc, desc
 
 from app.core.auth import FirebaseUser, get_current_firebase_user
 from app.db.models import Card, CardRefinement, User
@@ -19,6 +19,11 @@ from app.services.link_preview import enrich_related_links
 from app.services.openai_card_generator import generate_card_payload_for_image, refine_card_payload
 from app.services.projects import get_active_project
 from app.services.project_context import build_project_context_payload
+from app.services.refinement_versions import (
+    diff_changed_sections,
+    serialize_refinement_read,
+    summarize_refinement,
+)
 from app.services.shares import build_share_url, get_or_create_card_share
 from app.services.storage import delete_card_image, upload_card_image
 from app.services.taste_profiles import get_taste_profile
@@ -116,7 +121,7 @@ def list_card_refinements(
     card_id: str,
     db: DbSession,
     firebase_user: FirebaseUser = Depends(get_current_firebase_user),
-) -> list[CardRefinement]:
+) -> list[CardRefinementRead]:
     create_db_and_tables()
 
     user = get_or_create_user(db, firebase_user)
@@ -131,7 +136,7 @@ def list_card_refinements(
     refinements = (
         db.query(CardRefinement)
         .filter(CardRefinement.card_id == card.id)
-        .order_by(desc(CardRefinement.created_at))
+        .order_by(asc(CardRefinement.created_at))
         .all()
     )
 
@@ -140,7 +145,10 @@ def list_card_refinements(
             refinement.refined_card["related_links"]
         )
 
-    return refinements
+    return [
+        serialize_refinement_read(card=card, refinement=refinement, refinements=refinements)
+        for refinement in refinements
+    ]
 
 
 @router.post("/{card_id}/refinements", response_model=CardRefinementRead, status_code=status.HTTP_201_CREATED)
@@ -149,7 +157,7 @@ def create_card_refinement(
     payload: CardRefinementCreate,
     db: DbSession,
     firebase_user: FirebaseUser = Depends(get_current_firebase_user),
-) -> CardRefinement:
+) -> CardRefinementRead:
     create_db_and_tables()
 
     user = get_or_create_user(db, firebase_user)
@@ -162,18 +170,50 @@ def create_card_refinement(
         )
 
     project_context = _resolve_project_context(db=db, user=user, project_context=None)
+    refinements = (
+        db.query(CardRefinement)
+        .filter(CardRefinement.card_id == card.id)
+        .order_by(asc(CardRefinement.created_at))
+        .all()
+    )
+
+    based_on_refinement = None
+    base_card = serialize_card(card)
+
+    if payload.base_refinement_id:
+        based_on_refinement = next(
+            (refinement for refinement in refinements if refinement.id == payload.base_refinement_id),
+            None,
+        )
+
+        if based_on_refinement is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Base refinement not found.",
+            )
+
+        base_card = based_on_refinement.refined_card
+
     refined_card = refine_card_payload(
         image_url=card.image_url,
-        base_card=serialize_card(card),
+        base_card=base_card,
         instruction=payload.instruction,
         project_context=project_context,
     )
     refined_card["related_links"] = enrich_related_links(refined_card["related_links"])
+    changed_sections = diff_changed_sections(base_card=base_card, refined_card=refined_card)
+    summary = summarize_refinement(
+        instruction=payload.instruction,
+        changed_sections=changed_sections,
+    )
 
     refinement = CardRefinement(
         card_id=card.id,
         preset_label=payload.preset_label,
         instruction=payload.instruction,
+        based_on_refinement_id=payload.base_refinement_id,
+        summary=summary,
+        changed_sections=changed_sections,
         refined_card={
             **refined_card,
             "id": card.id,
@@ -187,7 +227,16 @@ def create_card_refinement(
     db.commit()
     db.refresh(refinement)
 
-    return refinement
+    all_refinements = [
+        *refinements,
+        refinement,
+    ]
+
+    return serialize_refinement_read(
+        card=card,
+        refinement=refinement,
+        refinements=all_refinements,
+    )
 
 
 @router.post("/{card_id}/share", response_model=CardShareRead, status_code=status.HTTP_200_OK)
