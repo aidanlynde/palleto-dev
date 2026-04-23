@@ -473,7 +473,9 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
               <View style={styles.previewTranslationHeroShade} />
               <View style={styles.previewTranslationHeroCopy}>
                 <Text style={styles.previewTranslationEyebrow}>What to steal</Text>
-                <Text style={styles.previewTranslationTitle}>{card.project_lens.summary}</Text>
+                <Text numberOfLines={4} style={styles.previewTranslationTitle}>
+                  {card.project_lens.summary}
+                </Text>
               </View>
             </View>
 
@@ -723,36 +725,36 @@ function buildProjectLensSummary(
   const leanToward = answers.lean_toward[0] || "Editorial and cultured";
 
   const extractMap: Record<string, string> = {
-    "Color systems": "Pull the black, chalk white, and signal orange into a tight color hierarchy",
+    "Color systems": "Steal the sharp black, white, and signal-orange hierarchy.",
     "Texture and material language":
-      "Keep the pavement grain, sprayed pigment, and rough wear visible as part of the idea",
+      "Steal the rough pavement grain and sprayed, worn surface attitude.",
     "Typography direction":
-      "Treat the koi mark like the image anchor and let type bring the discipline around it",
+      "Steal the contrast between the handmade mark and more disciplined type.",
     "Composition and framing":
-      "Use the diagonal koi silhouettes and negative space as the framing move for the whole system",
+      "Steal the diagonal movement and negative-space framing of the koi forms.",
     "Mood and emotional tone":
-      "Hold onto the found, symbolic energy and keep it emotionally charged instead of overpolished",
+      "Steal the found, symbolic energy and keep it emotionally charged.",
     "How it could translate into a project":
-      `Turn the koi into a repeatable symbol system that can actually carry a ${projectType.toLowerCase()}`
+      `Steal the koi as a repeatable symbol system for a ${projectType.toLowerCase()}.`
   };
 
   const usefulMap: Record<string, string> = {
-    "A clear big idea I can steal": "Build around one simple move that can repeat across the whole direction.",
+    "A clear big idea I can steal": "Build the direction around one simple repeatable move.",
     "Project-specific applications":
-      `Make the result feel immediately usable for a ${projectType.toLowerCase()}, not just interesting to look at.`,
+      `Make it feel immediately usable for a ${projectType.toLowerCase()}.`,
     "Stronger type direction":
-      "Use typography to sharpen the system and keep the mark from feeling loose or decorative.",
+      "Let typography sharpen the system instead of decorating it.",
     "Better reference links":
-      "Point the user toward stronger adjacent references that push the same symbol-and-surface lane further.",
+      "Use the mark as a lane into stronger adjacent references.",
     "A share-ready summary":
-      "Condense the direction into a form that is easy to pitch, send, and revisit later without losing the core idea.",
+      "Keep the idea easy to pitch, send, and revisit later.",
     "A cleaner next creative move":
-      "Give the user one strong next move instead of dumping too many disconnected possibilities."
+      "Give yourself one clear next creative move."
   };
 
-  return `${extractMap[extract] || extractMap["How it could translate into a project"]}. ${
+  return `${extractMap[extract] || extractMap["How it could translate into a project"]} ${
     usefulMap[useful] || usefulMap["A clear big idea I can steal"]
-  } Push it toward ${leanToward.toLowerCase()}.`;
+  } Keep it ${leanToward.toLowerCase()}.`;
 }
 
 function previewTypeStyle(style: string) {
