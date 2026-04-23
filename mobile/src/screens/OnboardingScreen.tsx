@@ -500,6 +500,36 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
         </CollapsibleSection>
 
         <CollapsibleSection
+          expanded={expandedSection === "share"}
+          onPress={() => toggleSection("share")}
+          subtitle="A share card that turns into a public web link"
+          title="Share preview"
+        >
+          <View style={styles.previewShareCard}>
+            <Image source={koiImageSource} style={styles.previewShareImage} resizeMode="cover" />
+            <View style={styles.previewShareBody}>
+              <Text style={styles.previewShareBrand}>PALLETO</Text>
+              <Text style={styles.previewShareTitle}>{card.title}</Text>
+              <Text style={styles.previewShareRead} numberOfLines={3}>
+                {card.one_line_read}
+              </Text>
+              <View style={styles.previewSharePalette}>
+                {card.palette.map((color) => (
+                  <View
+                    key={`preview-share-${color.hex}`}
+                    style={[styles.previewShareSwatch, { backgroundColor: color.hex }]}
+                  />
+                ))}
+              </View>
+              <Text style={styles.previewShareMeta}>www.palleto-labs.com/s/your-card</Text>
+              <Text style={styles.previewShareCaption}>
+                When you share, the card becomes the link preview and opens a clean web page for anyone without the app.
+              </Text>
+            </View>
+          </View>
+        </CollapsibleSection>
+
+        <CollapsibleSection
           expanded={expandedSection === "refine"}
           onPress={() => toggleSection("refine")}
           subtitle="A paid layer for deeper creative work"
@@ -1207,6 +1237,55 @@ const styles = StyleSheet.create({
     fontWeight: "800"
   },
   previewTypeUse: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
+  },
+  previewShareCard: {
+    overflow: "hidden",
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  previewShareImage: {
+    width: "100%",
+    height: 188
+  },
+  previewShareBody: {
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md
+  },
+  previewShareBrand: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  previewShareTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 22,
+    fontWeight: "900",
+    lineHeight: 27
+  },
+  previewShareRead: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20
+  },
+  previewSharePalette: {
+    flexDirection: "row",
+    height: 12
+  },
+  previewShareSwatch: {
+    flex: 1
+  },
+  previewShareMeta: {
+    color: theme.colors.textPrimary,
+    fontSize: 12,
+    fontWeight: "800"
+  },
+  previewShareCaption: {
     color: theme.colors.textSecondary,
     fontSize: 13,
     lineHeight: 18
