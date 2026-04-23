@@ -285,17 +285,30 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
     return (
       <View style={styles.processingContainer}>
         <Progress current={questions.length + 3} total={totalSteps} />
-        <Image source={koiImageSource} style={styles.processingImage} resizeMode="cover" />
-        <Text style={styles.kicker}>Building your first scan</Text>
-        <Text style={styles.processingTitle}>{processingStages[processingIndex]}</Text>
+        <ImageBackground source={koiImageSource} style={styles.processingHero} resizeMode="cover">
+          <View style={styles.processingHeroShade} />
+          <View style={styles.processingHeroCopy}>
+            <Text style={styles.kicker}>Building your first scan</Text>
+            <Text style={styles.processingTitle}>{processingStages[processingIndex]}</Text>
+          </View>
+        </ImageBackground>
         <View style={styles.stageList}>
           {processingStages.map((stage, index) => (
-            <Text
+            <View
               key={stage}
-              style={[styles.stageText, index <= processingIndex && styles.stageTextActive]}
+              style={[styles.stageItem, index <= processingIndex && styles.stageItemActive]}
             >
-              {stage}
-            </Text>
+              <Text
+                style={[styles.stageIndex, index <= processingIndex && styles.stageIndexActive]}
+              >
+                {String(index + 1).padStart(2, "0")}
+              </Text>
+              <Text
+                style={[styles.stageText, index <= processingIndex && styles.stageTextActive]}
+              >
+                {stage}
+              </Text>
+            </View>
           ))}
         </View>
       </View>
@@ -898,10 +911,20 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
     backgroundColor: theme.colors.background
   },
-  processingImage: {
-    width: "100%",
-    aspectRatio: 0.84,
+  processingHero: {
+    minHeight: 320,
+    overflow: "hidden",
     borderRadius: theme.radius.small
+  },
+  processingHeroShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.42)"
+  },
+  processingHeroCopy: {
+    justifyContent: "flex-end",
+    minHeight: 320,
+    gap: theme.spacing.xs,
+    padding: theme.spacing.md
   },
   processingTitle: {
     color: theme.colors.textPrimary,
@@ -942,8 +965,33 @@ const styles = StyleSheet.create({
   stageList: {
     gap: theme.spacing.sm
   },
+  stageItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.surface
+  },
+  stageItemActive: {
+    borderColor: "rgba(255,255,255,0.22)",
+    backgroundColor: "#141414"
+  },
+  stageIndex: {
+    width: 24,
+    color: "rgba(255,255,255,0.28)",
+    fontSize: 12,
+    fontWeight: "800"
+  },
+  stageIndexActive: {
+    color: theme.colors.textPrimary
+  },
   stageText: {
-    color: "rgba(255,255,255,0.26)",
+    flex: 1,
+    color: "rgba(255,255,255,0.36)",
     fontSize: 15,
     fontWeight: "700"
   },
