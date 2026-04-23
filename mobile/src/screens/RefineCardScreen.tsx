@@ -161,6 +161,7 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
 
   const activeVersion =
     versions.find((version) => version.id === activeRefinementId) ?? versions[0];
+  const latestVersionId = versions[versions.length - 1]?.id ?? null;
 
   async function submitRefinement(nextInstruction: string, presetLabel?: string) {
     const trimmedInstruction = nextInstruction.trim();
@@ -216,6 +217,11 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
             <View style={styles.activePanelTitleBlock}>
               <Text style={styles.panelLabel}>Active version</Text>
               <Text style={styles.activeVersionTitle}>{activeVersion.label}</Text>
+              <Text style={styles.activeVersionMeta}>
+                {activeVersion.isOriginal
+                  ? "This is the first card generated from the scan."
+                  : `Built from ${activeVersion.basedOnLabel || "Original"}`}
+              </Text>
             </View>
             <View style={styles.statusChip}>
               <Text style={styles.statusChipText}>
@@ -226,6 +232,12 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
           <Text style={styles.activeVersionSummary}>
             {activeVersion.summary || "No summary yet."}
           </Text>
+          {activeVersion.instruction ? (
+            <View style={styles.promptSummary}>
+              <Text style={styles.promptSummaryLabel}>Applied prompt</Text>
+              <Text style={styles.promptSummaryText}>{activeVersion.instruction}</Text>
+            </View>
+          ) : null}
           {activeVersion.changedSections.length ? (
             <View style={styles.changedSectionRow}>
               {activeVersion.changedSections.map((section) => (
@@ -257,12 +269,25 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
                     ]}
                   >
                     <View style={styles.versionCardHeader}>
-                      <Text style={[styles.versionLabel, isActive && styles.versionLabelActive]}>
-                        {version.label}
-                      </Text>
-                      <Text style={[styles.versionMeta, isActive && styles.versionMetaActive]}>
-                        {version.isOriginal ? "Original scan" : version.basedOnLabel ? `From ${version.basedOnLabel}` : "Refinement"}
-                      </Text>
+                      <View style={styles.versionTitleBlock}>
+                        <Text style={[styles.versionLabel, isActive && styles.versionLabelActive]}>
+                          {version.label}
+                        </Text>
+                        <Text style={[styles.versionMeta, isActive && styles.versionMetaActive]}>
+                          {version.isOriginal
+                            ? "Original scan"
+                            : version.basedOnLabel
+                              ? `From ${version.basedOnLabel}`
+                              : "Refinement"}
+                        </Text>
+                      </View>
+                      {version.id === latestVersionId ? (
+                        <View style={[styles.latestChip, isActive && styles.latestChipActive]}>
+                          <Text style={[styles.latestChipText, isActive && styles.latestChipTextActive]}>
+                            Latest
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                     <Text
                       numberOfLines={2}
@@ -270,6 +295,28 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
                     >
                       {version.summary || version.instruction || "Saved version"}
                     </Text>
+                    {version.changedSections.length ? (
+                      <View style={styles.versionChangedRow}>
+                        {version.changedSections.slice(0, 3).map((section) => (
+                          <View
+                            key={`${version.id ?? "original"}-${section}`}
+                            style={[
+                              styles.versionChangedChip,
+                              isActive && styles.versionChangedChipActive,
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.versionChangedChipText,
+                                isActive && styles.versionChangedChipTextActive,
+                              ]}
+                            >
+                              {labelForSection(section)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
                     {version.instruction ? (
                       <Text
                         numberOfLines={2}
@@ -338,6 +385,10 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
           </Pressable>
         </View>
 
+        <View style={styles.panel}>
+          <Text style={styles.panelLabel}>Preview</Text>
+          <Text style={styles.meta}>You are previewing {activeVersion.label.toLowerCase()}.</Text>
+        </View>
         <CardDetail card={activeVersion.refinedCard} />
       </ScrollView>
 
@@ -353,6 +404,7 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
             </View>
             <Text style={styles.eyebrow}>Refining with AI</Text>
             <Text style={styles.processingTitle}>{processingStages[processingStageIndex]}</Text>
+            <Text style={styles.processingBasedOn}>Branching from {activeVersion.label}</Text>
             <Text style={styles.processingPrompt} numberOfLines={3}>
               {pendingInstruction}
             </Text>
@@ -461,6 +513,11 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 30,
   },
+  activeVersionMeta: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   statusChip: {
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 8,
@@ -477,6 +534,25 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontSize: 15,
     lineHeight: 22,
+  },
+  promptSummary: {
+    gap: 6,
+    padding: theme.spacing.sm,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  promptSummaryLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  promptSummaryText: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   changedSectionRow: {
     flexDirection: "row",
@@ -517,6 +593,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: theme.spacing.md,
   },
+  versionTitleBlock: {
+    flex: 1,
+    gap: 4,
+  },
   versionLabel: {
     color: theme.colors.textPrimary,
     fontSize: 15,
@@ -539,6 +619,50 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   versionSummaryActive: {
+    color: theme.colors.textPrimary,
+  },
+  latestChip: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: theme.radius.small,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  latestChipActive: {
+    borderColor: theme.colors.textPrimary,
+    backgroundColor: theme.colors.textPrimary,
+  },
+  latestChipText: {
+    color: theme.colors.textPrimary,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  latestChipTextActive: {
+    color: theme.colors.background,
+  },
+  versionChangedRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.xs,
+  },
+  versionChangedChip: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: theme.radius.small,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  versionChangedChipActive: {
+    borderColor: theme.colors.textPrimary,
+  },
+  versionChangedChipText: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  versionChangedChipTextActive: {
     color: theme.colors.textPrimary,
   },
   versionInstruction: {
@@ -641,6 +765,11 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
+  },
+  processingBasedOn: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700",
   },
   processingStageList: {
     gap: theme.spacing.sm,
