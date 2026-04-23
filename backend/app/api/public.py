@@ -1,12 +1,12 @@
 from html import escape
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 from app.core.config import settings
 from app.db.models import CardShare
 from app.db.session import SessionLocal, create_db_and_tables
-from app.services.shares import build_share_url
+from app.services.shares import build_share_preview_image_url, build_share_url
 
 router = APIRouter(tags=["public"])
 
@@ -38,6 +38,7 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
     share = _get_share(share_token)
     card = share.card
     share_url = build_share_url(share.share_token)
+    share_preview_image_url = build_share_preview_image_url(share.share_token)
     marketing_url = settings.public_web_base_url.rstrip("/") if settings.public_web_base_url else share_url
     app_url = f"palleto://share/{share.share_token}"
     page_title = f"{card.title} | Palleto"
@@ -99,12 +100,13 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{escape(card.title)}" />
     <meta property="og:description" content="{escape(card.one_line_read)}" />
-    <meta property="og:image" content="{escape(card.image_url)}" />
+    <meta property="og:image" content="{escape(share_preview_image_url)}" />
+    <meta property="og:image:alt" content="{escape(card.title)}" />
     <meta property="og:url" content="{escape(share_url)}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="{escape(card.title)}" />
     <meta name="twitter:description" content="{escape(card.one_line_read)}" />
-    <meta name="twitter:image" content="{escape(card.image_url)}" />
+    <meta name="twitter:image" content="{escape(share_preview_image_url)}" />
     <style>
       :root {{
         color-scheme: dark;
@@ -315,6 +317,59 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
 </html>"""
 
     return HTMLResponse(content=html)
+
+
+@router.get("/og/share/{share_token}.svg")
+def render_public_share_preview_image(share_token: str) -> Response:
+    share = _get_share(share_token)
+    card = share.card
+    title = escape(card.title)
+    one_line_read = escape(card.one_line_read)
+    project_type = escape(card.project_lens.get("project_type", "Creative direction"))
+    swatches = "".join(
+        [
+            (
+                f"<rect x='{72 + (index * 94)}' y='572' width='74' height='74' rx='10' "
+                f"fill='{escape(color['hex'])}' />"
+            )
+            for index, color in enumerate(card.palette[:5])
+        ]
+    )
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.82"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#050505"/>
+  <image href="{escape(card.image_url)}" x="0" y="0" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/>
+  <rect width="1200" height="630" fill="url(#fade)"/>
+  <rect x="40" y="40" width="1120" height="550" rx="28" fill="rgba(8,8,8,0.58)" stroke="#2a2a2a" />
+  <text x="72" y="102" fill="#FFFFFF" font-size="22" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-weight="800">PALLETO</text>
+  <text x="72" y="138" fill="#A3A3A3" font-size="20" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">{project_type}</text>
+  <foreignObject x="72" y="176" width="720" height="180">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:54px;line-height:1.02;font-weight:800;">
+      {title}
+    </div>
+  </foreignObject>
+  <foreignObject x="72" y="376" width="720" height="110">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#d4d4d4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:28px;line-height:1.25;font-weight:600;">
+      {one_line_read}
+    </div>
+  </foreignObject>
+  <rect x="840" y="72" width="284" height="390" rx="20" fill="#111111" stroke="#2a2a2a"/>
+  <image href="{escape(card.image_url)}" x="858" y="90" width="248" height="224" preserveAspectRatio="xMidYMid slice"/>
+  <text x="858" y="344" fill="#FFFFFF" font-size="16" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-weight="800">SHARE PREVIEW</text>
+  <foreignObject x="858" y="360" width="230" height="76">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:26px;line-height:1.05;font-weight:800;">
+      {title}
+    </div>
+  </foreignObject>
+  <text x="72" y="548" fill="#A3A3A3" font-size="18" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-weight="700">PALETTE</text>
+  {swatches}
+</svg>"""
+    return Response(content=svg, media_type="image/svg+xml")
 
 
 def _get_share(share_token: str) -> CardShare:
