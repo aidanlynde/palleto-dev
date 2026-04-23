@@ -82,9 +82,21 @@ export function ProcessingScreen({
 
   return (
     <View style={styles.container}>
-      <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
+      <View style={styles.progressTrack}>
+        {stages.map((_, index) => (
+          <View
+            key={index}
+            style={[styles.progressDot, index <= stageIndex && styles.progressDotActive]}
+          />
+        ))}
+      </View>
+
+      <View style={styles.imageFrame}>
+        <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
+      </View>
+
       <View style={styles.copy}>
-        <Text style={styles.eyebrow}>Analyzing reference</Text>
+        <Text style={styles.eyebrow}>Building your scan</Text>
         <Text style={styles.title}>{error ? "Something broke" : stages[stageIndex]}</Text>
         {error ? (
           <>
@@ -94,7 +106,19 @@ export function ProcessingScreen({
             </Pressable>
           </>
         ) : (
-          <ActivityIndicator color={theme.colors.textPrimary} />
+          <>
+            <View style={styles.stageList}>
+              {stages.map((stage, index) => (
+                <Text
+                  key={stage}
+                  style={[styles.stageText, index <= stageIndex && styles.stageTextActive]}
+                >
+                  {stage}
+                </Text>
+              ))}
+            </View>
+            <ActivityIndicator color={theme.colors.textPrimary} />
+          </>
         )}
       </View>
     </View>
@@ -105,14 +129,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     gap: theme.spacing.lg,
-    padding: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: 56,
+    paddingBottom: 34,
     backgroundColor: theme.colors.background
   },
-  image: {
+  progressTrack: {
+    flexDirection: "row",
+    gap: theme.spacing.xs
+  },
+  progressDot: {
     flex: 1,
+    height: 2,
+    backgroundColor: "rgba(255,255,255,0.18)"
+  },
+  progressDotActive: {
+    backgroundColor: theme.colors.textPrimary
+  },
+  imageFrame: {
     width: "100%",
-    minHeight: 360,
-    borderRadius: theme.radius.small
+    aspectRatio: 0.75,
+    overflow: "hidden",
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.surface
+  },
+  image: {
+    width: "100%",
+    height: "100%"
   },
   copy: {
     gap: theme.spacing.md
@@ -125,9 +168,20 @@ const styles = StyleSheet.create({
   },
   title: {
     color: theme.colors.textPrimary,
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "800",
-    lineHeight: 38
+    lineHeight: 34
+  },
+  stageList: {
+    gap: theme.spacing.sm
+  },
+  stageText: {
+    color: "rgba(255,255,255,0.26)",
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  stageTextActive: {
+    color: theme.colors.textPrimary
   },
   error: {
     color: theme.colors.error,
