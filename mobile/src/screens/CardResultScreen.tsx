@@ -101,6 +101,9 @@ export function CardDetail({ card }: { card: InspirationCard }) {
             </Pressable>
           ))}
         </View>
+        <Text style={[styles.paletteStatus, copiedHex && styles.paletteStatusActive]}>
+          {copiedHex ? `Copied ${copiedHex}` : "Tap any color to copy the hex"}
+        </Text>
 
         <SectionLabel label="Related inspiration" />
         <RelatedInspiration links={card.related_links} />
@@ -432,6 +435,14 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 11,
     fontWeight: "700"
+  },
+  paletteStatus: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  paletteStatusActive: {
+    color: theme.colors.textPrimary
   },
   translationPanel: {
     overflow: "hidden",
