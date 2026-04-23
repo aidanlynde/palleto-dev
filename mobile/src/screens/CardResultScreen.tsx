@@ -30,7 +30,7 @@ export function CardResultScreen({
       const token = await firebaseUser.getIdToken();
       const share = await createOrGetCardShare(token, card.id);
       await Share.share({
-        message: `${card.title}\n\n${card.one_line_read}\n\n${share.share_url}`
+        message: share.share_url
       });
     } catch {
       Alert.alert("Share failed", "Try again in a moment.");
@@ -220,7 +220,7 @@ export function CardDetailScreen({
       const token = await firebaseUser.getIdToken();
       const share = await createOrGetCardShare(token, card.id);
       await Share.share({
-        message: `${card.title}\n\n${card.one_line_read}\n\n${share.share_url}`
+        message: share.share_url
       });
     } catch {
       Alert.alert("Share failed", "Try again in a moment.");

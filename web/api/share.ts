@@ -1,6 +1,9 @@
 export default async function handler(req: any, res: any) {
   const token = Array.isArray(req.query?.token) ? req.query.token[0] : req.query?.token;
-  const upstreamBaseUrl = process.env.SHARE_PROXY_BASE_URL;
+  const upstreamBaseUrl =
+    process.env.SHARE_PROXY_BASE_URL ||
+    process.env.PUBLIC_API_BASE_URL ||
+    process.env.VITE_PUBLIC_API_BASE_URL;
 
   if (!token) {
     res.status(400).send("Missing share token.");
@@ -8,7 +11,9 @@ export default async function handler(req: any, res: any) {
   }
 
   if (!upstreamBaseUrl) {
-    res.status(500).send("SHARE_PROXY_BASE_URL is not configured.");
+    res
+      .status(500)
+      .send("Share proxy is not configured. Set SHARE_PROXY_BASE_URL or PUBLIC_API_BASE_URL.");
     return;
   }
 
