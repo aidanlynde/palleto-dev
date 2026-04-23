@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
   },
   processingImage: {
     width: "100%",
-    aspectRatio: 0.84,
+    aspectRatio: 0.75,
     borderRadius: theme.radius.small
   },
   processingTitle: {
