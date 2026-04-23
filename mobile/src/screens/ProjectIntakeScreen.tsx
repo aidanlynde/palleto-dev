@@ -53,6 +53,7 @@ export function ProjectIntakeScreen({
   const [isSending, setIsSending] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isBriefExpanded, setIsBriefExpanded] = useState(false);
   const isEditing = Boolean(initialProject);
 
   const referenceCount = draft.referenceLinks.length + draft.referenceImages.length;
@@ -213,9 +214,14 @@ export function ProjectIntakeScreen({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
       style={styles.container}
     >
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        style={styles.scroll}
+      >
         <View style={styles.topBar}>
           {onCancel ? (
             <Pressable
@@ -243,16 +249,26 @@ export function ProjectIntakeScreen({
           </Text>
         </View>
 
-        <View style={styles.summaryCard}>
-          <Text style={styles.cardLabel}>Current brief</Text>
-          <Text style={styles.summaryText}>{briefSummary}</Text>
+        <Pressable
+          onPress={() => setIsBriefExpanded((current) => !current)}
+          style={({ pressed }) => [styles.summaryCard, pressed && styles.pressed]}
+        >
+          <View style={styles.summaryHeader}>
+            <View style={styles.summaryHeaderText}>
+              <Text style={styles.cardLabel}>Current brief</Text>
+              <Text numberOfLines={isBriefExpanded ? undefined : 2} style={styles.summaryText}>
+                {briefSummary}
+              </Text>
+            </View>
+            <Text style={styles.summaryToggle}>{isBriefExpanded ? "Hide" : "Open"}</Text>
+          </View>
           <View style={styles.metaRow}>
             <MetaPill label={draft.projectType || "Project type pending"} />
             <MetaPill label={referenceCount ? `${referenceCount} references` : "No references yet"} />
             <MetaPill label={missingFields.length ? `${missingFields.length} open points` : "Ready to save"} />
           </View>
-          <BriefGrid draft={draft} />
-        </View>
+          {isBriefExpanded ? <BriefGrid draft={draft} /> : null}
+        </Pressable>
 
         <View style={styles.thread}>
           {messages.map((message, index) =>
@@ -460,10 +476,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background
   },
+  scroll: {
+    flex: 1
+  },
   content: {
     paddingHorizontal: theme.spacing.lg,
     paddingTop: 64,
-    paddingBottom: 220,
+    paddingBottom: theme.spacing.xl,
     gap: theme.spacing.lg
   },
   topBar: {
@@ -515,6 +534,21 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.small,
     borderWidth: 1,
     borderColor: theme.colors.border
+  },
+  summaryHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: theme.spacing.md
+  },
+  summaryHeaderText: {
+    flex: 1,
+    gap: theme.spacing.sm
+  },
+  summaryToggle: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "800"
   },
   cardLabel: {
     color: theme.colors.textSecondary,
@@ -656,10 +690,6 @@ const styles = StyleSheet.create({
     lineHeight: 20
   },
   composerShell: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
     paddingBottom: 34,
