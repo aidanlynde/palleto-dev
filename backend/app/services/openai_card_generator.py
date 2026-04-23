@@ -140,7 +140,11 @@ def _generate_with_openai(
     parsed = response.output_parsed
     payload = parsed.model_dump()
     payload["related_links"] = enrich_related_links(
-        _normalize_related_links(payload["related_links"])
+        _normalize_related_links(payload["related_links"]),
+        fallback_queries=_related_link_queries(
+            search_language=payload.get("search_language", []),
+            project_context=project_context,
+        ),
     )
 
     return payload
@@ -195,8 +199,23 @@ def _refine_with_openai(
 
     parsed = response.output_parsed
     payload = parsed.model_dump()
+    if _instruction_requests_new_links(instruction) and _same_related_links(
+        base_card.get("related_links", []),
+        payload.get("related_links", []),
+    ):
+        payload["related_links"] = _replacement_related_links(
+            instruction=instruction,
+            project_context=project_context,
+            search_language=payload.get("search_language", []),
+        )
+
     payload["related_links"] = enrich_related_links(
-        _normalize_related_links(payload["related_links"])
+        _normalize_related_links(payload["related_links"]),
+        fallback_queries=_related_link_queries(
+            search_language=payload.get("search_language", []),
+            project_context=project_context,
+            instruction=instruction,
+        ),
     )
 
     return payload
@@ -204,7 +223,13 @@ def _refine_with_openai(
 
 def _fallback_payload(project_context: ProjectContextPayload | None) -> dict:
     payload = generate_card_payload(project_context)
-    payload["related_links"] = enrich_related_links(payload["related_links"])
+    payload["related_links"] = enrich_related_links(
+        payload["related_links"],
+        fallback_queries=_related_link_queries(
+            search_language=payload.get("search_language", []),
+            project_context=project_context,
+        ),
+    )
     return payload
 
 
@@ -230,6 +255,12 @@ def _fallback_refinement(base_card: dict, instruction: str) -> dict:
         }
         for direction in base_card["type_direction"]
     ]
+    if _instruction_requests_new_links(instruction):
+        refined_card["related_links"] = _replacement_related_links(
+            instruction=instruction,
+            project_context=None,
+            search_language=base_card.get("search_language", []),
+        )
     return refined_card
 
 
@@ -282,6 +313,7 @@ Rules:
 - Tighten project translation, type direction, and applications first when the user asks for a stylistic change.
 - Do not bloat the amount of text. Make the refinement feel sharper, not longer.
 - Keep related links credible and likely to unfurl with real preview images.
+- If the user asks for more, new, or better inspiration links/references, replace the related_links set with fresh links that fit the instruction and the project context.
 
 Return only the structured refined card.
 """.strip()
@@ -323,3 +355,81 @@ def _search_url(query: str) -> str:
     from urllib.parse import quote
 
     return f"https://www.google.com/search?tbm=isch&q={quote(query)}"
+
+
+def _instruction_requests_new_links(instruction: str) -> bool:
+    lowered = instruction.lower()
+    triggers = [
+        "new inspiration links",
+        "more inspiration links",
+        "new links",
+        "more links",
+        "new references",
+        "more references",
+        "related inspiration",
+        "reference trail",
+        "inspiration links",
+    ]
+    return any(trigger in lowered for trigger in triggers)
+
+
+def _same_related_links(base_links: list[dict], refined_links: list[dict]) -> bool:
+    base_urls = [link.get("url") for link in base_links[:4]]
+    refined_urls = [link.get("url") for link in refined_links[:4]]
+    return base_urls == refined_urls
+
+
+def _replacement_related_links(
+    *,
+    instruction: str,
+    project_context: ProjectContextPayload | None,
+    search_language: list[str],
+) -> list[dict]:
+    queries = _related_link_queries(
+        search_language=search_language,
+        project_context=project_context,
+        instruction=instruction,
+    )
+    return [
+        {
+            "provider": "Are.na",
+            "reason": "Fresh inspiration lane requested in refinement.",
+            "thumbnail_url": None,
+            "title": query,
+            "url": f"https://www.are.na/search?q={query.replace(' ', '%20')}",
+        }
+        for query in queries[:4]
+    ]
+
+
+def _related_link_queries(
+    *,
+    search_language: list[str],
+    project_context: ProjectContextPayload | None,
+    instruction: str | None = None,
+) -> list[str]:
+    queries: list[str] = []
+
+    if project_context:
+        if project_context.projectType and project_context.desiredFeeling:
+            queries.append(
+                f"{project_context.projectType} {project_context.desiredFeeling} inspiration"
+            )
+        queries.extend(project_context.directionTags[:2])
+        queries.extend(project_context.priorities[:2])
+        queries.extend(project_context.tasteProfileExtractFromReference[:2])
+
+    queries.extend(search_language[:3])
+
+    if instruction:
+        queries.append(instruction.strip())
+
+    seen: set[str] = set()
+    normalized_queries: list[str] = []
+    for query in queries:
+        normalized = query.strip()
+        if normalized and normalized.lower() not in seen:
+            seen.add(normalized.lower())
+            normalized_queries.append(normalized)
+
+    return normalized_queries or ["design inspiration visual reference"]
