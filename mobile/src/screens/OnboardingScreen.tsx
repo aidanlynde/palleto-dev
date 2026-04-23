@@ -399,6 +399,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
 
         <CollapsibleSection
           expanded={expandedSection === "palette"}
+          icon="◐"
           onPress={() => toggleSection("palette")}
           subtitle={`${card.palette.length} colors with copyable hex`}
           title="Palette"
@@ -433,6 +434,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
 
         <CollapsibleSection
           expanded={expandedSection === "links"}
+          icon="↗"
           onPress={() => toggleSection("links")}
           subtitle="Real references with previews"
           title="Related inspiration"
@@ -463,6 +465,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
 
         <CollapsibleSection
           expanded={expandedSection === "translation"}
+          icon="✦"
           onPress={() => toggleSection("translation")}
           subtitle="What to steal and how to use it"
           title="Creative translation"
@@ -501,6 +504,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
 
         <CollapsibleSection
           expanded={expandedSection === "type"}
+          icon="Aa"
           onPress={() => toggleSection("type")}
           subtitle="Typography direction from the same scan"
           title="Type direction"
@@ -520,6 +524,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
 
         <CollapsibleSection
           expanded={expandedSection === "share"}
+          icon="⤴"
           onPress={() => toggleSection("share")}
           subtitle="A share card that turns into a public web link"
           title="Share preview"
@@ -550,6 +555,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
 
         <CollapsibleSection
           expanded={expandedSection === "refine"}
+          icon="◎"
           onPress={() => toggleSection("refine")}
           subtitle="A paid layer for deeper creative work"
           title="Refine with AI"
@@ -586,12 +592,14 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
 function CollapsibleSection({
   children,
   expanded,
+  icon,
   onPress,
   subtitle,
   title
 }: {
   children: ReactNode;
   expanded: boolean;
+  icon: string;
   onPress: () => void;
   subtitle: string;
   title: string;
@@ -600,7 +608,10 @@ function CollapsibleSection({
     <View style={styles.previewSection}>
       <Pressable onPress={onPress} style={({ pressed }) => [styles.previewSectionHeader, pressed && styles.pressed]}>
         <View style={styles.previewSectionHeading}>
-          <Text style={styles.previewSectionTitle}>{title}</Text>
+          <View style={styles.previewSectionTitleRow}>
+            <Text style={styles.previewSectionIcon}>{icon}</Text>
+            <Text style={styles.previewSectionTitle}>{title}</Text>
+          </View>
           <Text style={styles.previewSectionSubtitle}>{subtitle}</Text>
         </View>
         <Text style={styles.previewSectionToggle}>{expanded ? "Hide" : "Open"}</Text>
@@ -1113,6 +1124,18 @@ const styles = StyleSheet.create({
   previewSectionHeading: {
     flex: 1,
     gap: 3
+  },
+  previewSectionTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  previewSectionIcon: {
+    width: 18,
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "800",
+    textAlign: "center"
   },
   previewSectionTitle: {
     color: theme.colors.textPrimary,
