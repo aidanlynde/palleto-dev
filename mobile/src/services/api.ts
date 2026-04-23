@@ -128,6 +128,7 @@ export type CardRefinement = {
 export type CardShare = {
   id: string;
   card_id: string;
+  share_card_image_url: string;
   share_token: string;
   share_url: string;
   created_at: string;

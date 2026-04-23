@@ -7,6 +7,10 @@
     {
       "source": "/og/share/:token.png",
       "destination": "/api/share-image?token=:token"
+    },
+    {
+      "source": "/share/card/:token.png",
+      "destination": "/api/share-card-image?token=:token"
     }
   ]
 }

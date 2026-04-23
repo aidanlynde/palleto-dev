@@ -9,7 +9,10 @@ from PIL import Image, ImageColor, ImageDraw, ImageFont, ImageOps
 from app.core.config import settings
 from app.db.models import CardShare
 from app.db.session import SessionLocal, create_db_and_tables
-from app.services.shares import build_share_preview_image_url, build_share_url
+from app.services.shares import (
+    build_share_preview_image_url,
+    build_share_url,
+)
 
 router = APIRouter(tags=["public"])
 
@@ -372,6 +375,60 @@ def render_public_share_preview_image(share_token: str) -> Response:
         swatch_x = horizontal_padding + (index * 86)
         draw.rectangle(
             (swatch_x, swatch_y - 16, swatch_x + 70, swatch_y + 14),
+            fill=_safe_color(color["hex"]),
+        )
+
+    png = BytesIO()
+    image.save(png, format="PNG")
+    return Response(content=png.getvalue(), media_type="image/png")
+
+
+@router.get("/share/card/{share_token}.png")
+def render_public_share_card_image(share_token: str) -> Response:
+    share = _get_share(share_token)
+    card = share.card
+    image = Image.new("RGB", (900, 1260), "#000000")
+    draw = ImageDraw.Draw(image)
+
+    _paste_card_image(image, card.image_url, 0, 0, 900, 720)
+    draw.rectangle((0, 720, 900, 1260), fill="#000000")
+    draw.rounded_rectangle((0, 0, 899, 1259), radius=18, outline="#2A2A2A", width=2)
+
+    brand_font = _font(22, bold=True)
+    title_font = _font(56, bold=True)
+    body_font = _font(30, bold=False)
+    padding = 36
+
+    draw.text((padding, 764), "PALLETO", fill="#A3A3A3", font=brand_font)
+
+    title_lines = _wrap_text(
+        text=card.title,
+        font=title_font,
+        max_width=900 - (padding * 2),
+        max_lines=2,
+    )
+    title_y = 812
+    for line in title_lines:
+        draw.text((padding, title_y), line, fill="#FFFFFF", font=title_font)
+        title_y += 64
+
+    read_lines = _wrap_text(
+        text=card.one_line_read,
+        font=body_font,
+        max_width=900 - (padding * 2),
+        max_lines=4,
+    )
+    read_y = title_y + 8
+    for line in read_lines:
+        draw.text((padding, read_y), line, fill="#A3A3A3", font=body_font)
+        read_y += 38
+
+    swatch_y = 1180
+    swatch_width = 150
+    for index, color in enumerate(card.palette[:5]):
+        swatch_x = padding + (index * swatch_width)
+        draw.rectangle(
+            (swatch_x, swatch_y, swatch_x + swatch_width, swatch_y + 26),
             fill=_safe_color(color["hex"]),
         )
 

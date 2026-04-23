@@ -1,4 +1,5 @@
 import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
 import { ReactNode, useState } from "react";
@@ -29,8 +30,14 @@ export function CardResultScreen({
     try {
       const token = await firebaseUser.getIdToken();
       const share = await createOrGetCardShare(token, card.id);
+      const destinationUri = `${FileSystem.cacheDirectory}share-card-${card.id}-${share.share_token}.png`;
+      const downloaded = await FileSystem.downloadAsync(
+        share.share_card_image_url,
+        destinationUri
+      );
       await Share.share({
-        message: share.share_url
+        message: share.share_url,
+        url: downloaded.uri
       });
     } catch {
       Alert.alert("Share failed", "Try again in a moment.");
@@ -219,8 +226,14 @@ export function CardDetailScreen({
     try {
       const token = await firebaseUser.getIdToken();
       const share = await createOrGetCardShare(token, card.id);
+      const destinationUri = `${FileSystem.cacheDirectory}share-card-${card.id}-${share.share_token}.png`;
+      const downloaded = await FileSystem.downloadAsync(
+        share.share_card_image_url,
+        destinationUri
+      );
       await Share.share({
-        message: share.share_url
+        message: share.share_url,
+        url: downloaded.uri
       });
     } catch {
       Alert.alert("Share failed", "Try again in a moment.");

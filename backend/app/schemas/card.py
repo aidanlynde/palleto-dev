@@ -100,6 +100,7 @@ class CardRefinementRead(BaseModel):
 class CardShareRead(BaseModel):
     id: str
     card_id: str
+    share_card_image_url: str
     share_token: str
     share_url: str
     created_at: datetime

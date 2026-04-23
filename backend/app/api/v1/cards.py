@@ -24,7 +24,11 @@ from app.services.refinement_versions import (
     serialize_refinement_read,
     summarize_refinement,
 )
-from app.services.shares import build_share_url, create_or_refresh_card_share
+from app.services.shares import (
+    build_share_card_image_url,
+    build_share_url,
+    create_or_refresh_card_share,
+)
 from app.services.storage import delete_card_image, upload_card_image
 from app.services.taste_profiles import get_taste_profile
 from app.services.users import get_or_create_user
@@ -263,6 +267,7 @@ def create_or_get_card_share(
     return CardShareRead(
         id=share.id,
         card_id=share.card_id,
+        share_card_image_url=build_share_card_image_url(share.share_token),
         share_token=share.share_token,
         share_url=build_share_url(share.share_token),
         created_at=share.created_at,
