@@ -18,6 +18,10 @@ import {
 } from "../services/onboarding";
 import { theme } from "../theme";
 
+const koiImageSource = require("../../assets/demo/koi-street-reference.png");
+const stainedGlassSource = require("../../assets/demo/stained-glass-reference.png");
+const gardenObjectsSource = require("../../assets/demo/garden-objects-reference.png");
+
 type OnboardingScreenProps = {
   onComplete: (surveyAnswers: OnboardingSurveyAnswers) => void;
   onSkip?: () => void;
@@ -105,19 +109,11 @@ const processingStages = [
   "Building your first scan"
 ];
 
-const koiImageUrl = Image.resolveAssetSource(
-  require("../../assets/demo/koi-street-reference.png")
-).uri;
+const koiImageUrl = Image.resolveAssetSource(koiImageSource).uri;
 
-const koiPreviewUrl = Image.resolveAssetSource(
-  require("../../assets/demo/koi-street-reference.png")
-).uri;
-const stainedGlassPreviewUrl = Image.resolveAssetSource(
-  require("../../assets/demo/stained-glass-reference.png")
-).uri;
-const gardenPreviewUrl = Image.resolveAssetSource(
-  require("../../assets/demo/garden-objects-reference.png")
-).uri;
+const koiPreviewUrl = Image.resolveAssetSource(koiImageSource).uri;
+const stainedGlassPreviewUrl = Image.resolveAssetSource(stainedGlassSource).uri;
+const gardenPreviewUrl = Image.resolveAssetSource(gardenObjectsSource).uri;
 
 export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) {
   const [step, setStep] = useState(0);
@@ -266,17 +262,15 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
 
   if (step === questions.length + 1) {
     return (
-      <ImageBackground source={{ uri: koiImageUrl }} style={styles.fullscreen} resizeMode="cover">
+      <ImageBackground source={koiImageSource} style={styles.fullscreen} resizeMode="cover">
         <View style={styles.scanScrim}>
           <Progress current={questions.length + 2} total={totalSteps} />
           <View style={styles.scanTopBlock}>
-            <View style={styles.scanHeaderCard}>
-              <Text style={styles.kicker}>First scan</Text>
-              <Text style={styles.scanTitle}>Imagine you caught this walking home.</Text>
-              <Text style={styles.scanBody}>
-                Snap the koi, keep moving, and let Palleto turn it into something you can actually use.
-              </Text>
-            </View>
+            <Text style={styles.kicker}>First scan</Text>
+            <Text style={styles.scanTitle}>Imagine you caught this walking home.</Text>
+            <Text style={styles.scanBody}>
+              Snap the koi, keep moving, and let Palleto turn it into something you can actually use.
+            </Text>
           </View>
 
           <View style={styles.scanFocusArea}>
@@ -292,15 +286,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
             </View>
           </View>
 
-          <View style={styles.scanFooter}>
-            <View style={styles.scanFooterCard}>
-              <Text style={styles.scanFooterTitle}>Capture now, refine later.</Text>
-              <Text style={styles.scanFooterBody}>
-                The point is to get the first read fast, then open this back up when you have time.
-              </Text>
-            </View>
-            <FooterButton label="Scan this reference" onPress={continueFlow} />
-          </View>
+          <FooterButton label="Scan this reference" onPress={continueFlow} />
         </View>
       </ImageBackground>
     );
@@ -310,7 +296,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
     return (
       <View style={styles.processingContainer}>
         <Progress current={questions.length + 3} total={totalSteps} />
-        <Image source={{ uri: koiImageUrl }} style={styles.processingImage} resizeMode="cover" />
+        <Image source={koiImageSource} style={styles.processingImage} resizeMode="cover" />
         <Text style={styles.kicker}>Building your first scan</Text>
         <Text style={styles.processingTitle}>{processingStages[processingIndex]}</Text>
         <View style={styles.stageList}>
@@ -406,7 +392,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
 
   return (
     <View style={styles.previewCard}>
-      <Image source={{ uri: card.image_url }} style={styles.previewCardImage} resizeMode="cover" />
+      <Image source={koiImageSource} style={styles.previewCardImage} resizeMode="cover" />
       <View style={styles.previewCardBody}>
         <Text style={styles.previewCardTitle}>{card.title}</Text>
         <Text style={styles.previewCardRead}>{card.one_line_read}</Text>
@@ -420,15 +406,16 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
           subtitle={`${card.palette.length} colors with copyable hex`}
           title="Palette"
         >
-          <View style={styles.previewPaletteList}>
+          <View style={styles.previewPaletteGrid}>
             {card.palette.map((color) => (
-              <View key={color.hex} style={styles.previewPaletteItem}>
-                <View style={[styles.previewPaletteSwatch, { backgroundColor: color.hex }]} />
+              <View key={color.hex} style={styles.previewPaletteCard}>
+                <View style={[styles.previewPaletteBlock, { backgroundColor: color.hex }]}>
+                  <Text style={styles.previewPaletteBlockHex}>{color.hex.toUpperCase()}</Text>
+                </View>
                 <View style={styles.previewPaletteMeta}>
                   <Text style={styles.previewPaletteLabel}>{color.label}</Text>
                   <Text style={styles.previewPaletteRole}>{color.role}</Text>
                 </View>
-                <Text style={styles.previewPaletteHex}>{color.hex.toUpperCase()}</Text>
               </View>
             ))}
           </View>
@@ -441,19 +428,13 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
           title="Related inspiration"
         >
           <View style={styles.previewLinksList}>
-            {card.related_links.map((link) => (
+            {card.related_links.map((link, index) => (
               <Pressable
                 key={link.url}
                 onPress={() => Linking.openURL(link.url)}
                 style={({ pressed }) => [styles.previewLinkItem, pressed && styles.pressed]}
               >
-                {link.thumbnail_url ? (
-                  <Image
-                    source={{ uri: link.thumbnail_url }}
-                    style={styles.previewLinkImage}
-                    resizeMode="cover"
-                  />
-                ) : null}
+                <Image source={previewLinkImageSource(index)} style={styles.previewLinkImage} resizeMode="cover" />
                 <View style={styles.previewLinkCopy}>
                   <Text style={styles.previewLinkTitle}>{link.title}</Text>
                   {link.reason ? <Text style={styles.previewLinkReason}>{link.reason}</Text> : null}
@@ -492,6 +473,9 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
           <View style={styles.previewTypeList}>
             {card.type_direction.map((direction) => (
               <View key={direction.style} style={styles.previewTypeItem}>
+                <Text style={[styles.previewTypePreview, previewTypeStyle(direction.style)]}>
+                  {direction.style}
+                </Text>
                 <Text style={styles.previewTypeStyle}>{direction.style}</Text>
                 <Text style={styles.previewTypeUse}>{direction.use}</Text>
               </View>
@@ -505,19 +489,28 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
           subtitle="A paid layer for deeper creative work"
           title="Refine with AI"
         >
-          <Text style={styles.previewRefineLead}>
-            When the first scan sparks something, you can keep going instead of starting over.
-          </Text>
-          <View style={styles.previewRefinePromptList}>
-            {[
-              "Make this feel more organic and less corporate",
-              "Push this toward a luxury fashion direction",
-              "Give me stronger type options for this project"
-            ].map((prompt) => (
-              <View key={prompt} style={styles.previewRefinePrompt}>
-                <Text style={styles.previewRefinePromptText}>{prompt}</Text>
-              </View>
-            ))}
+          <View style={styles.previewRefineCard}>
+            <View style={styles.previewRefineBadge}>
+              <Text style={styles.previewRefineBadgeText}>Paid feature</Text>
+            </View>
+            <Text style={styles.previewRefineHero}>Keep talking to the scan until the idea gets sharp.</Text>
+            <Text style={styles.previewRefineLead}>
+              Ask for alternate directions, stronger type, better applications, or a cleaner point of view without starting over.
+            </Text>
+            <View style={styles.previewRefinePromptList}>
+              {[
+                "Make this feel more organic and less corporate",
+                "Push this toward a luxury fashion direction",
+                "Give me stronger type options for this project"
+              ].map((prompt) => (
+                <View key={prompt} style={styles.previewRefinePrompt}>
+                  <Text style={styles.previewRefinePromptText}>{prompt}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.previewRefineButton}>
+              <Text style={styles.previewRefineButtonText}>Refine with AI</Text>
+            </View>
           </View>
         </CollapsibleSection>
       </View>
@@ -656,6 +649,40 @@ function buildApplications(projectType: string) {
     "A direction for packaging, graphics, or editorial assets that needs more soul than polish.",
     "A useful reference when a project needs a strong big idea, not just another moodboard image."
   ];
+}
+
+function previewLinkImageSource(index: number) {
+  if (index === 0) {
+    return koiImageSource;
+  }
+
+  if (index === 1) {
+    return stainedGlassSource;
+  }
+
+  return gardenObjectsSource;
+}
+
+function previewTypeStyle(style: string) {
+  const lowered = style.toLowerCase();
+
+  if (lowered.includes("serif")) {
+    return styles.previewTypePreviewSerif;
+  }
+
+  if (lowered.includes("italic")) {
+    return styles.previewTypePreviewItalic;
+  }
+
+  if (lowered.includes("grotesk")) {
+    return styles.previewTypePreviewGrotesk;
+  }
+
+  if (lowered.includes("mono")) {
+    return styles.previewTypePreviewMono;
+  }
+
+  return styles.previewTypePreviewSans;
 }
 
 function buildTypeDirections(leanToward: string[]) {
@@ -899,19 +926,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: 56,
     paddingBottom: 34,
-    backgroundColor: "rgba(0,0,0,0.42)"
+    backgroundColor: "rgba(0,0,0,0.18)"
   },
   scanTopBlock: {
-    alignItems: "flex-start"
-  },
-  scanHeaderCard: {
-    maxWidth: 316,
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    borderRadius: theme.radius.small,
-    backgroundColor: "rgba(0,0,0,0.58)"
+    alignItems: "flex-start",
+    gap: theme.spacing.xs,
+    maxWidth: 290
   },
   scanTitle: {
     color: theme.colors.textPrimary,
@@ -923,6 +943,9 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 15,
     lineHeight: 22,
+    textShadowColor: "rgba(0,0,0,0.55)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4
   },
   scanFocusArea: {
     flex: 1,
@@ -987,34 +1010,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.sm,
     paddingVertical: 6,
     borderRadius: theme.radius.small,
-    backgroundColor: "rgba(0,0,0,0.62)"
+    backgroundColor: "rgba(0,0,0,0.44)"
   },
   scanTargetBadgeText: {
     color: theme.colors.textPrimary,
     fontSize: 11,
     fontWeight: "800",
     textTransform: "uppercase"
-  },
-  scanFooter: {
-    gap: theme.spacing.md
-  },
-  scanFooterCard: {
-    gap: 4,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    borderRadius: theme.radius.small,
-    backgroundColor: "rgba(0,0,0,0.52)"
-  },
-  scanFooterTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "800"
-  },
-  scanFooterBody: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18
   },
   stageList: {
     gap: theme.spacing.sm
@@ -1118,21 +1120,40 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
     marginTop: theme.spacing.md
   },
-  previewPaletteList: {
-    gap: theme.spacing.sm
-  },
-  previewPaletteItem: {
+  previewPaletteGrid: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm
+    flexWrap: "wrap",
+    gap: theme.spacing.xs
   },
-  previewPaletteSwatch: {
-    width: 44,
-    height: 44,
+  previewPaletteCard: {
+    width: "48.5%",
+    gap: theme.spacing.sm,
+    padding: theme.spacing.xs,
+    backgroundColor: theme.colors.background,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
     borderRadius: theme.radius.small
   },
+  previewPaletteBlock: {
+    justifyContent: "flex-end",
+    height: 72,
+    padding: theme.spacing.xs,
+    borderColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1,
+    borderRadius: 4
+  },
+  previewPaletteBlockHex: {
+    alignSelf: "flex-start",
+    overflow: "hidden",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    color: theme.colors.textPrimary,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 4,
+    fontSize: 11,
+    fontWeight: "900"
+  },
   previewPaletteMeta: {
-    flex: 1,
     gap: 2
   },
   previewPaletteLabel: {
@@ -1145,11 +1166,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase"
-  },
-  previewPaletteHex: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800"
   },
   previewLinksList: {
     gap: theme.spacing.sm
@@ -1218,7 +1234,17 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm
   },
   previewTypeItem: {
-    gap: 3
+    gap: 3,
+    padding: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.background
+  },
+  previewTypePreview: {
+    color: theme.colors.textPrimary,
+    fontSize: 24,
+    lineHeight: 28
   },
   previewTypeStyle: {
     color: theme.colors.textPrimary,
@@ -1231,9 +1257,36 @@ const styles = StyleSheet.create({
     lineHeight: 18
   },
   previewRefineLead: {
-    color: theme.colors.textPrimary,
+    color: theme.colors.textSecondary,
     fontSize: 14,
     lineHeight: 21
+  },
+  previewRefineCard: {
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.background
+  },
+  previewRefineBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.textPrimary
+  },
+  previewRefineBadgeText: {
+    color: theme.colors.background,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  previewRefineHero: {
+    color: theme.colors.textPrimary,
+    fontSize: 20,
+    fontWeight: "900",
+    lineHeight: 24
   },
   previewRefinePromptList: {
     gap: theme.spacing.sm
@@ -1249,6 +1302,39 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 13,
     lineHeight: 18
+  },
+  previewRefineButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
+    marginTop: theme.spacing.xs,
+    backgroundColor: theme.colors.textPrimary,
+    borderRadius: theme.radius.small
+  },
+  previewRefineButtonText: {
+    color: theme.colors.background,
+    fontSize: 15,
+    fontWeight: "800"
+  },
+  previewTypePreviewSerif: {
+    fontFamily: "Georgia",
+    fontStyle: "normal"
+  },
+  previewTypePreviewItalic: {
+    fontFamily: "Georgia",
+    fontStyle: "italic"
+  },
+  previewTypePreviewGrotesk: {
+    letterSpacing: 0.3,
+    fontWeight: "700"
+  },
+  previewTypePreviewMono: {
+    fontFamily: "Courier",
+    letterSpacing: 0.2
+  },
+  previewTypePreviewSans: {
+    letterSpacing: 0,
+    fontWeight: "600"
   },
   pressed: {
     opacity: 0.72
