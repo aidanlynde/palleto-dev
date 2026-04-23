@@ -1,7 +1,10 @@
 from html import escape
+from io import BytesIO
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, Response
+from PIL import Image, ImageColor, ImageDraw, ImageFont, ImageOps
 
 from app.core.config import settings
 from app.db.models import CardShare
@@ -319,57 +322,72 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
     return HTMLResponse(content=html)
 
 
-@router.get("/og/share/{share_token}.svg")
+@router.get("/og/share/{share_token}.png")
 def render_public_share_preview_image(share_token: str) -> Response:
     share = _get_share(share_token)
     card = share.card
-    title = escape(card.title)
-    one_line_read = escape(card.one_line_read)
-    project_type = escape(card.project_lens.get("project_type", "Creative direction"))
-    swatches = "".join(
-        [
-            (
-                f"<rect x='{72 + (index * 94)}' y='572' width='74' height='74' rx='10' "
-                f"fill='{escape(color['hex'])}' />"
-            )
-            for index, color in enumerate(card.palette[:5])
-        ]
+    image = Image.new("RGB", (1200, 630), "#050505")
+    draw = ImageDraw.Draw(image)
+
+    preview_x = 370
+    preview_y = 34
+    preview_width = 460
+    preview_height = 562
+    image_height = 342
+    body_y = preview_y + image_height
+
+    _paste_card_image(image, card.image_url, preview_x, preview_y, preview_width, image_height)
+    draw.rounded_rectangle(
+        (preview_x, preview_y, preview_x + preview_width, preview_y + preview_height),
+        radius=16,
+        outline="#2A2A2A",
+        width=2,
+        fill=None,
     )
-    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <defs>
-    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#000000" stop-opacity="0.82"/>
-    </linearGradient>
-  </defs>
-  <rect width="1200" height="630" fill="#050505"/>
-  <image href="{escape(card.image_url)}" x="0" y="0" width="1200" height="630" preserveAspectRatio="xMidYMid slice"/>
-  <rect width="1200" height="630" fill="url(#fade)"/>
-  <rect x="40" y="40" width="1120" height="550" rx="28" fill="rgba(8,8,8,0.58)" stroke="#2a2a2a" />
-  <text x="72" y="102" fill="#FFFFFF" font-size="22" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-weight="800">PALLETO</text>
-  <text x="72" y="138" fill="#A3A3A3" font-size="20" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">{project_type}</text>
-  <foreignObject x="72" y="176" width="720" height="180">
-    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:54px;line-height:1.02;font-weight:800;">
-      {title}
-    </div>
-  </foreignObject>
-  <foreignObject x="72" y="376" width="720" height="110">
-    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#d4d4d4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:28px;line-height:1.25;font-weight:600;">
-      {one_line_read}
-    </div>
-  </foreignObject>
-  <rect x="840" y="72" width="284" height="390" rx="20" fill="#111111" stroke="#2a2a2a"/>
-  <image href="{escape(card.image_url)}" x="858" y="90" width="248" height="224" preserveAspectRatio="xMidYMid slice"/>
-  <text x="858" y="344" fill="#FFFFFF" font-size="16" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-weight="800">SHARE PREVIEW</text>
-  <foreignObject x="858" y="360" width="230" height="76">
-    <div xmlns="http://www.w3.org/1999/xhtml" style="color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:26px;line-height:1.05;font-weight:800;">
-      {title}
-    </div>
-  </foreignObject>
-  <text x="72" y="548" fill="#A3A3A3" font-size="18" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-weight="700">PALETTE</text>
-  {swatches}
-</svg>"""
-    return Response(content=svg, media_type="image/svg+xml")
+    draw.rectangle(
+        (preview_x, body_y, preview_x + preview_width, preview_y + preview_height),
+        fill="#000000",
+    )
+
+    brand_font = _font(18, bold=True)
+    title_font = _font(46, bold=True)
+    body_font = _font(24, bold=False)
+
+    draw.text((preview_x + 26, body_y + 26), "PALLETO", fill="#FFFFFF", font=brand_font)
+
+    title_lines = _wrap_text(
+        text=card.title,
+        font=title_font,
+        max_width=preview_width - 52,
+        max_lines=2,
+    )
+    title_y = body_y + 62
+    for line in title_lines:
+        draw.text((preview_x + 26, title_y), line, fill="#FFFFFF", font=title_font)
+        title_y += 48
+
+    read_lines = _wrap_text(
+        text=card.one_line_read,
+        font=body_font,
+        max_width=preview_width - 52,
+        max_lines=3,
+    )
+    read_y = title_y + 10
+    for line in read_lines:
+        draw.text((preview_x + 26, read_y), line, fill="#CFCFCF", font=body_font)
+        read_y += 30
+
+    swatch_y = preview_y + preview_height - 34
+    for index, color in enumerate(card.palette[:5]):
+        swatch_x = preview_x + 26 + (index * 81)
+        draw.rectangle(
+            (swatch_x, swatch_y - 14, swatch_x + 65, swatch_y + 12),
+            fill=_safe_color(color["hex"]),
+        )
+
+    png = BytesIO()
+    image.save(png, format="PNG")
+    return Response(content=png.getvalue(), media_type="image/png")
 
 
 def _get_share(share_token: str) -> CardShare:
@@ -386,3 +404,86 @@ def _get_share(share_token: str) -> CardShare:
         return share
     finally:
         db.close()
+
+
+def _paste_card_image(
+    canvas: Image.Image,
+    image_url: str,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+) -> None:
+    try:
+        response = httpx.get(image_url, follow_redirects=True, timeout=6.0)
+        response.raise_for_status()
+        source_image = Image.open(BytesIO(response.content)).convert("RGB")
+    except Exception:
+        source_image = Image.new("RGB", (width, height), "#1A1A1A")
+
+    fitted = ImageOps.fit(source_image, (width, height), method=Image.Resampling.LANCZOS)
+    canvas.paste(fitted, (x, y))
+
+
+def _font(size: int, *, bold: bool) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    candidates = [
+        "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        if bold
+        else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    ]
+
+    for candidate in candidates:
+        try:
+            return ImageFont.truetype(candidate, size=size)
+        except OSError:
+            continue
+
+    return ImageFont.load_default()
+
+
+def _wrap_text(
+    *,
+    text: str,
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont,
+    max_width: int,
+    max_lines: int,
+) -> list[str]:
+    words = text.split()
+    if not words:
+        return []
+
+    lines: list[str] = []
+    current = words[0]
+
+    for word in words[1:]:
+        candidate = f"{current} {word}"
+        if font.getlength(candidate) <= max_width:
+            current = candidate
+            continue
+
+        lines.append(current)
+        current = word
+
+        if len(lines) == max_lines - 1:
+            break
+
+    remaining = current
+    if len(lines) < max_lines:
+        lines.append(remaining)
+
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+
+    if len(lines) == max_lines and (len(words) > sum(len(line.split()) for line in lines)):
+        lines[-1] = f"{lines[-1].rstrip('.')}…"
+
+    return lines
+
+
+def _safe_color(value: str) -> str:
+    try:
+        ImageColor.getrgb(value)
+        return value
+    except ValueError:
+        return "#FFFFFF"

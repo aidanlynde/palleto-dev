@@ -29,7 +29,7 @@ def build_share_url(share_token: str) -> str:
 def build_share_preview_image_url(share_token: str) -> str:
     base_url = settings.public_share_base_url or settings.public_api_base_url
     normalized_base_url = base_url.rstrip("/")
-    return f"{normalized_base_url}/og/share/{share_token}.svg"
+    return f"{normalized_base_url}/og/share/{share_token}.png"
 
 
 def _share_token() -> str:
