@@ -2,9 +2,10 @@ import { Archivo_900Black } from "@expo-google-fonts/archivo";
 import { CormorantGaramond_600SemiBold } from "@expo-google-fonts/cormorant-garamond";
 import { IBMPlexMono_600SemiBold } from "@expo-google-fonts/ibm-plex-mono";
 import { SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk";
-import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useFonts } from "expo-font";
+import * as Linking from "expo-linking";
 import { StatusBar } from "expo-status-bar";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { useEffect, useState } from "react";
@@ -35,6 +36,7 @@ import {
 } from "./src/services/onboarding";
 import { ProjectContext, ProjectContextInput } from "./src/services/projectContext";
 import { theme } from "./src/theme";
+import QuickCaptureWidget from "./src/widgets/QuickCaptureWidget";
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -57,6 +59,7 @@ type SelectedImage = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -86,6 +89,8 @@ export default function App() {
   const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const [selectedCard, setSelectedCard] = useState<InspirationCard | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
+  const [pendingOpenCapture, setPendingOpenCapture] = useState(false);
+  const [isNavigationReady, setIsNavigationReady] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
@@ -151,6 +156,50 @@ export default function App() {
   }, [firebaseUser]);
 
   useEffect(() => {
+    QuickCaptureWidget.updateSnapshot({
+      projectLabel: projectContext?.name || projectContext?.projectType || "Capture",
+      subtitle: projectContext?.name
+        ? `Open ${projectContext.name}`
+        : "Open Palleto"
+    });
+  }, [projectContext]);
+
+  useEffect(() => {
+    function handleIncomingUrl(url: string | null) {
+      if (!url) {
+        return;
+      }
+
+      const parsed = Linking.parse(url);
+      const target = parsed.hostname || parsed.path?.split("/")[0];
+
+      if (target === "capture") {
+        setPendingOpenCapture(true);
+      }
+    }
+
+    Linking.getInitialURL().then(handleIncomingUrl).catch(() => undefined);
+    const subscription = Linking.addEventListener("url", ({ url }) => handleIncomingUrl(url));
+
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (
+      !pendingOpenCapture ||
+      !isNavigationReady ||
+      !firebaseUser ||
+      !projectContext ||
+      !navigationRef.isReady()
+    ) {
+      return;
+    }
+
+    navigationRef.navigate("Capture");
+    setPendingOpenCapture(false);
+  }, [firebaseUser, isNavigationReady, pendingOpenCapture, projectContext]);
+
+  useEffect(() => {
     if (firebaseUser && projectContext && !onboardingComplete) {
       setOnboardingComplete(true);
     }
@@ -188,7 +237,11 @@ export default function App() {
     !isTasteProfileReady;
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer
+      ref={navigationRef}
+      theme={navigationTheme}
+      onReady={() => setIsNavigationReady(true)}
+    >
       <StatusBar style="light" />
       <Stack.Navigator
         screenOptions={{
