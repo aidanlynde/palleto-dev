@@ -16,6 +16,7 @@ import { MainScreen } from "./src/screens/MainScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProcessingScreen } from "./src/screens/ProcessingScreen";
 import { ProjectIntakeScreen } from "./src/screens/ProjectIntakeScreen";
+import { QuickAccessScreen } from "./src/screens/QuickAccessScreen";
 import { RefineCardScreen } from "./src/screens/RefineCardScreen";
 import { SplashScreen } from "./src/screens/SplashScreen";
 import {
@@ -43,6 +44,7 @@ export type RootStackParamList = {
   Onboarding: undefined;
   Processing: undefined;
   ProjectIntake: undefined;
+  QuickAccess: undefined;
   Refine: undefined;
   Result: undefined;
   Splash: undefined;
@@ -240,12 +242,16 @@ export default function App() {
             <Stack.Screen name="Capture" options={{ title: "Capture" }}>
               {({ navigation }) => (
                 <CaptureScreen
+                  onOpenQuickAccess={() => navigation.navigate("QuickAccess")}
                   onImageSelected={(image) => {
                     setSelectedImage(image);
                     navigation.navigate("Processing");
                   }}
                 />
               )}
+            </Stack.Screen>
+            <Stack.Screen name="QuickAccess" options={{ title: "Quick access" }}>
+              {() => <QuickAccessScreen />}
             </Stack.Screen>
             <Stack.Screen name="Processing" options={{ headerShown: false }}>
               {({ navigation }) =>
@@ -264,6 +270,7 @@ export default function App() {
                   />
                 ) : (
                   <CaptureScreen
+                    onOpenQuickAccess={() => navigation.navigate("QuickAccess")}
                     onImageSelected={(image) => {
                       setSelectedImage(image);
                       navigation.replace("Processing");

@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { theme } from "../theme";
 
 type CaptureScreenProps = {
+  onOpenQuickAccess: () => void;
   onImageSelected: (input: {
     mimeType?: string | null;
     sourceType: "camera" | "library";
@@ -12,7 +13,7 @@ type CaptureScreenProps = {
   }) => void;
 };
 
-export function CaptureScreen({ onImageSelected }: CaptureScreenProps) {
+export function CaptureScreen({ onImageSelected, onOpenQuickAccess }: CaptureScreenProps) {
   async function takePhoto() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
@@ -61,20 +62,34 @@ export function CaptureScreen({ onImageSelected }: CaptureScreenProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.eyebrow}>Capture</Text>
-      <Text style={styles.title}>What caught your eye?</Text>
-      <Text style={styles.body}>
-        Take a photo in the moment or upload a saved reference. Palleto will turn it into a
-        project-aware inspiration card.
-      </Text>
+      <Pressable
+        onPress={onOpenQuickAccess}
+        style={({ pressed }) => [styles.quickAccessCard, pressed && styles.pressed]}
+      >
+        <View style={styles.quickAccessCopy}>
+          <Text style={styles.quickAccessEyebrow}>Faster capture</Text>
+          <Text style={styles.quickAccessTitle}>Add Palleto to your Lock Screen</Text>
+          <Text style={styles.quickAccessBody}>Open the setup guide for quick access.</Text>
+        </View>
+        <Text style={styles.quickAccessAction}>Open guide</Text>
+      </Pressable>
 
-      <View style={styles.actions}>
-        <Pressable style={styles.primaryButton} onPress={takePhoto}>
-          <Text style={styles.primaryButtonText}>Take photo</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={choosePhoto}>
-          <Text style={styles.secondaryButtonText}>Upload photo</Text>
-        </Pressable>
+      <View style={styles.hero}>
+        <Text style={styles.eyebrow}>Capture</Text>
+        <Text style={styles.title}>What caught your eye?</Text>
+        <Text style={styles.body}>
+          Take a photo in the moment or upload a saved reference. Palleto will turn it into a
+          project-aware inspiration card.
+        </Text>
+
+        <View style={styles.actions}>
+          <Pressable style={styles.primaryButton} onPress={takePhoto}>
+            <Text style={styles.primaryButtonText}>Take photo</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryButton} onPress={choosePhoto}>
+            <Text style={styles.secondaryButtonText}>Upload photo</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -83,9 +98,53 @@ export function CaptureScreen({ onImageSelected }: CaptureScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
     padding: theme.spacing.lg,
     backgroundColor: theme.colors.background
+  },
+  quickAccessCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: theme.spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  quickAccessCopy: {
+    flex: 1,
+    gap: theme.spacing.xs
+  },
+  quickAccessEyebrow: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "900",
+    textTransform: "uppercase"
+  },
+  quickAccessTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 20
+  },
+  quickAccessBody: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
+  },
+  quickAccessAction: {
+    color: theme.colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "800"
+  },
+  hero: {
+    flex: 1,
+    justifyContent: "flex-start",
+    maxWidth: 520,
+    paddingTop: theme.spacing.xl
   },
   eyebrow: {
     marginBottom: theme.spacing.sm,
@@ -134,5 +193,8 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontSize: 16,
     fontWeight: "800"
+  },
+  pressed: {
+    opacity: 0.76
   }
 });
