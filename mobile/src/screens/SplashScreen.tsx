@@ -24,8 +24,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background
   },
   logo: {
-    width: 96,
-    height: 96,
+    width: 64,
+    height: 64,
     marginBottom: theme.spacing.xl
   },
   text: {

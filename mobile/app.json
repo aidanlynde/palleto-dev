@@ -12,6 +12,7 @@
     ],
     "splash": {
       "image": "./assets/brand/palleto-logo-transparent.png",
+      "imageWidth": 64,
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
