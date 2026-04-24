@@ -62,17 +62,15 @@ export function CaptureScreen({ onImageSelected, onOpenQuickAccess }: CaptureScr
 
   return (
     <View style={styles.container}>
-      <Pressable
-        onPress={onOpenQuickAccess}
-        style={({ pressed }) => [styles.quickAccessCard, pressed && styles.pressed]}
-      >
+      <View style={styles.quickAccessCard}>
         <View style={styles.quickAccessCopy}>
-          <Text style={styles.quickAccessEyebrow}>Faster capture</Text>
-          <Text style={styles.quickAccessTitle}>Add Palleto to your Lock Screen</Text>
-          <Text style={styles.quickAccessBody}>Open the setup guide for quick access.</Text>
+          <Text style={styles.quickAccessEyebrow}>Quick access</Text>
+          <Text style={styles.quickAccessTitle}>Coming soon</Text>
+          <Text style={styles.quickAccessBody}>
+            Lock Screen and widget shortcuts will land in a later native pass.
+          </Text>
         </View>
-        <Text style={styles.quickAccessAction}>Open guide</Text>
-      </Pressable>
+      </View>
 
       <View style={styles.hero}>
         <Text style={styles.eyebrow}>Capture</Text>

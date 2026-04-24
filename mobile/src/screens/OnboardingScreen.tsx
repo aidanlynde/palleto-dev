@@ -1,5 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -20,6 +21,7 @@ import {
 import { theme } from "../theme";
 
 const koiImageSource = require("../../assets/demo/koi-street-reference.png");
+const refinePreviewSource = require("../../assets/onboarding/refine-preview.mov");
 
 type OnboardingScreenProps = {
   onComplete: (surveyAnswers: OnboardingSurveyAnswers) => void;
@@ -372,6 +374,11 @@ function FooterButton({
 function PreviewScanCard({ card }: { card: InspirationCard }) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
+  const refinePreviewPlayer = useVideoPlayer(refinePreviewSource, (player) => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
 
   function toggleSection(section: string) {
     setExpandedSection((current) => (current === section ? null : section));
@@ -569,13 +576,20 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
               Refinement lets you turn a saved scan into tighter type, sharper applications, and alternate creative directions.
             </Text>
             <View style={styles.previewRefineVideoSlot}>
-              <View style={styles.previewRefinePlay}>
-                <Text style={styles.previewRefinePlayIcon}>▶</Text>
+              <VideoView
+                allowsFullscreen={false}
+                allowsPictureInPicture={false}
+                contentFit="cover"
+                nativeControls={false}
+                player={refinePreviewPlayer}
+                style={styles.previewRefineVideo}
+              />
+              <View style={styles.previewRefineVideoOverlay}>
+                <Text style={styles.previewRefineVideoTitle}>Refinement preview</Text>
+                <Text style={styles.previewRefineVideoBody}>
+                  Keep pushing a saved card until the direction actually clicks.
+                </Text>
               </View>
-              <Text style={styles.previewRefineVideoTitle}>Refinement preview</Text>
-              <Text style={styles.previewRefineVideoBody}>
-                This space is ready for a short screen recording showing a real card being refined.
-              </Text>
             </View>
             <View style={styles.previewRefineChipRow}>
               {["Sharper type", "New angle", "Project fit"].map((chip) => (
@@ -1440,43 +1454,39 @@ const styles = StyleSheet.create({
     lineHeight: 24
   },
   previewRefineVideoSlot: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 190,
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
+    overflow: "hidden",
+    minHeight: 240,
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.small,
     backgroundColor: "#171717"
   },
-  previewRefinePlay: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: theme.colors.textPrimary
+  previewRefineVideo: {
+    width: "100%",
+    height: 240
   },
-  previewRefinePlayIcon: {
-    color: theme.colors.background,
-    fontSize: 18,
-    fontWeight: "900",
-    marginLeft: 2
+  previewRefineVideoOverlay: {
+    position: "absolute",
+    right: theme.spacing.md,
+    bottom: theme.spacing.md,
+    left: theme.spacing.md,
+    gap: theme.spacing.xs,
+    padding: theme.spacing.sm,
+    borderRadius: theme.radius.small,
+    backgroundColor: "rgba(0,0,0,0.62)"
   },
   previewRefineVideoTitle: {
     color: theme.colors.textPrimary,
     fontSize: 17,
     fontWeight: "900",
     lineHeight: 22,
-    textAlign: "center"
+    textAlign: "left"
   },
   previewRefineVideoBody: {
-    maxWidth: 230,
     color: theme.colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
-    textAlign: "center"
+    textAlign: "left"
   },
   previewRefineChipRow: {
     flexDirection: "row",
