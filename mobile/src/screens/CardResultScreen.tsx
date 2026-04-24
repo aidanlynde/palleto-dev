@@ -3,7 +3,8 @@ import * as FileSystem from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
 import { ReactNode, useState } from "react";
-import { Alert, Image, Linking, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import RNShare from "react-native-share";
 
 import { createOrGetCardShare, deleteCard, InspirationCard } from "../services/api";
 import { theme } from "../theme";
@@ -28,17 +29,7 @@ export function CardResultScreen({
 }: CardResultScreenProps) {
   async function shareCard() {
     try {
-      const token = await firebaseUser.getIdToken();
-      const share = await createOrGetCardShare(token, card.id);
-      const destinationUri = `${FileSystem.cacheDirectory}share-card-${card.id}-${share.share_token}.png`;
-      const downloaded = await FileSystem.downloadAsync(
-        share.share_card_image_url,
-        destinationUri
-      );
-      await Share.share({
-        message: share.share_url,
-        url: downloaded.uri
-      });
+      await shareCardFromApi(firebaseUser, card.id, card.title);
     } catch {
       Alert.alert("Share failed", "Try again in a moment.");
     }
@@ -224,17 +215,7 @@ export function CardDetailScreen({
 
   async function shareCard() {
     try {
-      const token = await firebaseUser.getIdToken();
-      const share = await createOrGetCardShare(token, card.id);
-      const destinationUri = `${FileSystem.cacheDirectory}share-card-${card.id}-${share.share_token}.png`;
-      const downloaded = await FileSystem.downloadAsync(
-        share.share_card_image_url,
-        destinationUri
-      );
-      await Share.share({
-        message: share.share_url,
-        url: downloaded.uri
-      });
+      await shareCardFromApi(firebaseUser, card.id, card.title);
     } catch {
       Alert.alert("Share failed", "Try again in a moment.");
     }
@@ -293,6 +274,48 @@ export function CardDetailScreen({
       </Pressable>
     </ScrollView>
   );
+}
+
+async function shareCardFromApi(firebaseUser: User, cardId: string, cardTitle: string) {
+  const token = await firebaseUser.getIdToken();
+  const share = await createOrGetCardShare(token, cardId);
+  const destinationUri = `${FileSystem.cacheDirectory}share-card-${cardId}-${share.share_token}.png`;
+  const downloaded = await FileSystem.downloadAsync(share.share_card_image_url, destinationUri);
+
+  if (Platform.OS === "ios") {
+    await RNShare.open({
+      failOnCancel: false,
+      activityItemSources: [
+        {
+          placeholderItem: {
+            type: "url",
+            content: share.share_url
+          },
+          item: {
+            default: {
+              type: "url",
+              content: share.share_url
+            }
+          },
+          subject: {
+            default: cardTitle
+          },
+          linkMetadata: {
+            originalUrl: share.share_url,
+            url: share.share_url,
+            title: cardTitle,
+            image: downloaded.uri
+          }
+        }
+      ]
+    });
+    return;
+  }
+
+  await Share.share({
+    message: share.share_url,
+    url: downloaded.uri
+  });
 }
 
 function CollapsibleSection({
