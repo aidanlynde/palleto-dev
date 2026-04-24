@@ -1,5 +1,6 @@
 from html import escape
 from io import BytesIO
+from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -15,6 +16,8 @@ from app.services.shares import (
 )
 
 router = APIRouter(tags=["public"])
+APP_DIR = Path(__file__).resolve().parents[1]
+FONT_DIR = APP_DIR / "assets" / "fonts"
 
 
 @router.get("/api/v1/public/shares/{share_token}")
@@ -387,48 +390,53 @@ def render_public_share_preview_image(share_token: str) -> Response:
 def render_public_share_card_image(share_token: str) -> Response:
     share = _get_share(share_token)
     card = share.card
-    image = Image.new("RGB", (900, 1260), "#000000")
+    width = 1080
+    image_height = 680
+    body_height = 360
+    height = image_height + body_height
+    image = Image.new("RGB", (width, height), "#000000")
     draw = ImageDraw.Draw(image)
 
-    _paste_card_image(image, card.image_url, 0, 0, 900, 720)
-    draw.rectangle((0, 720, 900, 1260), fill="#000000")
-    draw.rounded_rectangle((0, 0, 899, 1259), radius=18, outline="#2A2A2A", width=2)
+    _paste_card_image(image, card.image_url, 0, 0, width, image_height)
+    draw.rectangle((0, image_height, width, height), fill="#000000")
+    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=18, outline="#2A2A2A", width=2)
 
-    brand_font = _font(22, bold=True)
-    title_font = _font(56, bold=True)
-    body_font = _font(30, bold=False)
-    padding = 36
+    brand_font = _font(26, bold=True)
+    title_font = _font(62, bold=True)
+    body_font = _font(34, bold=False)
+    padding = 44
 
-    draw.text((padding, 764), "PALLETO", fill="#A3A3A3", font=brand_font)
+    draw.text((padding, image_height + 42), "PALLETO", fill="#A3A3A3", font=brand_font)
 
     title_lines = _wrap_text(
         text=card.title,
         font=title_font,
-        max_width=900 - (padding * 2),
+        max_width=width - (padding * 2),
         max_lines=2,
     )
-    title_y = 812
+    title_y = image_height + 92
     for line in title_lines:
         draw.text((padding, title_y), line, fill="#FFFFFF", font=title_font)
-        title_y += 64
+        title_y += 74
 
     read_lines = _wrap_text(
         text=card.one_line_read,
         font=body_font,
-        max_width=900 - (padding * 2),
-        max_lines=4,
+        max_width=width - (padding * 2),
+        max_lines=3,
     )
     read_y = title_y + 8
     for line in read_lines:
         draw.text((padding, read_y), line, fill="#A3A3A3", font=body_font)
-        read_y += 38
+        read_y += 44
 
-    swatch_y = 1180
-    swatch_width = 150
+    swatch_gap = 0
+    swatch_width = (width - (padding * 2)) // min(len(card.palette[:5]) or 1, 5)
+    swatch_y = height - 46
     for index, color in enumerate(card.palette[:5]):
-        swatch_x = padding + (index * swatch_width)
+        swatch_x = padding + (index * (swatch_width + swatch_gap))
         draw.rectangle(
-            (swatch_x, swatch_y, swatch_x + swatch_width, swatch_y + 26),
+            (swatch_x, swatch_y, swatch_x + swatch_width, swatch_y + 18),
             fill=_safe_color(color["hex"]),
         )
 
@@ -464,7 +472,8 @@ def _paste_card_image(
     try:
         response = httpx.get(image_url, follow_redirects=True, timeout=6.0)
         response.raise_for_status()
-        source_image = Image.open(BytesIO(response.content)).convert("RGB")
+        source_image = Image.open(BytesIO(response.content))
+        source_image = ImageOps.exif_transpose(source_image).convert("RGB")
     except Exception:
         source_image = Image.new("RGB", (width, height), "#1A1A1A")
 
@@ -474,6 +483,7 @@ def _paste_card_image(
 
 def _font(size: int, *, bold: bool) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     candidates = [
+        str(FONT_DIR / ("Inter-Bold.otf" if bold else "Inter-Regular.otf")),
         "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
         if bold
