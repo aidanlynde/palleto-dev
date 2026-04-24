@@ -42,24 +42,6 @@
     "plugins": [
       "expo-asset",
       [
-        "expo-widgets",
-        {
-          "widgets": [
-            {
-              "name": "QuickCaptureWidget",
-              "displayName": "Quick Capture",
-              "description": "Open Palleto straight into capture.",
-              "supportedFamilies": [
-                "systemSmall",
-                "accessoryCircular",
-                "accessoryRectangular",
-                "accessoryInline"
-              ]
-            }
-          ]
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "cameraPermission": "Palleto uses the camera to capture real-world inspiration.",
