@@ -135,8 +135,8 @@ export default function App() {
     async function loadProjectContext() {
       if (!firebaseUser) {
         setProjectContext(null);
-        await cacheProjectContext(null);
         setIsProjectContextReady(true);
+        void cacheProjectContext(null);
         return;
       }
 
