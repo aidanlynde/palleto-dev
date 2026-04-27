@@ -168,6 +168,12 @@ export default function App() {
   }, [firebaseUser]);
 
   useEffect(() => {
+    if (isAuthReady && !firebaseUser) {
+      setIsProjectContextReady(true);
+    }
+  }, [firebaseUser, isAuthReady]);
+
+  useEffect(() => {
     if (firebaseUser && projectContext && !onboardingComplete) {
       setOnboardingComplete(true);
     }
