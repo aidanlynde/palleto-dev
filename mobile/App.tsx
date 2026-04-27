@@ -94,7 +94,6 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-      setIsProjectContextReady(false);
       setFirebaseUser(user);
       setIsAuthReady(true);
     });
