@@ -33,7 +33,12 @@ import {
   hasCompletedOnboarding,
   OnboardingSurveyAnswers
 } from "./src/services/onboarding";
-import { ProjectContext, ProjectContextInput } from "./src/services/projectContext";
+import {
+  cacheProjectContext,
+  getCachedProjectContext,
+  ProjectContext,
+  ProjectContextInput
+} from "./src/services/projectContext";
 import { theme } from "./src/theme";
 
 export type RootStackParamList = {
@@ -79,7 +84,6 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isOnboardingReady, setIsOnboardingReady] = useState(false);
   const [isProjectContextReady, setIsProjectContextReady] = useState(false);
-  const [isTasteProfileReady, setIsTasteProfileReady] = useState(false);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [onboardingAnswers, setOnboardingAnswers] = useState<OnboardingSurveyAnswers | null>(null);
@@ -90,7 +94,6 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
       setIsProjectContextReady(false);
-      setIsTasteProfileReady(false);
       setFirebaseUser(user);
       setIsAuthReady(true);
     });
@@ -113,18 +116,14 @@ export default function App() {
   useEffect(() => {
     async function syncTasteProfile() {
       if (!firebaseUser || !onboardingAnswers) {
-        setIsTasteProfileReady(true);
         return;
       }
 
       try {
-        setIsTasteProfileReady(false);
         const token = await firebaseUser.getIdToken();
         await saveTasteProfile(token, onboardingAnswers);
       } catch (error) {
         console.warn("Failed to sync onboarding taste profile", error);
-      } finally {
-        setIsTasteProfileReady(true);
       }
     }
 
@@ -135,15 +134,31 @@ export default function App() {
     async function loadProjectContext() {
       if (!firebaseUser) {
         setProjectContext(null);
+        await cacheProjectContext(null);
         setIsProjectContextReady(true);
         return;
       }
 
+      const cachedProject = await getCachedProjectContext();
+
+      if (cachedProject) {
+        setProjectContext(cachedProject);
+        setIsProjectContextReady(true);
+      }
+
       try {
-        setIsProjectContextReady(false);
-        const token = await firebaseUser.getIdToken();
-        const activeProject = await getActiveProject(token);
+        if (!cachedProject) {
+          setIsProjectContextReady(false);
+        }
+        const token = await withTimeout(firebaseUser.getIdToken(), 8000);
+        const activeProject = await withTimeout(getActiveProject(token), 8000);
         setProjectContext(activeProject);
+        await cacheProjectContext(activeProject);
+      } catch (error) {
+        console.warn("Failed to refresh active project context", error);
+        if (!cachedProject) {
+          setProjectContext(null);
+        }
       } finally {
         setIsProjectContextReady(true);
       }
@@ -179,6 +194,7 @@ export default function App() {
     const token = await firebaseUser.getIdToken();
     const savedProject = await saveActiveProject(token, project);
     setProjectContext(savedProject);
+    await cacheProjectContext(savedProject);
     return savedProject;
   }
 
@@ -186,8 +202,7 @@ export default function App() {
     !fontsLoaded ||
     !isAuthReady ||
     !isOnboardingReady ||
-    !isProjectContextReady ||
-    !isTasteProfileReady;
+    !isProjectContextReady;
 
   return (
     <NavigationContainer theme={navigationTheme}>
@@ -360,6 +375,24 @@ export default function App() {
       </Stack.Navigator>
     </NavigationContainer>
   );
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      })
+      .catch((error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+  });
 }
 
 function buildInitialProjectFromOnboarding(

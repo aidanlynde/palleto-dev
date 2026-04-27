@@ -1,3 +1,7 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+const ACTIVE_PROJECT_CACHE_KEY = "palleto:active-project-cache";
+
 export type ProjectContext = {
   avoid: string | null;
   audience: string | null;
@@ -29,4 +33,23 @@ export function createEmptyProjectContextInput(): ProjectContextInput {
     referenceImages: [],
     referenceLinks: [],
   };
+}
+
+export async function getCachedProjectContext(): Promise<ProjectContext | null> {
+  const rawProject = await AsyncStorage.getItem(ACTIVE_PROJECT_CACHE_KEY);
+
+  if (!rawProject) {
+    return null;
+  }
+
+  return JSON.parse(rawProject) as ProjectContext;
+}
+
+export async function cacheProjectContext(project: ProjectContext | null): Promise<void> {
+  if (!project) {
+    await AsyncStorage.removeItem(ACTIVE_PROJECT_CACHE_KEY);
+    return;
+  }
+
+  await AsyncStorage.setItem(ACTIVE_PROJECT_CACHE_KEY, JSON.stringify(project));
 }
