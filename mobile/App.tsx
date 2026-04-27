@@ -90,6 +90,7 @@ export default function App() {
   const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const [selectedCard, setSelectedCard] = useState<InspirationCard | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
+  const [startupWarning, setStartupWarning] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
@@ -204,6 +205,54 @@ export default function App() {
     !isOnboardingReady ||
     !isProjectContextReady;
 
+  const splashDetail = !fontsLoaded
+    ? "Loading app shell..."
+    : !isAuthReady
+      ? "Checking sign-in state..."
+      : !isOnboardingReady
+        ? "Loading onboarding..."
+        : !isProjectContextReady
+          ? firebaseUser
+            ? "Loading project context..."
+            : "Preparing app..."
+          : "Loading Palleto...";
+
+  useEffect(() => {
+    if (!isLoading) {
+      setStartupWarning(null);
+      return;
+    }
+
+    setStartupWarning(null);
+
+    const timeout = setTimeout(() => {
+      if (!fontsLoaded) {
+        setStartupWarning("The app shell is taking longer than expected.");
+        return;
+      }
+
+      if (!isAuthReady) {
+        setStartupWarning("Still waiting on Firebase auth to restore your session.");
+        return;
+      }
+
+      if (!isOnboardingReady) {
+        setStartupWarning("Still loading local onboarding state.");
+        return;
+      }
+
+      if (!isProjectContextReady) {
+        setStartupWarning(
+          firebaseUser
+            ? "Still waiting on your project context. This usually means startup networking is stuck."
+            : "Still preparing the app."
+        );
+      }
+    }, 12000);
+
+    return () => clearTimeout(timeout);
+  }, [firebaseUser, fontsLoaded, isAuthReady, isLoading, isOnboardingReady, isProjectContextReady]);
+
   return (
     <NavigationContainer theme={navigationTheme}>
       <StatusBar style="light" />
@@ -216,7 +265,9 @@ export default function App() {
         }}
       >
         {isLoading ? (
-          <Stack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Splash" options={{ headerShown: false }}>
+            {() => <SplashScreen detail={splashDetail} warning={startupWarning} />}
+          </Stack.Screen>
         ) : !onboardingComplete && !projectContext ? (
           <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
             {() => <OnboardingScreen onComplete={finishOnboarding} onSkip={skipOnboarding} />}

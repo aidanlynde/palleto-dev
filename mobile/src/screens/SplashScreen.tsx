@@ -2,7 +2,13 @@ import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 
 import { theme } from "../theme";
 
-export function SplashScreen() {
+export function SplashScreen({
+  detail,
+  warning
+}: {
+  detail?: string;
+  warning?: string | null;
+}) {
   return (
     <View style={styles.container}>
       <Image
@@ -11,7 +17,8 @@ export function SplashScreen() {
         resizeMode="contain"
       />
       <ActivityIndicator color={theme.colors.textPrimary} />
-      <Text style={styles.text}>Loading Palleto...</Text>
+      <Text style={styles.text}>{detail || "Loading Palleto..."}</Text>
+      {warning ? <Text style={styles.warning}>{warning}</Text> : null}
     </View>
   );
 }
@@ -32,5 +39,13 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
     color: theme.colors.textSecondary,
     fontSize: 15
+  },
+  warning: {
+    marginTop: theme.spacing.sm,
+    maxWidth: 280,
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center"
   }
 });
