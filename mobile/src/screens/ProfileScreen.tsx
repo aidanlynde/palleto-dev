@@ -83,7 +83,19 @@ export function ProfileScreen({ firebaseUser, onEditProject, projectContext }: P
             <Text style={styles.inlineButtonText}>Edit project context</Text>
           </Pressable>
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.panel}>
+          <Text style={styles.panelLabel}>Active project</Text>
+          <Text style={styles.projectTitle}>No project context yet</Text>
+          <Text style={styles.projectDescription}>
+            Your first scan works without this. Add project context when you want future outputs to
+            feel more specific to what you are building.
+          </Text>
+          <Pressable style={styles.inlineButton} onPress={onEditProject}>
+            <Text style={styles.inlineButtonText}>Add project context</Text>
+          </Pressable>
+        </View>
+      )}
 
       <View style={styles.panel}>
         <Text style={styles.panelLabel}>Signed in as</Text>

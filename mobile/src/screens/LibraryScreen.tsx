@@ -62,6 +62,17 @@ export function LibraryScreen({
             <Text style={styles.projectChipActionText}>Edit active project</Text>
           </Pressable>
         </View>
+      ) : cards.length ? (
+        <View style={styles.projectPrompt}>
+          <Text style={styles.projectPromptLabel}>Customize future scans</Text>
+          <Text style={styles.projectPromptTitle}>Add your current project context</Text>
+          <Text style={styles.projectPromptBody}>
+            Tell Palleto what you are building, what it should feel like, and what to avoid.
+          </Text>
+          <Pressable style={styles.projectPromptButton} onPress={onEditProject}>
+            <Text style={styles.projectPromptButtonText}>Add project context</Text>
+          </Pressable>
+        </View>
       ) : null}
       {status ? <Text style={styles.status}>{status}</Text> : null}
       {!cards.length && !status.includes("failed") ? (
@@ -152,6 +163,47 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs
   },
   projectChipActionText: {
+    color: theme.colors.textPrimary,
+    fontSize: 13,
+    fontWeight: "800"
+  },
+  projectPrompt: {
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.md,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  projectPromptLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase"
+  },
+  projectPromptTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: 18,
+    fontWeight: "800",
+    lineHeight: 22
+  },
+  projectPromptBody: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18
+  },
+  projectPromptButton: {
+    alignSelf: "flex-start",
+    justifyContent: "center",
+    minHeight: 40,
+    marginTop: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    borderColor: theme.colors.textPrimary,
+    borderWidth: 1,
+    borderRadius: theme.radius.small
+  },
+  projectPromptButtonText: {
     color: theme.colors.textPrimary,
     fontSize: 13,
     fontWeight: "800"

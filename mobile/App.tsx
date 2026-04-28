@@ -278,39 +278,24 @@ export default function App() {
             {() => <OnboardingScreen onComplete={finishOnboarding} onSkip={skipOnboarding} />}
           </Stack.Screen>
         ) : firebaseUser ? (
-          projectContext ? (
-            <Stack.Screen name="Home" options={{ title: "Palleto" }}>
-              {({ navigation }) => (
-                <MainScreen
-                  firebaseUser={firebaseUser}
-                  onEditProject={() => navigation.navigate("ProjectIntake")}
-                  onScan={() => navigation.navigate("Capture")}
-                  onSelectCard={(card) => {
-                    setSelectedCard(card);
-                    navigation.navigate("CardDetail");
-                  }}
-                  projectContext={projectContext}
-                />
-              )}
-            </Stack.Screen>
-          ) : (
-            <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
-              {({ navigation }) => (
-                <ProjectIntakeScreen
-                  initialValues={buildInitialProjectFromOnboarding(onboardingAnswers)}
-                  onComplete={(project) => {
-                    setProjectContext(project);
-                    navigation.replace("Home");
-                  }}
-                  onSave={handleSaveProject}
-                />
-              )}
-            </Stack.Screen>
-          )
+          <Stack.Screen name="Home" options={{ title: "Palleto" }}>
+            {({ navigation }) => (
+              <MainScreen
+                firebaseUser={firebaseUser}
+                onEditProject={() => navigation.navigate("ProjectIntake")}
+                onScan={() => navigation.navigate("Capture")}
+                onSelectCard={(card) => {
+                  setSelectedCard(card);
+                  navigation.navigate("CardDetail");
+                }}
+                projectContext={projectContext}
+              />
+            )}
+          </Stack.Screen>
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} options={{ title: "Sign in" }} />
         )}
-        {firebaseUser && projectContext ? (
+        {firebaseUser ? (
           <>
             <Stack.Screen name="Capture" options={{ title: "Capture" }}>
               {({ navigation }) => (
@@ -404,7 +389,7 @@ export default function App() {
             </Stack.Screen>
           </>
         ) : null}
-        {firebaseUser && projectContext ? (
+        {firebaseUser ? (
           <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
             {({ navigation }) => (
               <ProjectIntakeScreen
