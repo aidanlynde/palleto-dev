@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -40,9 +40,12 @@ export function ProjectIntakeScreen({
   onComplete,
   onSave
 }: ProjectIntakeScreenProps) {
-  const [draft, setDraft] = useState<ProjectBriefDraft>(() =>
-    buildDraftFromSeed(initialProject ?? initialValues)
+  const seedDraft = useMemo(
+    () => buildDraftFromSeed(initialProject ?? initialValues),
+    [initialProject, initialValues]
   );
+  const seedSignature = JSON.stringify(seedDraft);
+  const [draft, setDraft] = useState<ProjectBriefDraft>(seedDraft);
   const [messages, setMessages] = useState<ProjectChatMessage[]>([]);
   const [composer, setComposer] = useState("");
   const [briefSummary, setBriefSummary] = useState("Loading your project brief...");
@@ -51,18 +54,45 @@ export function ProjectIntakeScreen({
   const [isReadyToSave, setIsReadyToSave] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isUploadingReference, setIsUploadingReference] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isBriefExpanded, setIsBriefExpanded] = useState(false);
+  const scrollRef = useRef<ScrollView | null>(null);
   const isEditing = Boolean(initialProject);
 
   const referenceCount = draft.referenceLinks.length + draft.referenceImages.length;
-  const disableSend = isBooting || isSending || !composer.trim().length;
+  const disableSend = isBooting || isSending || isUploadingReference || !composer.trim().length;
+  const canSave =
+    isReadyToSave ||
+    Boolean(
+      (draft.name?.trim() || draft.projectType?.trim()) &&
+        (draft.description?.trim() || draft.desiredFeeling?.trim()) &&
+        (draft.priorities.length ||
+          draft.directionTags.length ||
+          draft.referenceLinks.length ||
+          draft.referenceImages.length)
+    );
 
   useEffect(() => {
-    void bootstrapConversation();
+    setDraft(seedDraft);
+    setMessages([]);
+    setComposer("");
+    setIsBriefExpanded(false);
+    setIsReadyToSave(false);
+    setSuggestedReplies([]);
+    setMissingFields([]);
+    void bootstrapConversation(seedDraft);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [seedSignature]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    }, 60);
+
+    return () => clearTimeout(timeout);
+  }, [messages, isSending, suggestedReplies]);
 
   const saveLabel = useMemo(() => {
     if (isSaving) {
@@ -76,14 +106,14 @@ export function ProjectIntakeScreen({
     return "Save project context";
   }, [isEditing, isSaving]);
 
-  async function bootstrapConversation() {
+  async function bootstrapConversation(nextDraft: ProjectBriefDraft) {
     setIsBooting(true);
     setError(null);
 
     try {
       const token = await getIdToken();
       const response = await respondProjectChat(token, {
-        draft,
+        draft: nextDraft,
         history: [],
         message: null
       });
@@ -101,9 +131,15 @@ export function ProjectIntakeScreen({
     }
   }
 
-  async function sendMessage(message: string, input?: { referenceImages?: string[] }) {
+  async function sendMessage(
+    message: string,
+    input?: { referenceImages?: string[]; referenceLinks?: string[] }
+  ) {
     const trimmed = message.trim();
-    if ((!trimmed && !(input?.referenceImages?.length ?? 0)) || isSending) {
+    if (
+      (!trimmed && !(input?.referenceImages?.length ?? 0) && !(input?.referenceLinks?.length ?? 0)) ||
+      isSending
+    ) {
       return;
     }
 
@@ -123,7 +159,7 @@ export function ProjectIntakeScreen({
         history: nextHistory,
         message: userMessage,
         referenceImages: input?.referenceImages ?? [],
-        referenceLinks: []
+        referenceLinks: input?.referenceLinks ?? extractUrlsFromMessage(userMessage)
       });
 
       setDraft(response.draft);
@@ -163,25 +199,24 @@ export function ProjectIntakeScreen({
     setError(null);
 
     try {
-      setIsSending(true);
+      setIsUploadingReference(true);
       const token = await getIdToken();
       const imageUrl = await uploadProjectReferenceImage(token, {
         imageUri: asset.uri,
         mimeType: asset.mimeType
       });
-      setIsSending(false);
       await sendMessage("Use this reference image to sharpen the project world.", {
         referenceImages: [imageUrl]
       });
     } catch (caughtError) {
       setError("Could not upload that reference image.");
     } finally {
-      setIsSending(false);
+      setIsUploadingReference(false);
     }
   }
 
   async function handleSave() {
-    if (!isReadyToSave || isSaving) {
+    if (!canSave || isSaving) {
       return;
     }
 
@@ -218,7 +253,10 @@ export function ProjectIntakeScreen({
       style={styles.container}
     >
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="always"
+        keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
         style={styles.scroll}
       >
@@ -241,11 +279,12 @@ export function ProjectIntakeScreen({
           <Text style={styles.heroEyebrow}>Active project</Text>
           <Text style={styles.heroTitle}>
             {isEditing
-              ? "Keep shaping what Palleto reads every scan through."
-              : "Build the brief once, then keep refining it as the project sharpens."}
+              ? "Refine the brief behind every scan."
+              : "Start a conversation about what you are building."}
           </Text>
           <Text style={styles.heroBody}>
-            This is a live conversation. Reply naturally, paste links, or attach reference images.
+            Reply naturally, paste links, or attach reference images. Palleto will keep updating
+            the brief as the conversation sharpens.
           </Text>
         </View>
 
@@ -255,7 +294,7 @@ export function ProjectIntakeScreen({
         >
           <View style={styles.summaryHeader}>
             <View style={styles.summaryHeaderText}>
-              <Text style={styles.cardLabel}>Current brief</Text>
+              <Text style={styles.cardLabel}>Live brief</Text>
               <Text numberOfLines={isBriefExpanded ? undefined : 2} style={styles.summaryText}>
                 {briefSummary}
               </Text>
@@ -281,22 +320,31 @@ export function ProjectIntakeScreen({
 
           {isSending ? (
             <View style={styles.assistantMessage}>
+              <Text style={styles.messageEyebrow}>Palleto</Text>
+              <Text style={styles.typingText}>Working on it...</Text>
               <ActivityIndicator color={theme.colors.textPrimary} />
             </View>
           ) : null}
         </View>
 
         {suggestedReplies.length ? (
-          <View style={styles.suggestions}>
-            {suggestedReplies.map((reply) => (
-              <Pressable
-                key={reply}
-                onPress={() => void sendMessage(reply)}
-                style={({ pressed }) => [styles.suggestionChip, pressed && styles.pressed]}
-              >
-                <Text style={styles.suggestionText}>{reply}</Text>
-              </Pressable>
-            ))}
+          <View style={styles.suggestionsBlock}>
+            <Text style={styles.blockTitle}>Try one of these</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.suggestions}>
+                {suggestedReplies.map((reply) => (
+                  <Pressable
+                    key={reply}
+                    onPress={() =>
+                      isSaveSuggestion(reply) && canSave ? void handleSave() : void sendMessage(reply)
+                    }
+                    style={({ pressed }) => [styles.suggestionChip, pressed && styles.pressed]}
+                  >
+                    <Text style={styles.suggestionText}>{reply}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
           </View>
         ) : null}
 
@@ -335,11 +383,18 @@ export function ProjectIntakeScreen({
         <View style={styles.composerActions}>
           <Pressable
             onPress={() => void handlePickReferenceImage()}
-            style={({ pressed }) => [styles.attachButton, pressed && styles.pressed]}
+            disabled={isSending || isBooting || isUploadingReference}
+            style={({ pressed }) => [
+              styles.attachButton,
+              pressed && styles.pressed,
+              (isSending || isBooting || isUploadingReference) && styles.disabled
+            ]}
           >
-            <Text style={styles.attachButtonText}>Add image</Text>
+            <Text style={styles.attachButtonText}>
+              {isUploadingReference ? "Uploading..." : "Add image"}
+            </Text>
           </Pressable>
-          <Text style={styles.helperText}>Paste a link or describe the project naturally.</Text>
+          <Text style={styles.helperText}>Paste links or answer naturally.</Text>
         </View>
 
         <View style={styles.composerRow}>
@@ -365,16 +420,23 @@ export function ProjectIntakeScreen({
         </View>
 
         <Pressable
-          disabled={!isReadyToSave || isSaving}
+          disabled={!canSave || isSaving}
           onPress={() => void handleSave()}
           style={({ pressed }) => [
             styles.saveButton,
             pressed && styles.pressed,
-            (!isReadyToSave || isSaving) && styles.disabled
+            (!canSave || isSaving) && styles.disabled
           ]}
         >
           <Text style={styles.saveButtonText}>{saveLabel}</Text>
         </Pressable>
+        {!canSave ? (
+          <Text style={styles.footerHint}>
+            {missingFields.length
+              ? `Still open: ${missingFields.join(", ")}`
+              : "Keep going until the brief feels specific enough to save."}
+          </Text>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
   );
@@ -471,6 +533,16 @@ async function getIdToken() {
   return user.getIdToken();
 }
 
+function extractUrlsFromMessage(message: string) {
+  const matches = message.match(/https?:\/\/[^\s]+/g);
+  return matches ?? [];
+}
+
+function isSaveSuggestion(reply: string) {
+  const normalized = reply.trim().toLowerCase();
+  return normalized.includes("save") && normalized.includes("project");
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -481,9 +553,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: theme.spacing.lg,
-    paddingTop: 64,
+    paddingTop: 32,
     paddingBottom: theme.spacing.xl,
-    gap: theme.spacing.lg
+    gap: theme.spacing.md
   },
   topBar: {
     flexDirection: "row",
@@ -518,17 +590,17 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: theme.colors.textPrimary,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "800",
-    lineHeight: 34
+    lineHeight: 29
   },
   heroBody: {
     color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22
+    fontSize: 14,
+    lineHeight: 20
   },
   summaryCard: {
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
     padding: theme.spacing.md,
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.small,
@@ -558,9 +630,9 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     color: theme.colors.textPrimary,
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "700",
-    lineHeight: 25
+    lineHeight: 22
   },
   metaRow: {
     flexDirection: "row",
@@ -598,11 +670,12 @@ const styles = StyleSheet.create({
     lineHeight: 20
   },
   thread: {
-    gap: theme.spacing.md
+    gap: theme.spacing.md,
+    paddingTop: theme.spacing.xs
   },
   assistantMessage: {
     alignSelf: "flex-start",
-    maxWidth: "92%",
+    maxWidth: "88%",
     gap: theme.spacing.sm,
     padding: theme.spacing.md,
     backgroundColor: theme.colors.surface,
@@ -618,9 +691,9 @@ const styles = StyleSheet.create({
   },
   assistantText: {
     color: theme.colors.textPrimary,
-    fontSize: 20,
-    fontWeight: "800",
-    lineHeight: 27
+    fontSize: 16,
+    fontWeight: "600",
+    lineHeight: 23
   },
   userMessage: {
     alignSelf: "flex-end",
@@ -631,25 +704,33 @@ const styles = StyleSheet.create({
   },
   userText: {
     color: theme.colors.background,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
-    lineHeight: 22
+    lineHeight: 20
+  },
+  typingText: {
+    color: theme.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  suggestionsBlock: {
+    gap: theme.spacing.sm
   },
   suggestions: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: theme.spacing.sm
   },
   suggestionChip: {
     paddingHorizontal: theme.spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    borderRadius: theme.radius.small
+    borderRadius: theme.radius.small,
+    backgroundColor: theme.colors.surface
   },
   suggestionText: {
     color: theme.colors.textPrimary,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700"
   },
   referencesBlock: {
@@ -718,7 +799,7 @@ const styles = StyleSheet.create({
   helperText: {
     flex: 1,
     color: theme.colors.textSecondary,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 17
   },
   composerRow: {
@@ -764,6 +845,11 @@ const styles = StyleSheet.create({
     color: theme.colors.background,
     fontSize: 15,
     fontWeight: "800"
+  },
+  footerHint: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17
   },
   disabled: {
     opacity: 0.4
