@@ -120,13 +120,19 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
   const [processingIndex, setProcessingIndex] = useState(0);
 
   const totalSteps = 9;
-  const currentQuestion = step >= 1 && step <= questions.length ? questions[step - 1] : null;
+  const questionStartStep = 4;
+  const processingStep = 2;
+  const previewStep = 3;
+  const currentQuestion =
+    step >= questionStartStep && step < questionStartStep + questions.length
+      ? questions[step - questionStartStep]
+      : null;
   const selectedAnswers = currentQuestion ? answers[currentQuestion.id] : [];
   const canContinue = !currentQuestion || selectedAnswers.length > 0;
   const demoCard = useMemo(() => buildDemoCard(answers), [answers]);
 
   useEffect(() => {
-    if (step !== questions.length + 2) {
+    if (step !== processingStep) {
       return;
     }
 
@@ -145,14 +151,14 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
         clearInterval(interval);
         setTimeout(() => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setStep(questions.length + 3);
+          setStep(previewStep);
         }, 450);
         return current;
       });
     }, 720);
 
     return () => clearInterval(interval);
-  }, [step]);
+  }, [previewStep, processingStep, step]);
 
   function toggleAnswer(option: string) {
     if (!currentQuestion) {
@@ -257,11 +263,11 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
     );
   }
 
-  if (step === questions.length + 1) {
+  if (step === 1) {
     return (
       <ImageBackground source={koiImageSource} style={styles.fullscreen} resizeMode="cover">
         <View style={styles.scanScrim}>
-          <Progress current={questions.length + 2} total={totalSteps} />
+          <Progress current={step + 1} total={totalSteps} />
           <View style={styles.scanTopBlock}>
             <Text style={styles.kicker}>First scan</Text>
             <Text style={styles.scanTitle}>Imagine you caught this walking home.</Text>
@@ -278,10 +284,10 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
     );
   }
 
-  if (step === questions.length + 2) {
+  if (step === processingStep) {
     return (
       <View style={styles.processingContainer}>
-        <Progress current={questions.length + 3} total={totalSteps} />
+        <Progress current={step + 1} total={totalSteps} />
         <View style={styles.processingImageFrame}>
           <Image source={koiImageSource} style={styles.processingImage} resizeMode="contain" />
         </View>
@@ -301,9 +307,10 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
     );
   }
 
-  return (
+  if (step === previewStep) {
+    return (
     <ScrollView style={styles.previewContainer} contentContainerStyle={styles.previewContent}>
-      <Progress current={totalSteps} total={totalSteps} />
+      <Progress current={step + 1} total={totalSteps} />
       <View style={styles.previewHeader}>
         <Text style={styles.kicker}>Your first scan</Text>
         <Text style={styles.previewTitle}>This is the kind of card Palleto will generate from a real capture.</Text>
@@ -316,7 +323,10 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
 
       <FooterButton label="Create my first scan" onPress={continueFlow} />
     </ScrollView>
-  );
+    );
+  }
+
+  return null;
 }
 
 function TopRow({ onSkip }: { onSkip?: () => void }) {
