@@ -26,7 +26,11 @@ def build_project_chat_response(
     taste_profile: TasteProfile | None,
     payload: ProjectChatRequest,
 ) -> ProjectChatResponse:
-    initial_draft = _merge_draft(active_project, payload)
+    initial_draft = _merge_draft(
+        active_project,
+        payload,
+        taste_profile=taste_profile,
+    )
 
     if settings.openai_api_key:
         try:
@@ -113,8 +117,8 @@ def _fallback_chat_response(
             "Here’s a reference link that defines the world."
         ]
     elif missing_fields:
-        next_field = missing_fields[0]
-        assistant_message = _question_for_missing_field(next_field, taste_profile)
+        next_field = _next_missing_field(missing_fields, payload)
+        assistant_message = _question_for_missing_field(next_field, taste_profile, draft=normalized_draft)
         suggested = _suggestions_for_missing_field(next_field)
     else:
         assistant_message = (
@@ -140,6 +144,8 @@ def _fallback_chat_response(
 def _merge_draft(
     active_project: ActiveProject | None,
     payload: ProjectChatRequest,
+    *,
+    taste_profile: TasteProfile | None,
 ) -> ProjectBriefDraft:
     base = ProjectBriefDraft(
         name=active_project.name if active_project else None,
@@ -162,6 +168,12 @@ def _merge_draft(
     links_from_message = _extract_urls(payload.message or "")
     draft.reference_links = _merge_unique(draft.reference_links, payload.reference_links, links_from_message)
     draft.reference_images = _merge_unique(draft.reference_images, payload.reference_images)
+
+    draft = _apply_latest_message_inference(
+        draft,
+        payload=payload,
+        taste_profile=taste_profile,
+    )
 
     return _normalize_draft(draft)
 
@@ -205,8 +217,15 @@ def _brief_summary(draft: ProjectBriefDraft, taste_profile: TasteProfile | None)
     return " • ".join(parts) or "Start describing what you are building."
 
 
-def _question_for_missing_field(field: str, taste_profile: TasteProfile | None) -> str:
+def _question_for_missing_field(
+    field: str,
+    taste_profile: TasteProfile | None,
+    *,
+    draft: ProjectBriefDraft,
+) -> str:
     if field == "description":
+        if draft.project_type:
+            return f"What are you actually building for this {draft.project_type.lower()}? Give it to me in plain language."
         return "What are you actually building right now? Give me the project in plain language."
     if field == "project_type":
         return "What kind of project is this: brand, clothing line, campaign, product, interior, or something else?"
@@ -235,6 +254,14 @@ def _suggestions_for_missing_field(field: str) -> list[str]:
     return mapping.get(field, ["Add another detail", "Paste a link", "Upload a reference image"])
 
 
+def _next_missing_field(missing_fields: list[str], payload: ProjectChatRequest) -> str:
+    asked_fields = _asked_fields(payload.history)
+    for field in missing_fields:
+        if field not in asked_fields:
+            return field
+    return missing_fields[0]
+
+
 def _system_prompt() -> str:
     return """
 You are Palleto's project brief builder.
@@ -244,6 +271,7 @@ Your job is to help a creative turn messy project thoughts into a clean structur
 Rules:
 - This should feel like an intelligent collaborator, not a form.
 - Ask only the next most useful question.
+- Infer fields from the user's latest message whenever the meaning is clear enough.
 - Accept links and reference-image URLs as real project signals.
 - Do not repeat the same question in different wording.
 - Use the taste profile as prior context, not as script text to parrot back.
@@ -286,6 +314,164 @@ def _active_project_json(active_project: ActiveProject | None) -> dict:
 
 def _extract_urls(text: str) -> list[str]:
     return re.findall(r"https?://[^\s]+", text)
+
+
+def _apply_latest_message_inference(
+    draft: ProjectBriefDraft,
+    *,
+    payload: ProjectChatRequest,
+    taste_profile: TasteProfile | None,
+) -> ProjectBriefDraft:
+    message = _text(payload.message)
+    if not message:
+        return draft
+
+    inferred = draft.model_copy(deep=True)
+    lower = message.lower()
+
+    if not inferred.project_type:
+        inferred.project_type = _infer_project_type(message, taste_profile)
+
+    if not inferred.desired_feeling:
+        inferred.desired_feeling = _infer_desired_feeling(message)
+
+    if not inferred.audience:
+        inferred.audience = _infer_audience(message)
+
+    if not inferred.avoid:
+        inferred.avoid = _infer_avoid(message)
+
+    if not inferred.description and _should_promote_to_description(message, lower, payload.history):
+        inferred.description = message
+
+    return inferred
+
+
+def _infer_project_type(message: str, taste_profile: TasteProfile | None) -> str | None:
+    lower = message.lower()
+    keyword_map = [
+        ("Clothing brand", ["clothing brand", "fashion brand", "garment brand", "streetwear brand"]),
+        ("Brand identity", ["brand identity", "identity system", "branding"]),
+        ("Campaign", ["campaign", "art direction", "launch campaign", "campaign world"]),
+        ("Product design", ["product", "object", "packaging", "packaging system"]),
+        ("Interior concept", ["interior", "spatial", "hospitality", "restaurant", "bar", "store"]),
+    ]
+
+    for label, keywords in keyword_map:
+        if any(keyword in lower for keyword in keywords):
+            return label
+
+    if taste_profile and taste_profile.work_for:
+        preferred = taste_profile.work_for[0]
+        if preferred == "Clothing and product brands":
+            return "Clothing brand"
+        if preferred == "Campaign and art direction":
+            return "Campaign"
+        if preferred == "Product or object design":
+            return "Product design"
+        if preferred == "Interior or spatial direction":
+            return "Interior concept"
+        if preferred == "Brand identities and systems":
+            return "Brand identity"
+
+    return None
+
+
+def _infer_desired_feeling(message: str) -> str | None:
+    lower = message.lower()
+    if "feel" in lower:
+        feel_match = re.search(r"feel(?: like)?\s+(.*)", message, re.IGNORECASE)
+        if feel_match:
+            return _trim_sentence(feel_match.group(1))
+
+    if "more " in lower and " than " in lower:
+        comparative = re.search(r"(more .*? than .*?)(?:[.!?]|$)", message, re.IGNORECASE)
+        if comparative:
+            return _trim_sentence(comparative.group(1))
+
+    adjectives = [
+        "editorial",
+        "organic",
+        "luxury",
+        "technical",
+        "minimal",
+        "handmade",
+        "cultured",
+        "soft",
+        "sharp",
+        "ceremonial",
+        "corporate",
+    ]
+    hits = [word for word in adjectives if word in lower]
+    if hits:
+        return ", ".join(hits[:3]).title()
+
+    return None
+
+
+def _infer_audience(message: str) -> str | None:
+    audience_match = re.search(r"\bfor\s+([A-Za-z0-9,&'\/\-\s]{4,80})", message)
+    if audience_match:
+        audience = _trim_sentence(audience_match.group(1))
+        if audience and audience.lower() not in {"this", "it", "that"}:
+            return audience
+    return None
+
+
+def _infer_avoid(message: str) -> str | None:
+    avoid_match = re.search(r"avoid\s+(.*?)(?:[.!?]|$)", message, re.IGNORECASE)
+    if avoid_match:
+        return _trim_sentence(avoid_match.group(1))
+
+    less_than = re.search(r"less\s+(.*?)\s+than\s+", message, re.IGNORECASE)
+    if less_than:
+        return _trim_sentence(less_than.group(1))
+
+    not_match = re.search(r"not\s+(too\s+)?([A-Za-z0-9,\-\s]{4,60})(?:[.!?]|$)", message, re.IGNORECASE)
+    if not_match:
+        return _trim_sentence(not_match.group(2))
+
+    return None
+
+
+def _should_promote_to_description(
+    message: str,
+    lower: str,
+    history: list,
+) -> bool:
+    if _extract_urls(message):
+        return False
+
+    if len(message.split()) < 5:
+        return False
+
+    if any(phrase in lower for phrase in ["i'm building", "we're building", "this is for", "working on", "it is a"]):
+        return True
+
+    if any(field == "description" for field in _asked_fields(history)):
+        return True
+
+    return False
+
+
+def _asked_fields(history: list) -> set[str]:
+    asked: set[str] = set()
+    for message in history:
+        if getattr(message, "role", None) != "assistant":
+            continue
+        content = getattr(message, "content", "").lower()
+        if "what are you actually building" in content:
+            asked.add("description")
+        if "what kind of project" in content:
+            asked.add("project_type")
+        if "what should this feel like" in content:
+            asked.add("desired_feeling")
+    return asked
+
+
+def _trim_sentence(value: str) -> str | None:
+    normalized = value.strip(" .,!?:;-")
+    return normalized or None
 
 
 def _merge_unique(*value_groups: list[str]) -> list[str]:
