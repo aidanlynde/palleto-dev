@@ -43,6 +43,16 @@
     "plugins": [
       "expo-asset",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "cameraPermission": "Palleto uses the camera to capture real-world inspiration.",
