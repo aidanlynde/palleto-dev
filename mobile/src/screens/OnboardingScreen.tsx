@@ -212,11 +212,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
 
   if (step === 0) {
     return (
-      <ImageBackground
-        source={require("../../assets/onboarding/capture-studio.png")}
-        style={styles.fullscreen}
-        resizeMode="cover"
-      >
+      <View style={styles.landingFallback}>
         {showLandingVideo ? <LandingLoopBackground /> : null}
         <View style={styles.heroScrim}>
           <TopRow onSkip={onSkip} />
@@ -234,7 +230,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
           </View>
           <FooterButton label="Begin" onPress={continueFlow} />
         </View>
-      </ImageBackground>
+      </View>
     );
   }
 
@@ -908,6 +904,10 @@ function mapProjectType(value: string) {
 const styles = StyleSheet.create({
   fullscreen: {
     flex: 1
+  },
+  landingFallback: {
+    flex: 1,
+    backgroundColor: theme.colors.background
   },
   landingVideo: {
     ...StyleSheet.absoluteFillObject
