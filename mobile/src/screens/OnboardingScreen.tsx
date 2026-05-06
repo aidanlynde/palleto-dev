@@ -21,6 +21,7 @@ import {
 import { theme } from "../theme";
 
 const koiImageSource = require("../../assets/demo/koi-street-reference.png");
+const landingLoopSource = require("../../assets/onboarding/landing-loop.mov");
 const refinePreviewSource = require("../../assets/onboarding/refine-preview.mov");
 
 type OnboardingScreenProps = {
@@ -118,6 +119,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
     createEmptyOnboardingSurveyAnswers()
   );
   const [processingIndex, setProcessingIndex] = useState(0);
+  const [showLandingVideo, setShowLandingVideo] = useState(false);
 
   const totalSteps = 9;
   const questionStartStep = 4;
@@ -159,6 +161,19 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
 
     return () => clearInterval(interval);
   }, [previewStep, processingStep, step]);
+
+  useEffect(() => {
+    if (step !== 0) {
+      setShowLandingVideo(false);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setShowLandingVideo(true);
+    }, 180);
+
+    return () => clearTimeout(timeout);
+  }, [step]);
 
   function toggleAnswer(option: string) {
     if (!currentQuestion) {
@@ -202,6 +217,7 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
         style={styles.fullscreen}
         resizeMode="cover"
       >
+        {showLandingVideo ? <LandingLoopBackground /> : null}
         <View style={styles.heroScrim}>
           <TopRow onSkip={onSkip} />
           <View style={styles.heroContent}>
@@ -327,6 +343,25 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
   }
 
   return null;
+}
+
+function LandingLoopBackground() {
+  const landingPlayer = useVideoPlayer(landingLoopSource, (player) => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
+
+  return (
+    <VideoView
+      allowsFullscreen={false}
+      allowsPictureInPicture={false}
+      contentFit="cover"
+      nativeControls={false}
+      player={landingPlayer}
+      style={styles.landingVideo}
+    />
+  );
 }
 
 function TopRow({ onSkip }: { onSkip?: () => void }) {
@@ -873,6 +908,9 @@ function mapProjectType(value: string) {
 const styles = StyleSheet.create({
   fullscreen: {
     flex: 1
+  },
+  landingVideo: {
+    ...StyleSheet.absoluteFillObject
   },
   heroScrim: {
     flex: 1,
