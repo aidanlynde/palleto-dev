@@ -33,7 +33,7 @@ export function CardResultScreen({
   onViewLibrary
 }: CardResultScreenProps) {
   async function shareCard() {
-    if (!firebaseUser) {
+    if (isPreview || !firebaseUser) {
       onLockedAction?.("share");
       return;
     }
@@ -59,7 +59,7 @@ export function CardResultScreen({
         <Pressable
           style={styles.secondaryButton}
           onPress={() => {
-            if (!firebaseUser) {
+            if (isPreview || !firebaseUser) {
               onLockedAction?.("refine");
               return;
             }
@@ -72,7 +72,7 @@ export function CardResultScreen({
         <Pressable
           style={styles.secondaryButton}
           onPress={() => {
-            if (!firebaseUser) {
+            if (isPreview || !firebaseUser) {
               onLockedAction?.("save");
               return;
             }
@@ -82,9 +82,11 @@ export function CardResultScreen({
         >
           <Text style={styles.secondaryButtonText}>{isPreview ? "Save to library" : "View library"}</Text>
         </Pressable>
-        <Pressable style={styles.textButton} onPress={onDone}>
-          <Text style={styles.textButtonText}>Done</Text>
-        </Pressable>
+        {!isPreview ? (
+          <Pressable style={styles.textButton} onPress={onDone}>
+            <Text style={styles.textButtonText}>Done</Text>
+          </Pressable>
+        ) : null}
       </View>
     </ScrollView>
   );

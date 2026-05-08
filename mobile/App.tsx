@@ -316,7 +316,10 @@ export default function App() {
     setPendingInitialScan(false);
     trackEvent("initial_scan_auto_opened");
     setTimeout(() => {
-      navigationRef.navigate("Capture");
+      navigationRef.reset({
+        index: 0,
+        routes: [{ name: "Capture" }]
+      });
     }, 0);
   }, [isLoading, pendingInitialScan]);
 
@@ -356,7 +359,6 @@ export default function App() {
             {() => (
               <OnboardingScreen
                 onComplete={finishOnboarding}
-                onSkip={skipOnboarding}
                 onStartFirstScan={startFirstScanOnboarding}
               />
             )}
@@ -407,7 +409,13 @@ export default function App() {
             <Stack.Screen name="QuickAccess" options={{ title: "Quick access" }}>
               {() => <QuickAccessScreen />}
             </Stack.Screen>
-            <Stack.Screen name="Processing" options={{ headerShown: false }}>
+            <Stack.Screen
+              name="Processing"
+              options={{
+                gestureEnabled: Boolean(firebaseUser),
+                headerShown: false
+              }}
+            >
               {({ navigation }) =>
                 selectedImage ? (
                   <ProcessingScreen
@@ -415,15 +423,34 @@ export default function App() {
                     imageUri={selectedImage.uri}
                     mimeType={selectedImage.mimeType}
                     onCardCreated={(card) => {
+                      const isPreviewCard = !firebaseUser || card.id.startsWith("preview-");
                       trackEvent("create_completed", {
                         card_id: card.id,
                         palette_count: card.palette.length,
                         source_type: selectedImage.sourceType
                       });
                       setSelectedCard(card);
+                      if (isPreviewCard) {
+                        navigation.reset({
+                          index: 0,
+                          routes: [{ name: "Result" }]
+                        });
+                        return;
+                      }
+
                       navigation.replace("Result");
                     }}
-                    onRetry={() => navigation.replace("Capture")}
+                    onRetry={() => {
+                      if (!firebaseUser) {
+                        navigation.reset({
+                          index: 0,
+                          routes: [{ name: "Capture" }]
+                        });
+                        return;
+                      }
+
+                      navigation.replace("Capture");
+                    }}
                     projectContext={projectContext}
                     sourceType={selectedImage.sourceType}
                   />

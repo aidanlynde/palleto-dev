@@ -217,6 +217,15 @@ export function OnboardingScreen({
     setStep(step + 1);
   }
 
+  function continueAfterDemoPreview() {
+    if (onStartFirstScan) {
+      startFirstScan();
+      return;
+    }
+
+    continueFlow();
+  }
+
   function startFirstScan() {
     if (onStartFirstScan) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -358,7 +367,7 @@ export function OnboardingScreen({
 
       <PreviewScanCard card={demoCard} />
 
-      <FooterButton label="Create my first scan" onPress={continueFlow} />
+      <FooterButton label="Create my first scan" onPress={continueAfterDemoPreview} />
     </ScrollView>
     );
   }
