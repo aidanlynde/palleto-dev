@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from app.core.config import settings
 from app.schemas.card import ProjectContextPayload
-from app.services.card_generator import generate_card_payload
+from app.services.card_generator import generate_image_aware_card_payload
 from app.services.link_preview import enrich_related_links
 
 logger = logging.getLogger(__name__)
@@ -62,13 +62,14 @@ def generate_card_payload_for_image(
     project_context: ProjectContextPayload | None,
 ) -> dict:
     if not settings.openai_api_key:
-        return _fallback_payload(project_context)
+        logger.warning("OPENAI_API_KEY is not configured; using image-aware fallback generator")
+        return _fallback_payload(image_url=image_url, project_context=project_context)
 
     try:
         return _generate_with_openai(image_url=image_url, project_context=project_context)
     except Exception:
-        logger.exception("OpenAI card generation failed; using placeholder generator")
-        return _fallback_payload(project_context)
+        logger.exception("OpenAI card generation failed; using image-aware fallback generator")
+        return _fallback_payload(image_url=image_url, project_context=project_context)
 
 
 def refine_card_payload(
@@ -221,8 +222,12 @@ def _refine_with_openai(
     return payload
 
 
-def _fallback_payload(project_context: ProjectContextPayload | None) -> dict:
-    payload = generate_card_payload(project_context)
+def _fallback_payload(
+    *,
+    image_url: str,
+    project_context: ProjectContextPayload | None,
+) -> dict:
+    payload = generate_image_aware_card_payload(image_url, project_context)
     payload["related_links"] = enrich_related_links(
         payload["related_links"],
         fallback_queries=_related_link_queries(

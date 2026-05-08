@@ -1,4 +1,97 @@
+from io import BytesIO
+
+import httpx
+from PIL import Image, ImageStat
+
 from app.schemas.card import ProjectContextPayload
+
+
+FALLBACK_IMAGE_TIMEOUT_SECONDS = 8.0
+FALLBACK_PALETTE_ROLES = ["anchor", "field", "relief", "accent", "depth"]
+
+
+def generate_image_aware_card_payload(
+    image_url: str,
+    project_context: ProjectContextPayload | None,
+) -> dict:
+    try:
+        image = _load_image(image_url)
+        palette = _extract_palette(image)
+        orientation = _orientation_label(image)
+        tone = _tone_label(image)
+        contrast = _contrast_label(image)
+    except Exception:
+        return generate_card_payload(project_context)
+
+    project_type = project_context.projectType if project_context else None
+    project_type = project_type or "Creative direction"
+    project_summary = _project_summary(
+        project_type,
+        project_context.priorities if project_context else [],
+        project_context.directionTags if project_context else [],
+        project_context.audience if project_context else None,
+        project_context.desiredFeeling if project_context else None,
+    )
+
+    color_names = ", ".join(color["label"].lower() for color in palette[:3])
+    return {
+        "title": "Captured Visual Signal",
+        "one_line_read": (
+            f"A real-world reference translated from its {orientation} crop, "
+            f"{tone} color temperature, and {color_names} palette."
+        ),
+        "creative_direction": (
+            "This card was built from the uploaded image rather than the demo reference. "
+            "Use the extracted palette, crop behavior, and contrast system as the starting "
+            "point, then let the project context decide whether the reference becomes a "
+            "brand mark, campaign surface, packaging language, or mood system."
+        ),
+        "palette": palette,
+        "visual_dna": {
+            "contrast": contrast,
+            "shape_language": (
+                "Use the dominant color fields and visible edge relationships as the shape system."
+            ),
+            "texture": (
+                "Treat the source image's surface, light falloff, and capture grain as reusable texture cues."
+            ),
+            "composition": (
+                f"The {orientation} frame gives the reference its first read; preserve that crop logic "
+                "when translating it into layouts or assets."
+            ),
+        },
+        "design_moves": [
+            "Start with the extracted palette before adding new colors.",
+            "Preserve the image's strongest light-to-dark relationship.",
+            "Turn the main crop into a repeatable layout rule.",
+            "Use one color as the recognition cue across small surfaces.",
+            "Keep the translation close enough that the original reference remains legible.",
+        ],
+        "project_lens": {
+            "project_type": project_type,
+            "summary": project_summary,
+            "applications": _applications_for_project(
+                project_type,
+                desired_feeling=project_context.desiredFeeling if project_context else None,
+                avoid=project_context.avoid if project_context else None,
+            ),
+        },
+        "type_direction": _type_directions(
+            project_context.directionTags if project_context else [],
+            project_context.desiredFeeling if project_context else None,
+            project_context.avoid if project_context else None,
+        ),
+        "search_language": [
+            "image-sourced palette",
+            f"{tone} visual direction",
+            f"{orientation} composition",
+            "real-world reference system",
+            "color extraction design",
+        ],
+        "related_links": related_inspiration_links(
+            project_context.referenceLinks if project_context else []
+        ),
+    }
 
 
 def generate_card_payload(project_context: ProjectContextPayload | None) -> dict:
@@ -23,38 +116,38 @@ def generate_card_payload(project_context: ProjectContextPayload | None) -> dict
     )
 
     return {
-        "title": "Street Koi Signal",
+        "title": "Captured Visual Signal",
         "one_line_read": (
-            "A street-found graphic system built from pavement grit, animal symbolism, "
-            "and one sharp orange interruption."
+            "A real-world reference translated into palette, texture, composition, "
+            "and practical creative direction."
         ),
         "creative_direction": (
-            "This reference works because it turns an ordinary sidewalk into a graphic mark. "
-            "The koi forms feel symbolic and handmade, while the black, white, and orange palette "
-            "gives the image instant poster energy. Use this direction when you want something "
-            "urban, tactile, and expressive without becoming messy."
+            "Use this fallback direction as a neutral visual brief when full AI analysis is unavailable. "
+            "Keep the translation grounded in the captured image: pull the strongest color relationship, "
+            "preserve the crop logic, and turn the most recognizable surface or motif into a repeatable "
+            "design rule."
         ),
         "palette": [
-            {"hex": "#F26A21", "label": "Signal orange", "role": "accent"},
-            {"hex": "#111111", "label": "Tar black", "role": "anchor"},
-            {"hex": "#F4F1EA", "label": "Chalk white", "role": "relief"},
-            {"hex": "#67675F", "label": "Weathered concrete", "role": "field"},
-            {"hex": "#2D2F2A", "label": "Soft shadow", "role": "depth"},
+            {"hex": "#1F2328", "label": "Deep anchor", "role": "anchor"},
+            {"hex": "#E8E3D8", "label": "Soft relief", "role": "relief"},
+            {"hex": "#8A8276", "label": "Muted field", "role": "field"},
+            {"hex": "#C06B3E", "label": "Warm signal", "role": "accent"},
+            {"hex": "#545B60", "label": "Quiet depth", "role": "depth"},
         ],
         "visual_dna": {
-            "contrast": "Hard black and white separation with one saturated orange interruption.",
-            "shape_language": "Organic koi silhouettes, tapered motion, stencil-like edge behavior.",
-            "texture": "Rough pavement grain, sprayed pigment, chalky wear, soft outdoor shadow.",
+            "contrast": "A practical light-to-dark system with one color allowed to carry recognition.",
+            "shape_language": "Source-led forms, crop edges, negative space, and repeatable visual boundaries.",
+            "texture": "Use the visible material, surface, shadow softness, and capture grain as design cues.",
             "composition": (
-                "Two offset forms create diagonal movement and a quiet negative-space tension."
+                "Let the original crop define hierarchy before adding secondary layout structure."
             ),
         },
         "design_moves": [
-            "Use one saturated accent as the entire emotional charge.",
-            "Let rough surface texture stay visible instead of over-cleaning the mark.",
-            "Build movement through diagonal placement rather than extra decoration.",
-            "Pair organic illustration with severe typography for tension.",
-            "Keep imperfect edges so the system feels found, not manufactured.",
+            "Extract the palette first, then decide what each color is allowed to do.",
+            "Turn the strongest crop or motif into a repeatable layout rule.",
+            "Let one accent carry recognition across small surfaces.",
+            "Keep source texture visible where it adds proof and specificity.",
+            "Pair the reference with type that sharpens the project context.",
         ],
         "project_lens": {
             "project_type": project_type,
@@ -71,12 +164,12 @@ def generate_card_payload(project_context: ProjectContextPayload | None) -> dict
             " ".join(filter(None, [avoid, ", ".join(taste_avoid)])) or None,
         ),
         "search_language": [
-            "koi symbolism",
-            "urban stencil",
-            "signal orange identity",
-            "pavement texture",
-            "high contrast street mark",
-            "Japanese fish motif",
+            "image-sourced palette",
+            "real-world visual reference",
+            "found color system",
+            "texture-led identity",
+            "composition study",
+            "creative direction reference",
         ],
         "related_links": related_inspiration_links(reference_links),
     }
@@ -101,19 +194,115 @@ def related_inspiration_links(reference_links: list[str]) -> list[dict]:
         *seeded_links,
         {
             "provider": "placeholder",
-            "reason": "A search lane for rough public marks, stencil edges, and found graphic systems.",
+            "reason": "A search lane for found references, source-led palettes, and visual systems.",
             "thumbnail_url": None,
-            "title": "Are.na query: urban stencil marks",
-            "url": "https://www.are.na/search?q=urban%20stencil%20marks",
+            "title": "Are.na query: visual reference system",
+            "url": "https://www.are.na/search?q=visual%20reference%20system",
         },
         {
             "provider": "placeholder",
-            "reason": "Useful for seeing how koi symbolism gets translated into identity and surface graphics.",
+            "reason": "Useful for seeing how captured color becomes brand, campaign, and layout direction.",
             "thumbnail_url": None,
-            "title": "Pinterest query: koi graphic identity",
-            "url": "https://www.pinterest.com/search/pins/?q=koi%20graphic%20identity",
+            "title": "Pinterest query: color palette brand inspiration",
+            "url": "https://www.pinterest.com/search/pins/?q=color%20palette%20brand%20inspiration",
         },
     ][:4]
+
+
+def _load_image(image_url: str) -> Image.Image:
+    response = httpx.get(image_url, timeout=FALLBACK_IMAGE_TIMEOUT_SECONDS)
+    response.raise_for_status()
+    return Image.open(BytesIO(response.content)).convert("RGB")
+
+
+def _extract_palette(image: Image.Image) -> list[dict]:
+    swatch = image.copy()
+    swatch.thumbnail((180, 180))
+    quantized = swatch.quantize(colors=8)
+    palette = quantized.getpalette() or []
+    color_counts = quantized.getcolors(maxcolors=180 * 180) or []
+
+    colors: list[tuple[int, int, int]] = []
+    for _, palette_index in sorted(color_counts, reverse=True):
+        offset = palette_index * 3
+        rgb = tuple(palette[offset : offset + 3])
+        if len(rgb) != 3 or _too_similar(rgb, colors):
+            continue
+        colors.append(rgb)
+        if len(colors) == 5:
+            break
+
+    while len(colors) < 5:
+        colors.append((40 + len(colors) * 35, 44 + len(colors) * 30, 48 + len(colors) * 24))
+
+    return [
+        {
+            "hex": _hex_color(rgb),
+            "label": _color_label(rgb),
+            "role": FALLBACK_PALETTE_ROLES[index],
+        }
+        for index, rgb in enumerate(colors[:5])
+    ]
+
+
+def _too_similar(rgb: tuple[int, int, int], existing_colors: list[tuple[int, int, int]]) -> bool:
+    return any(sum(abs(channel - other_channel) for channel, other_channel in zip(rgb, color)) < 42 for color in existing_colors)
+
+
+def _hex_color(rgb: tuple[int, int, int]) -> str:
+    return f"#{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
+
+
+def _color_label(rgb: tuple[int, int, int]) -> str:
+    red, green, blue = rgb
+    highest = max(rgb)
+    lowest = min(rgb)
+    luminance = (0.2126 * red) + (0.7152 * green) + (0.0722 * blue)
+
+    if highest - lowest < 18:
+        if luminance < 70:
+            return "Deep neutral"
+        if luminance > 190:
+            return "Pale neutral"
+        return "Muted neutral"
+    if red >= green and red >= blue:
+        return "Warm signal" if green > blue else "Red signal"
+    if green >= red and green >= blue:
+        return "Green field" if red < 130 else "Earth field"
+    return "Blue shadow"
+
+
+def _orientation_label(image: Image.Image) -> str:
+    width, height = image.size
+    if width > height * 1.15:
+        return "wide"
+    if height > width * 1.15:
+        return "vertical"
+    return "balanced"
+
+
+def _tone_label(image: Image.Image) -> str:
+    stat = ImageStat.Stat(image.resize((32, 32)))
+    red, green, blue = stat.mean[:3]
+    warmth = red - blue
+    if warmth > 16:
+        return "warm"
+    if warmth < -16:
+        return "cool"
+    if max(red, green, blue) < 86:
+        return "low-light"
+    return "neutral"
+
+
+def _contrast_label(image: Image.Image) -> str:
+    grayscale = image.convert("L").resize((64, 64))
+    stat = ImageStat.Stat(grayscale)
+    spread = stat.stddev[0]
+    if spread > 58:
+        return "High tonal separation with enough shadow and highlight spread to support strong hierarchy."
+    if spread > 32:
+        return "Moderate tonal contrast that can become a calm hierarchy system with one stronger accent."
+    return "Low tonal contrast with a softer field that needs type, spacing, or one accent to create hierarchy."
 
 
 def _project_summary(
