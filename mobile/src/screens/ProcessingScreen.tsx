@@ -1,7 +1,16 @@
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
 
 import { InspirationCard, uploadCard, uploadPreviewCard } from "../services/api";
 import { trackEvent } from "../services/analytics";
@@ -18,7 +27,14 @@ type ProcessingScreenProps = {
   sourceType: "camera" | "library";
 };
 
-const stages = ["Reading palette", "Finding texture", "Building direction", "Saving card"];
+const stages = [
+  "Reading palette",
+  "Finding texture",
+  "Mapping composition",
+  "Building direction",
+  "Pulling reference lanes",
+  "Writing your card"
+];
 
 export function ProcessingScreen({
   firebaseUser,
@@ -30,16 +46,42 @@ export function ProcessingScreen({
   sourceType
 }: ProcessingScreenProps) {
   const submittedImageUri = useRef<string | null>(null);
+  const scanProgress = useRef(new Animated.Value(0)).current;
   const [stageIndex, setStageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setStageIndex((current) => Math.min(current + 1, stages.length - 1));
-    }, 850);
+      setStageIndex((current) => (current + 1) % stages.length);
+    }, 1300);
 
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanProgress, {
+          duration: 1450,
+          easing: Easing.inOut(Easing.cubic),
+          toValue: 1,
+          useNativeDriver: true
+        }),
+        Animated.timing(scanProgress, {
+          duration: 1450,
+          easing: Easing.inOut(Easing.cubic),
+          toValue: 0,
+          useNativeDriver: true
+        })
+      ])
+    );
+
+    if (!error) {
+      animation.start();
+    }
+
+    return () => animation.stop();
+  }, [error, scanProgress]);
 
   useEffect(() => {
     let isMounted = true;
@@ -93,13 +135,32 @@ export function ProcessingScreen({
         {stages.map((_, index) => (
           <View
             key={index}
-            style={[styles.progressDot, index <= stageIndex && styles.progressDotActive]}
+            style={[styles.progressDot, index === stageIndex && styles.progressDotActive]}
           />
         ))}
       </View>
 
       <View style={styles.imageFrame}>
         <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
+        {!error ? (
+          <View pointerEvents="none" style={styles.scanOverlay}>
+            <Animated.View
+              style={[
+                styles.scanBand,
+                {
+                  transform: [
+                    {
+                      translateY: scanProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-92, 620]
+                      })
+                    }
+                  ]
+                }
+              ]}
+            />
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.copy}>
@@ -115,10 +176,10 @@ export function ProcessingScreen({
         ) : (
           <>
             <View style={styles.stageList}>
-              {stages.map((stage, index) => (
+              {visibleStages(stageIndex).map(({ active, stage }) => (
                 <Text
                   key={stage}
-                  style={[styles.stageText, index <= stageIndex && styles.stageTextActive]}
+                  style={[styles.stageText, active && styles.stageTextActive]}
                 >
                   {stage}
                 </Text>
@@ -130,6 +191,13 @@ export function ProcessingScreen({
       </View>
     </View>
   );
+}
+
+function visibleStages(activeIndex: number) {
+  return stages.map((stage, index) => ({
+    active: index === activeIndex,
+    stage
+  }));
 }
 
 const styles = StyleSheet.create({
@@ -163,6 +231,21 @@ const styles = StyleSheet.create({
   image: {
     width: "100%",
     height: "100%"
+  },
+  scanOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: "hidden",
+    backgroundColor: "rgba(0,0,0,0.08)"
+  },
+  scanBand: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 92,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "rgba(255,255,255,0.42)",
+    backgroundColor: "rgba(255,255,255,0.08)"
   },
   copy: {
     gap: theme.spacing.md
