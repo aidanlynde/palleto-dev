@@ -179,6 +179,33 @@ export async function uploadCard({
   return response.json();
 }
 
+export async function uploadPreviewCard(input: {
+  imageUri: string;
+  mimeType?: string | null;
+  sourceType: "camera" | "library";
+}): Promise<InspirationCard> {
+  const formData = new FormData();
+  const fileName = input.imageUri.split("/").pop() || "preview.jpg";
+
+  formData.append("image", {
+    name: fileName,
+    type: input.mimeType || "image/jpeg",
+    uri: input.imageUri
+  } as unknown as Blob);
+  formData.append("source_type", input.sourceType);
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/public/cards/preview`, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create preview card: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function getActiveProject(idToken: string): Promise<ProjectContext | null> {
   const response = await fetch(`${API_BASE_URL}/api/v1/projects/active`, {
     headers: {

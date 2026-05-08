@@ -7,6 +7,7 @@ import { Alert, Image, Linking, Platform, Pressable, ScrollView, Share, StyleShe
 import RNShare from "react-native-share";
 
 import { createOrGetCardShare, deleteCard, InspirationCard } from "../services/api";
+import { trackEvent } from "../services/analytics";
 import { theme } from "../theme";
 
 type PaletteColor = InspirationCard["palette"][number];
@@ -14,8 +15,10 @@ type RelatedLink = InspirationCard["related_links"][number];
 
 type CardResultScreenProps = {
   card: InspirationCard;
-  firebaseUser: User;
+  firebaseUser: User | null;
+  isPreview?: boolean;
   onDone: () => void;
+  onLockedAction?: (feature: "refine" | "save" | "share") => void;
   onRefine: () => void;
   onViewLibrary: () => void;
 };
@@ -23,31 +26,61 @@ type CardResultScreenProps = {
 export function CardResultScreen({
   card,
   firebaseUser,
+  isPreview,
   onDone,
+  onLockedAction,
   onRefine,
   onViewLibrary
 }: CardResultScreenProps) {
   async function shareCard() {
+    if (!firebaseUser) {
+      onLockedAction?.("share");
+      return;
+    }
+
+    trackEvent("share_clicked", { card_id: card.id, source: "result" });
     try {
       await shareCardFromApi(firebaseUser, card.id, card.title);
+      trackEvent("share_completed", { card_id: card.id, source: "result" });
     } catch {
+      trackEvent("share_failed", { card_id: card.id, source: "result" });
       Alert.alert("Share failed", "Try again in a moment.");
     }
   }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.saved}>Saved to library</Text>
+      <Text style={styles.saved}>{isPreview ? "Preview scan" : "Saved to library"}</Text>
       <CardDetail card={card} />
       <View style={styles.actions}>
         <Pressable style={styles.primaryButton} onPress={shareCard}>
           <Text style={styles.primaryButtonText}>Share card</Text>
         </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={onRefine}>
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => {
+            if (!firebaseUser) {
+              onLockedAction?.("refine");
+              return;
+            }
+
+            onRefine();
+          }}
+        >
           <Text style={styles.secondaryButtonText}>Refine with AI</Text>
         </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={onViewLibrary}>
-          <Text style={styles.secondaryButtonText}>View library</Text>
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => {
+            if (!firebaseUser) {
+              onLockedAction?.("save");
+              return;
+            }
+
+            onViewLibrary();
+          }}
+        >
+          <Text style={styles.secondaryButtonText}>{isPreview ? "Save to library" : "View library"}</Text>
         </Pressable>
         <Pressable style={styles.textButton} onPress={onDone}>
           <Text style={styles.textButtonText}>Done</Text>
@@ -214,9 +247,12 @@ export function CardDetailScreen({
   const [isDeleting, setIsDeleting] = useState(false);
 
   async function shareCard() {
+    trackEvent("share_clicked", { card_id: card.id, source: "card_detail" });
     try {
       await shareCardFromApi(firebaseUser, card.id, card.title);
+      trackEvent("share_completed", { card_id: card.id, source: "card_detail" });
     } catch {
+      trackEvent("share_failed", { card_id: card.id, source: "card_detail" });
       Alert.alert("Share failed", "Try again in a moment.");
     }
   }
@@ -283,6 +319,7 @@ async function shareCardFromApi(firebaseUser: User, cardId: string, cardTitle: s
   const downloaded = await FileSystem.downloadAsync(share.share_card_image_url, destinationUri);
 
   if (Platform.OS === "ios") {
+    trackEvent("share_sheet_opened", { card_id: cardId, platform: "ios" });
     await RNShare.open({
       failOnCancel: false,
       activityItemSources: [
@@ -312,6 +349,7 @@ async function shareCardFromApi(firebaseUser: User, cardId: string, cardTitle: s
     return;
   }
 
+  trackEvent("share_sheet_opened", { card_id: cardId, platform: "android" });
   await Share.share({
     message: share.share_url,
     url: downloaded.uri

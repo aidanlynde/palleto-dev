@@ -6,14 +6,12 @@ from app.core.config import settings
 from app.db.models import Card, CardShare
 
 
-def create_or_refresh_card_share(db: Session, card: Card) -> CardShare:
+def create_or_get_card_share(db: Session, card: Card) -> CardShare:
     share = db.query(CardShare).filter(CardShare.card_id == card.id).one_or_none()
 
     if share is None:
         share = CardShare(card_id=card.id, share_token=_share_token())
         db.add(share)
-    else:
-        share.share_token = _share_token()
 
     db.flush()
 

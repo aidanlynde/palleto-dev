@@ -24,6 +24,20 @@ async def upload_card_image(
     )
 
 
+async def upload_preview_card_image(
+    *,
+    preview_id: str,
+    image: UploadFile,
+    max_bytes: int,
+) -> tuple[str, str]:
+    return await _upload_image(
+        firebase_uid="public-preview",
+        image=image,
+        storage_path=f"public-preview/cards/{preview_id}/original",
+        max_bytes=max_bytes,
+    )
+
+
 async def upload_project_reference_image(
     *,
     firebase_uid: str,
@@ -61,6 +75,7 @@ async def _upload_image(
     firebase_uid: str,
     image: UploadFile,
     storage_path: str,
+    max_bytes: int | None = None,
 ) -> tuple[str, str]:
     if not settings.firebase_storage_bucket:
         raise HTTPException(
@@ -77,7 +92,19 @@ async def _upload_image(
             detail="Uploaded image is empty.",
         )
 
+    if max_bytes is not None and len(content) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Uploaded image is too large.",
+        )
+
     content_type = image.content_type or "image/jpeg"
+    if not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must be an image.",
+        )
+
     extension = _extension_for_content_type(content_type)
     full_storage_path = f"{storage_path}{extension}"
     token = str(uuid4())

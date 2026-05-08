@@ -25,7 +25,9 @@ const landingLoopSource = require("../../assets/onboarding/landing-loop.mov");
 const refinePreviewSource = require("../../assets/onboarding/refine-preview.mov");
 
 type OnboardingScreenProps = {
+  initialStep?: number;
   onComplete: (surveyAnswers: OnboardingSurveyAnswers) => void;
+  onStartFirstScan?: () => void;
   onSkip?: () => void;
 };
 
@@ -113,8 +115,13 @@ const processingStages = [
 
 const koiImageUrl = Image.resolveAssetSource(koiImageSource).uri;
 
-export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) {
-  const [step, setStep] = useState(0);
+export function OnboardingScreen({
+  initialStep = 0,
+  onComplete,
+  onSkip,
+  onStartFirstScan
+}: OnboardingScreenProps) {
+  const [step, setStep] = useState(initialStep);
   const [answers, setAnswers] = useState<OnboardingSurveyAnswers>(
     createEmptyOnboardingSurveyAnswers()
   );
@@ -210,6 +217,16 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
     setStep(step + 1);
   }
 
+  function startFirstScan() {
+    if (onStartFirstScan) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onStartFirstScan();
+      return;
+    }
+
+    continueFlow();
+  }
+
   if (step === 0) {
     return (
       <View style={styles.landingFallback}>
@@ -223,12 +240,20 @@ export function OnboardingScreen({ onComplete, onSkip }: OnboardingScreenProps) 
               resizeMode="contain"
             />
             <Text style={styles.kicker}>Palleto</Text>
-            <Text style={styles.heroTitle}>Turn references from the wild into usable creative direction.</Text>
+            <Text style={styles.heroTitle}>Scan something around you and see what Palleto pulls out.</Text>
             <Text style={styles.heroBody}>
-              Capture something real, get an immediate read, and refine it later when you have time.
+              Point the camera at a poster, object, outfit, book, corner, or anything with a little visual signal.
             </Text>
           </View>
-          <FooterButton label="Begin" onPress={continueFlow} />
+          <View style={styles.landingActions}>
+            <FooterButton label="Open camera" onPress={startFirstScan} />
+            <Pressable
+              onPress={continueFlow}
+              style={({ pressed }) => [styles.exampleButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.exampleButtonText}>See the Koi example instead</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     );
@@ -958,6 +983,19 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 17,
     lineHeight: 25
+  },
+  landingActions: {
+    gap: theme.spacing.md
+  },
+  exampleButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44
+  },
+  exampleButtonText: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "800"
   },
   questionScreen: {
     flex: 1,

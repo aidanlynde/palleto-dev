@@ -1,23 +1,66 @@
+from collections import defaultdict, deque
+from datetime import UTC, datetime
 from html import escape
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import urlencode
+from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, Response
 from PIL import Image, ImageColor, ImageDraw, ImageFont, ImageOps
 
 from app.core.config import settings
 from app.db.models import CardShare
 from app.db.session import SessionLocal, create_db_and_tables
+from app.schemas.card import CardRead
+from app.services.link_preview import enrich_related_links
+from app.services.openai_card_generator import generate_card_payload_for_image
 from app.services.shares import (
     build_share_preview_image_url,
     build_share_url,
 )
+from app.services.storage import upload_preview_card_image
 
 router = APIRouter(tags=["public"])
 APP_DIR = Path(__file__).resolve().parents[1]
 FONT_DIR = APP_DIR / "assets" / "fonts"
+PREVIEW_MAX_BYTES = 6 * 1024 * 1024
+PREVIEW_RATE_LIMIT = 4
+PREVIEW_RATE_WINDOW_SECONDS = 15 * 60
+_preview_attempts: dict[str, deque[float]] = defaultdict(deque)
+
+
+@router.post("/api/v1/public/cards/preview", response_model=CardRead, status_code=status.HTTP_201_CREATED)
+async def create_public_card_preview(
+    request: Request,
+    image: UploadFile = File(...),
+    source_type: str = Form("camera"),
+) -> dict:
+    _enforce_preview_rate_limit(request)
+
+    preview_id = f"preview-{uuid4()}"
+    _, image_url = await upload_preview_card_image(
+        preview_id=preview_id,
+        image=image,
+        max_bytes=PREVIEW_MAX_BYTES,
+    )
+    card_payload = generate_card_payload_for_image(
+        image_url=image_url,
+        project_context=None,
+    )
+    card_payload["related_links"] = enrich_related_links(card_payload["related_links"])
+    created_at = datetime.now(UTC)
+
+    return {
+        "id": preview_id,
+        "image_url": image_url,
+        "source_type": source_type,
+        "created_at": created_at,
+        "updated_at": created_at,
+        **card_payload,
+    }
 
 
 @router.get("/api/v1/public/shares/{share_token}")
@@ -48,7 +91,7 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
     card = share.card
     share_url = build_share_url(share.share_token)
     share_preview_image_url = build_share_preview_image_url(share.share_token)
-    marketing_url = settings.public_web_base_url.rstrip("/") if settings.public_web_base_url else share_url
+    marketing_url = _build_share_marketing_url(share.share_token)
     app_url = f"palleto://share/{share.share_token}"
     page_title = f"{card.title} | Palleto"
     project_type = escape(card.project_lens.get("project_type", "Creative direction"))
@@ -287,7 +330,7 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
           <p>{escape(card.one_line_read)}</p>
           <div class="cta-row">
             <a class="button" href="{escape(app_url)}">Open in app</a>
-            <a class="button secondary" href="{escape(marketing_url)}">Get Palleto</a>
+            <a class="button secondary" href="{escape(marketing_url)}">Make yours</a>
           </div>
         </div>
       </section>
@@ -326,6 +369,39 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
 </html>"""
 
     return HTMLResponse(content=html)
+
+
+def _build_share_marketing_url(share_token: str) -> str:
+    base_url = settings.public_web_base_url.rstrip("/") if settings.public_web_base_url else build_share_url(share_token)
+    separator = "&" if "?" in base_url else "?"
+    query = urlencode(
+        {
+            "utm_source": "palleto_share",
+            "utm_medium": "public_share",
+            "utm_campaign": "make_yours",
+            "share_token": share_token,
+        }
+    )
+    return f"{base_url}{separator}{query}"
+
+
+def _enforce_preview_rate_limit(request: Request) -> None:
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else None
+    client_ip = client_ip or (request.client.host if request.client else "unknown")
+    now = datetime.now(UTC).timestamp()
+    attempts = _preview_attempts[client_ip]
+
+    while attempts and now - attempts[0] > PREVIEW_RATE_WINDOW_SECONDS:
+        attempts.popleft()
+
+    if len(attempts) >= PREVIEW_RATE_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many preview scans. Try again later.",
+        )
+
+    attempts.append(now)
 
 
 @router.get("/og/share/{share_token}.png")

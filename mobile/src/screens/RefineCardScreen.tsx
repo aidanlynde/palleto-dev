@@ -22,6 +22,7 @@ import {
   InspirationCard,
   listCardRefinements,
 } from "../services/api";
+import { trackEvent } from "../services/analytics";
 import { theme } from "../theme";
 
 const promptGroups = [
@@ -175,6 +176,11 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
     try {
       setIsSubmitting(true);
       setPendingInstruction(trimmedInstruction);
+      trackEvent("refinement_started", {
+        base: activeRefinementId ? "version" : "original",
+        card_id: baseCard.id,
+        preset: presetLabel ?? "custom",
+      });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       const token = await firebaseUser.getIdToken();
@@ -189,8 +195,17 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
       setActiveRefinementId(refinement.id);
       setInstruction("");
       onRefined(refinement.refined_card);
+      trackEvent("refinement_completed", {
+        card_id: baseCard.id,
+        changed_section_count: refinement.changed_sections.length,
+        preset: presetLabel ?? "custom",
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
+      trackEvent("refinement_failed", {
+        card_id: baseCard.id,
+        preset: presetLabel ?? "custom",
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Refinement failed", "Try again in a moment.");
     } finally {

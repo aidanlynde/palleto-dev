@@ -132,9 +132,9 @@ export function AuthScreen() {
           resizeMode="contain"
         />
         <Text style={styles.eyebrow}>Palleto</Text>
-        <Text style={styles.title}>Start your inspiration library.</Text>
+        <Text style={styles.title}>Save the scan you are about to make.</Text>
         <Text style={styles.body}>
-          Continue with your creative account. Cards and scans arrive in later phases.
+          Continue with your account and Palleto will open the camera so you can generate a real first card.
         </Text>
       </View>
 

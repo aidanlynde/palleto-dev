@@ -2,7 +2,7 @@ import { Archivo_900Black } from "@expo-google-fonts/archivo";
 import { CormorantGaramond_600SemiBold } from "@expo-google-fonts/cormorant-garamond";
 import { IBMPlexMono_600SemiBold } from "@expo-google-fonts/ibm-plex-mono";
 import { SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk";
-import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { CaptureScreen } from "./src/screens/CaptureScreen";
 import { CardDetailScreen, CardResultScreen } from "./src/screens/CardResultScreen";
+import { LockedFeatureScreen } from "./src/screens/LockedFeatureScreen";
 import { MainScreen } from "./src/screens/MainScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProcessingScreen } from "./src/screens/ProcessingScreen";
@@ -25,6 +26,7 @@ import {
   saveActiveProject,
   saveTasteProfile
 } from "./src/services/api";
+import { identifyUser, trackEvent } from "./src/services/analytics";
 import { firebaseAuth } from "./src/services/firebase";
 import {
   completeOnboarding,
@@ -46,6 +48,7 @@ export type RootStackParamList = {
   Capture: undefined;
   CardDetail: undefined;
   Home: undefined;
+  LockedFeature: undefined;
   Onboarding: undefined;
   Processing: undefined;
   ProjectIntake: undefined;
@@ -62,6 +65,7 @@ type SelectedImage = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const navigationTheme = {
   ...DefaultTheme,
@@ -90,11 +94,15 @@ export default function App() {
   const [projectContext, setProjectContext] = useState<ProjectContext | null>(null);
   const [selectedCard, setSelectedCard] = useState<InspirationCard | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
+  const [guestScanStarted, setGuestScanStarted] = useState(false);
+  const [pendingInitialScan, setPendingInitialScan] = useState(false);
   const [startupWarning, setStartupWarning] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
       setFirebaseUser(user);
+      identifyUser(user?.uid ?? null);
+      trackEvent(user ? "auth_session_restored" : "auth_session_empty");
       setIsAuthReady(true);
     });
 
@@ -181,6 +189,13 @@ export default function App() {
 
   async function finishOnboarding(surveyAnswers: OnboardingSurveyAnswers) {
     await completeOnboarding(surveyAnswers);
+    trackEvent("onboarding_completed", {
+      avoid_count: surveyAnswers.avoid.length,
+      extract_count: surveyAnswers.extract_from_reference.length,
+      lean_count: surveyAnswers.lean_toward.length,
+      useful_count: surveyAnswers.useful_scan.length,
+      work_for_count: surveyAnswers.work_for.length
+    });
     setOnboardingAnswers(surveyAnswers);
     setOnboardingComplete(true);
   }
@@ -188,8 +203,15 @@ export default function App() {
   async function skipOnboarding() {
     const emptyAnswers = createEmptyOnboardingSurveyAnswers();
     await completeOnboarding(emptyAnswers);
+    trackEvent("onboarding_skipped");
     setOnboardingAnswers(emptyAnswers);
     setOnboardingComplete(true);
+  }
+
+  async function startFirstScanOnboarding() {
+    trackEvent("onboarding_first_scan_requested");
+    setGuestScanStarted(true);
+    setPendingInitialScan(true);
   }
 
   async function handleSaveProject(project: ProjectContextInput) {
@@ -199,6 +221,13 @@ export default function App() {
 
     const token = await firebaseUser.getIdToken();
     const savedProject = await saveActiveProject(token, project);
+    trackEvent("project_context_saved", {
+      has_audience: Boolean(project.audience),
+      has_desired_feeling: Boolean(project.desiredFeeling),
+      priority_count: project.priorities.length,
+      reference_image_count: project.referenceImages.length,
+      reference_link_count: project.referenceLinks.length
+    });
     setProjectContext(savedProject);
     await cacheProjectContext(savedProject);
     return savedProject;
@@ -258,8 +287,20 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [firebaseUser, fontsLoaded, isAuthReady, isLoading, isOnboardingReady, isProjectContextReady]);
 
+  useEffect(() => {
+    if (!pendingInitialScan || isLoading || !navigationRef.isReady()) {
+      return;
+    }
+
+    setPendingInitialScan(false);
+    trackEvent("initial_scan_auto_opened");
+    setTimeout(() => {
+      navigationRef.navigate("Capture");
+    }, 0);
+  }, [isLoading, pendingInitialScan]);
+
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme}>
       <StatusBar style="light" />
       <Stack.Navigator
         screenOptions={{
@@ -273,9 +314,31 @@ export default function App() {
           <Stack.Screen name="Splash" options={{ headerShown: false }}>
             {() => <SplashScreen detail={splashDetail} warning={startupWarning} />}
           </Stack.Screen>
-        ) : !onboardingComplete && !projectContext ? (
+        ) : firebaseUser && guestScanStarted && !onboardingComplete && !projectContext ? (
           <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
-            {() => <OnboardingScreen onComplete={finishOnboarding} onSkip={skipOnboarding} />}
+            {() => (
+              <OnboardingScreen
+                initialStep={4}
+                onComplete={(answers) => {
+                  setGuestScanStarted(false);
+                  finishOnboarding(answers);
+                }}
+                onSkip={() => {
+                  setGuestScanStarted(false);
+                  skipOnboarding();
+                }}
+              />
+            )}
+          </Stack.Screen>
+        ) : !onboardingComplete && !projectContext && !guestScanStarted ? (
+          <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
+            {() => (
+              <OnboardingScreen
+                onComplete={finishOnboarding}
+                onSkip={skipOnboarding}
+                onStartFirstScan={startFirstScanOnboarding}
+              />
+            )}
           </Stack.Screen>
         ) : firebaseUser ? (
           <Stack.Screen name="Home" options={{ title: "Palleto" }}>
@@ -283,8 +346,12 @@ export default function App() {
               <MainScreen
                 firebaseUser={firebaseUser}
                 onEditProject={() => navigation.navigate("ProjectIntake")}
-                onScan={() => navigation.navigate("Capture")}
+                onScan={() => {
+                  trackEvent("capture_opened", { source: "home_scan_button" });
+                  navigation.navigate("Capture");
+                }}
                 onSelectCard={(card) => {
+                  trackEvent("card_opened", { card_id: card.id, source: "library" });
                   setSelectedCard(card);
                   navigation.navigate("CardDetail");
                 }}
@@ -295,13 +362,14 @@ export default function App() {
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} options={{ title: "Sign in" }} />
         )}
-        {firebaseUser ? (
+        {onboardingComplete || projectContext || guestScanStarted ? (
           <>
             <Stack.Screen name="Capture" options={{ title: "Capture" }}>
               {({ navigation }) => (
                 <CaptureScreen
                   onOpenQuickAccess={() => navigation.navigate("QuickAccess")}
                   onImageSelected={(image) => {
+                    trackEvent("create_started", { source_type: image.sourceType });
                     setSelectedImage(image);
                     navigation.navigate("Processing");
                   }}
@@ -319,6 +387,11 @@ export default function App() {
                     imageUri={selectedImage.uri}
                     mimeType={selectedImage.mimeType}
                     onCardCreated={(card) => {
+                      trackEvent("create_completed", {
+                        card_id: card.id,
+                        palette_count: card.palette.length,
+                        source_type: selectedImage.sourceType
+                      });
                       setSelectedCard(card);
                       navigation.replace("Result");
                     }}
@@ -330,6 +403,7 @@ export default function App() {
                   <CaptureScreen
                     onOpenQuickAccess={() => navigation.navigate("QuickAccess")}
                     onImageSelected={(image) => {
+                      trackEvent("create_started", { source_type: image.sourceType });
                       setSelectedImage(image);
                       navigation.replace("Processing");
                     }}
@@ -343,49 +417,95 @@ export default function App() {
                     <CardResultScreen
                       card={selectedCard}
                       firebaseUser={firebaseUser}
-                      onDone={() => navigation.navigate("Home")}
-                      onRefine={() => navigation.navigate("Refine")}
-                      onViewLibrary={() => navigation.navigate("Home")}
+                      isPreview={!firebaseUser || selectedCard.id.startsWith("preview-")}
+                      onDone={() => navigation.navigate(firebaseUser ? "Home" : "Auth")}
+                      onLockedAction={(feature) => {
+                        trackEvent("locked_feature_viewed", {
+                          card_id: selectedCard.id,
+                          feature,
+                          source: "preview_result"
+                        });
+                        navigation.navigate("LockedFeature");
+                      }}
+                      onRefine={() => {
+                        trackEvent("locked_feature_viewed", { card_id: selectedCard.id, feature: "refine_ai", source: "result" });
+                        navigation.navigate("LockedFeature");
+                      }}
+                      onViewLibrary={() => navigation.navigate(firebaseUser ? "Home" : "Auth")}
                     />
                 ) : (
-                  <MainScreen
-                    firebaseUser={firebaseUser}
-                    onEditProject={() => navigation.navigate("ProjectIntake")}
-                    onScan={() => navigation.navigate("Capture")}
-                    onSelectCard={(card) => {
-                      setSelectedCard(card);
-                      navigation.navigate("CardDetail");
+                  <CaptureScreen
+                    onOpenQuickAccess={() => navigation.navigate("QuickAccess")}
+                    onImageSelected={(image) => {
+                      trackEvent("create_started", { source_type: image.sourceType });
+                      setSelectedImage(image);
+                      navigation.replace("Processing");
                     }}
-                    projectContext={projectContext}
                   />
                 )
               }
             </Stack.Screen>
-            <Stack.Screen name="CardDetail" options={{ title: "Card" }}>
-              {({ navigation }) =>
-                selectedCard ? (
-                  <CardDetailScreen
-                    card={selectedCard}
-                    firebaseUser={firebaseUser}
-                    onRefine={() => navigation.navigate("Refine")}
-                    onDeleted={() => {
-                      setSelectedCard(null);
+            {firebaseUser ? (
+              <>
+                <Stack.Screen name="CardDetail" options={{ title: "Card" }}>
+                  {({ navigation }) =>
+                    selectedCard ? (
+                      <CardDetailScreen
+                        card={selectedCard}
+                        firebaseUser={firebaseUser}
+                        onRefine={() => {
+                          trackEvent("locked_feature_viewed", { card_id: selectedCard.id, feature: "refine_ai", source: "card_detail" });
+                          navigation.navigate("LockedFeature");
+                        }}
+                        onDeleted={() => {
+                          trackEvent("card_deleted", { card_id: selectedCard.id });
+                          setSelectedCard(null);
+                          navigation.navigate("Home");
+                        }}
+                      />
+                    ) : null
+                  }
+                </Stack.Screen>
+                <Stack.Screen name="Refine" options={{ title: "Refine with AI" }}>
+                  {() =>
+                    selectedCard ? (
+                      <RefineCardScreen
+                        card={selectedCard}
+                        firebaseUser={firebaseUser}
+                        onRefined={setSelectedCard}
+                      />
+                    ) : null
+                  }
+                </Stack.Screen>
+              </>
+            ) : null}
+            <Stack.Screen name="LockedFeature" options={{ title: "Refine with AI" }}>
+              {({ navigation }) => (
+                <LockedFeatureScreen
+                  buttonLabel={firebaseUser ? "Continue for now" : "Sign in to continue"}
+                  onContinue={() => {
+                    if (!firebaseUser) {
+                      trackEvent("locked_feature_sign_in_clicked", {
+                        card_id: selectedCard?.id,
+                        feature: "preview_unlock"
+                      });
+                      navigation.navigate("Auth");
+                      return;
+                    }
+
+                    if (!selectedCard) {
                       navigation.navigate("Home");
-                    }}
-                  />
-                ) : null
-              }
-            </Stack.Screen>
-            <Stack.Screen name="Refine" options={{ title: "Refine with AI" }}>
-              {() =>
-                selectedCard ? (
-                  <RefineCardScreen
-                    card={selectedCard}
-                    firebaseUser={firebaseUser}
-                    onRefined={setSelectedCard}
-                  />
-                ) : null
-              }
+                      return;
+                    }
+
+                    trackEvent("locked_feature_continue", {
+                      card_id: selectedCard.id,
+                      feature: "refine_ai"
+                    });
+                    navigation.navigate("Refine");
+                  }}
+                />
+              )}
             </Stack.Screen>
           </>
         ) : null}

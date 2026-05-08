@@ -27,7 +27,7 @@ from app.services.refinement_versions import (
 from app.services.shares import (
     build_share_card_image_url,
     build_share_url,
-    create_or_refresh_card_share,
+    create_or_get_card_share,
 )
 from app.services.storage import delete_card_image, upload_card_image
 from app.services.taste_profiles import get_taste_profile
@@ -260,7 +260,7 @@ def create_or_get_card_share(
             detail="Card not found.",
         )
 
-    share = create_or_refresh_card_share(db, card)
+    share = create_or_get_card_share(db, card)
     db.commit()
     db.refresh(share)
 

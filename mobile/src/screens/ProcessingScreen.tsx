@@ -3,12 +3,13 @@ import { User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { InspirationCard, uploadCard } from "../services/api";
+import { InspirationCard, uploadCard, uploadPreviewCard } from "../services/api";
+import { trackEvent } from "../services/analytics";
 import { ProjectContext } from "../services/projectContext";
 import { theme } from "../theme";
 
 type ProcessingScreenProps = {
-  firebaseUser: User;
+  firebaseUser: User | null;
   imageUri: string;
   mimeType?: string | null;
   onCardCreated: (card: InspirationCard) => void;
@@ -51,14 +52,19 @@ export function ProcessingScreen({
       submittedImageUri.current = imageUri;
 
       try {
-        const idToken = await firebaseUser.getIdToken();
-        const card = await uploadCard({
-          idToken,
-          imageUri,
-          mimeType,
-          projectContext,
-          sourceType
-        });
+        const card = firebaseUser
+          ? await uploadCard({
+              idToken: await firebaseUser.getIdToken(),
+              imageUri,
+              mimeType,
+              projectContext,
+              sourceType
+            })
+          : await uploadPreviewCard({
+              imageUri,
+              mimeType,
+              sourceType
+            });
 
         if (isMounted) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -67,6 +73,7 @@ export function ProcessingScreen({
       } catch {
         if (isMounted) {
           submittedImageUri.current = null;
+          trackEvent("create_failed", { source_type: sourceType });
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           setError("Card generation failed. Check backend storage configuration and try again.");
         }
