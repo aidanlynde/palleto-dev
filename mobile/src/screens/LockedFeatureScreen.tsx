@@ -7,10 +7,46 @@ const refinePreviewSource = require("../../assets/onboarding/refine-preview.mov"
 
 type LockedFeatureScreenProps = {
   buttonLabel?: string;
+  feature: "refine" | "save" | "share";
   onContinue: () => void;
 };
 
-export function LockedFeatureScreen({ buttonLabel = "Continue for now", onContinue }: LockedFeatureScreenProps) {
+const lockedFeatureCopy = {
+  refine: {
+    badge: "Paid feature",
+    title: "Keep building from the first read.",
+    body:
+      "Refinement turns a saved scan into tighter type, sharper applications, and alternate creative directions.",
+    videoTitle: "Refinement preview",
+    videoBody: "Keep pushing a saved card until the direction actually clicks.",
+    chips: ["Sharper type", "New angle", "Project fit"]
+  },
+  save: {
+    badge: "Unlock required",
+    title: "Save this card to your library.",
+    body:
+      "Saving turns the preview scan into a real account-backed card you can revisit, refine, and use in project context.",
+    videoTitle: "Library unlock",
+    videoBody: "Your first scan becomes the start of a reusable visual reference library.",
+    chips: ["Save scan", "Build library", "Use later"]
+  },
+  share: {
+    badge: "Unlock required",
+    title: "Share this card as a live link.",
+    body:
+      "Sharing turns the preview scan into a clean public card page with the image, palette, and creative read attached.",
+    videoTitle: "Share unlock",
+    videoBody: "Send the card as a link once the one-time unlock is active.",
+    chips: ["Public link", "Card preview", "Send anywhere"]
+  }
+};
+
+export function LockedFeatureScreen({
+  buttonLabel = "Continue for now",
+  feature,
+  onContinue
+}: LockedFeatureScreenProps) {
+  const copy = lockedFeatureCopy[feature];
   const refinePreviewPlayer = useVideoPlayer(refinePreviewSource, (player) => {
     player.loop = true;
     player.muted = true;
@@ -21,13 +57,10 @@ export function LockedFeatureScreen({ buttonLabel = "Continue for now", onContin
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.card}>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>Paid feature</Text>
+          <Text style={styles.badgeText}>{copy.badge}</Text>
         </View>
-        <Text style={styles.title}>Keep building from the first read.</Text>
-        <Text style={styles.body}>
-          Refinement turns a saved scan into tighter type, sharper applications, and alternate
-          creative directions. This is where the RevenueCat unlock will live.
-        </Text>
+        <Text style={styles.title}>{copy.title}</Text>
+        <Text style={styles.body}>{copy.body}</Text>
 
         <View style={styles.videoSlot}>
           <VideoView
@@ -39,21 +72,20 @@ export function LockedFeatureScreen({ buttonLabel = "Continue for now", onContin
             style={styles.video}
           />
           <View style={styles.videoOverlay}>
-            <Text style={styles.videoTitle}>Refinement preview</Text>
-            <Text style={styles.videoBody}>
-              Keep pushing a saved card until the direction actually clicks.
-            </Text>
+            <Text style={styles.videoTitle}>{copy.videoTitle}</Text>
+            <Text style={styles.videoBody}>{copy.videoBody}</Text>
           </View>
         </View>
 
         <View style={styles.chipRow}>
-          {["Sharper type", "New angle", "Project fit"].map((chip) => (
+          {copy.chips.map((chip) => (
             <View key={chip} style={styles.chip}>
               <Text style={styles.chipText}>{chip}</Text>
             </View>
           ))}
         </View>
 
+        {/* TODO(RevenueCat): this button is the shared paywall CTA for preview share/save/refine. */}
         <Pressable onPress={onContinue} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
           <Text style={styles.buttonText}>{buttonLabel}</Text>
         </Pressable>

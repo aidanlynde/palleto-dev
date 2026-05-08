@@ -64,6 +64,8 @@ type SelectedImage = {
   uri: string;
 };
 
+type LockedFeatureIntent = "refine" | "save" | "share";
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
@@ -95,6 +97,7 @@ export default function App() {
   const [selectedCard, setSelectedCard] = useState<InspirationCard | null>(null);
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
   const [guestScanStarted, setGuestScanStarted] = useState(false);
+  const [lockedFeatureIntent, setLockedFeatureIntent] = useState<LockedFeatureIntent>("refine");
   const [pendingInitialScan, setPendingInitialScan] = useState(false);
   const [startupWarning, setStartupWarning] = useState<string | null>(null);
 
@@ -212,6 +215,24 @@ export default function App() {
     trackEvent("onboarding_first_scan_requested");
     setGuestScanStarted(true);
     setPendingInitialScan(true);
+  }
+
+  function openLockedFeature(feature: LockedFeatureIntent, source: string) {
+    if (!selectedCard) {
+      return;
+    }
+
+    setLockedFeatureIntent(feature);
+    trackEvent("locked_feature_viewed", {
+      card_id: selectedCard.id,
+      feature,
+      source
+    });
+
+    // TODO(RevenueCat): replace this navigation with the one-time-purchase paywall hook.
+    // Entry points currently funneling here: preview share, preview save, preview refine,
+    // signed-in refine CTA, and any locked CTA inside the refine promo screen.
+    navigationRef.navigate("LockedFeature");
   }
 
   async function handleSaveProject(project: ProjectContextInput) {
@@ -364,7 +385,14 @@ export default function App() {
         )}
         {onboardingComplete || projectContext || guestScanStarted ? (
           <>
-            <Stack.Screen name="Capture" options={{ title: "Capture" }}>
+            <Stack.Screen
+              name="Capture"
+              options={{
+                title: "Capture",
+                gestureEnabled: Boolean(firebaseUser),
+                headerBackVisible: Boolean(firebaseUser)
+              }}
+            >
               {({ navigation }) => (
                 <CaptureScreen
                   onOpenQuickAccess={() => navigation.navigate("QuickAccess")}
@@ -411,7 +439,14 @@ export default function App() {
                 )
               }
             </Stack.Screen>
-            <Stack.Screen name="Result" options={{ title: "Inspiration card" }}>
+            <Stack.Screen
+              name="Result"
+              options={{
+                title: "Inspiration card",
+                gestureEnabled: Boolean(firebaseUser),
+                headerBackVisible: Boolean(firebaseUser)
+              }}
+            >
               {({ navigation }) =>
                 selectedCard ? (
                     <CardResultScreen
@@ -419,17 +454,9 @@ export default function App() {
                       firebaseUser={firebaseUser}
                       isPreview={!firebaseUser || selectedCard.id.startsWith("preview-")}
                       onDone={() => navigation.navigate(firebaseUser ? "Home" : "Auth")}
-                      onLockedAction={(feature) => {
-                        trackEvent("locked_feature_viewed", {
-                          card_id: selectedCard.id,
-                          feature,
-                          source: "preview_result"
-                        });
-                        navigation.navigate("LockedFeature");
-                      }}
+                      onLockedAction={(feature) => openLockedFeature(feature, "preview_result")}
                       onRefine={() => {
-                        trackEvent("locked_feature_viewed", { card_id: selectedCard.id, feature: "refine_ai", source: "result" });
-                        navigation.navigate("LockedFeature");
+                        openLockedFeature("refine", "result");
                       }}
                       onViewLibrary={() => navigation.navigate(firebaseUser ? "Home" : "Auth")}
                     />
@@ -454,8 +481,7 @@ export default function App() {
                         card={selectedCard}
                         firebaseUser={firebaseUser}
                         onRefine={() => {
-                          trackEvent("locked_feature_viewed", { card_id: selectedCard.id, feature: "refine_ai", source: "card_detail" });
-                          navigation.navigate("LockedFeature");
+                          openLockedFeature("refine", "card_detail");
                         }}
                         onDeleted={() => {
                           trackEvent("card_deleted", { card_id: selectedCard.id });
@@ -479,16 +505,23 @@ export default function App() {
                 </Stack.Screen>
               </>
             ) : null}
-            <Stack.Screen name="LockedFeature" options={{ title: "Refine with AI" }}>
+            <Stack.Screen
+              name="LockedFeature"
+              options={{
+                title: lockedFeatureIntent === "refine" ? "Refine with AI" : "Unlock Palleto"
+              }}
+            >
               {({ navigation }) => (
                 <LockedFeatureScreen
                   buttonLabel={firebaseUser ? "Continue for now" : "Sign in to continue"}
+                  feature={lockedFeatureIntent}
                   onContinue={() => {
                     if (!firebaseUser) {
                       trackEvent("locked_feature_sign_in_clicked", {
                         card_id: selectedCard?.id,
-                        feature: "preview_unlock"
+                        feature: lockedFeatureIntent
                       });
+                      // TODO(RevenueCat): this becomes the paywall purchase CTA before auth handoff.
                       navigation.navigate("Auth");
                       return;
                     }
@@ -500,9 +533,16 @@ export default function App() {
 
                     trackEvent("locked_feature_continue", {
                       card_id: selectedCard.id,
-                      feature: "refine_ai"
+                      feature: lockedFeatureIntent
                     });
-                    navigation.navigate("Refine");
+                    if (lockedFeatureIntent === "refine") {
+                      // TODO(RevenueCat): require entitlement before allowing real AI refinement.
+                      navigation.navigate("Refine");
+                      return;
+                    }
+
+                    // TODO(RevenueCat): share/save should unlock here, then resume the original action.
+                    navigation.navigate("Home");
                   }}
                 />
               )}

@@ -299,6 +299,7 @@ Rules:
 - Related links should be specific public webpages that are likely to unfurl with real link preview images: design articles, museum/archive pages, type foundries, brand case studies, editorial references, Are.na channels, Pinterest boards, or other stable inspiration pages.
 - Avoid generic search-result URLs unless no specific page is credible.
 - Do not invent thumbnail URLs. Use thumbnail_url null unless it is a real direct image URL from the source.
+- Search language entries must be human-readable 2-5 word phrases. Never use symbols, wildcards, or single-character queries like *.
 - Keep every text field concise enough for a mobile card.
 
 Return only the structured card.

@@ -1,4 +1,5 @@
 from html.parser import HTMLParser
+import string
 from urllib.parse import quote, urljoin, urlparse
 
 import httpx
@@ -152,14 +153,18 @@ def _looks_invalid_page(url: str, title: str | None, snippet: str) -> bool:
 
 
 def _fallback_links(source_links: list[dict], fallback_queries: list[str]) -> list[dict]:
-    queries = [
-        query.strip()
-        for query in [
-            *fallback_queries,
-            *[str(link.get("title") or "").strip() for link in source_links],
-        ]
-        if query and query.strip()
-    ]
+    queries = []
+    seen_queries: set[str] = set()
+    for raw_query in [
+        *fallback_queries,
+        *[str(link.get("title") or "").strip() for link in source_links],
+    ]:
+        query = _clean_fallback_query(raw_query)
+        if not query or query.lower() in seen_queries:
+            continue
+
+        seen_queries.add(query.lower())
+        queries.append(query)
 
     if not queries:
         queries = ["design inspiration visual reference"]
@@ -177,3 +182,31 @@ def _fallback_links(source_links: list[dict], fallback_queries: list[str]) -> li
         )
 
     return fallback_links
+
+
+def _clean_fallback_query(raw_query: object) -> str | None:
+    query = str(raw_query or "").strip()
+    if not query:
+        return None
+
+    lowered_query = query.lower()
+    for prefix in ["are.na query:", "pinterest query:", "google images:", "search:"]:
+        if lowered_query.startswith(prefix):
+            query = query[len(prefix) :].strip()
+            lowered_query = query.lower()
+            break
+
+    if lowered_query in {
+        "*",
+        "related inspiration",
+        "search this visual direction",
+        "open reference",
+    }:
+        return None
+
+    alphanumeric_count = sum(character.isalnum() for character in query)
+    punctuation_count = sum(character in string.punctuation for character in query)
+    if alphanumeric_count < 3 or punctuation_count >= max(2, alphanumeric_count):
+        return None
+
+    return " ".join(query.split())
