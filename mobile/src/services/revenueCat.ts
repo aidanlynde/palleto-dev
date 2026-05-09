@@ -6,7 +6,7 @@ import Purchases, {
 } from "react-native-purchases";
 import RevenueCatUI, { CustomVariableValue, PAYWALL_RESULT } from "react-native-purchases-ui";
 
-export const REVENUECAT_API_KEY = "test_VLmIuwMvFHiyryHFJWSQakHVWJF";
+export const REVENUECAT_API_KEY = "appl_JkdnqsqxmLkGZZEWUueTGywEISa";
 export const PALLETO_PRO_ENTITLEMENT_ID = "Palleto Pro";
 export const LIFETIME_PRODUCT_ID = "lifetime";
 
