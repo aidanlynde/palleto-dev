@@ -95,8 +95,8 @@ RevenueCat dashboard setup required:
 1. Create or open the Palleto RevenueCat project.
 2. Add the app/store connection you are testing with. For early testing, RevenueCat Test Store can work; for TestFlight/App Store, connect the Apple app.
 3. Create an entitlement with identifier exactly `Palleto Pro`.
-4. Create a lifetime product with identifier exactly `lifetime`.
-5. Attach `lifetime` to the `Palleto Pro` entitlement.
+4. Create a lifetime product with identifier exactly `lifetime_founding_sub`.
+5. Attach `lifetime_founding_sub` to the `Palleto Pro` entitlement.
 6. Create an Offering and add the lifetime package/product to it.
 7. Create and attach a RevenueCat Paywall to that Offering.
 8. Configure Customer Center in RevenueCat if the account plan supports it.

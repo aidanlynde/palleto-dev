@@ -8,7 +8,7 @@ import RevenueCatUI, { CustomVariableValue, PAYWALL_RESULT } from "react-native-
 
 export const REVENUECAT_API_KEY = "appl_JkdnqsqxmLkGZZEWUueTGywEISa";
 export const PALLETO_PRO_ENTITLEMENT_ID = "Palleto Pro";
-export const LIFETIME_PRODUCT_ID = "lifetime";
+export const LIFETIME_PRODUCT_ID = "lifetime_founding_sub";
 
 let isConfigured = false;
 let identifiedAppUserId: string | null = null;
