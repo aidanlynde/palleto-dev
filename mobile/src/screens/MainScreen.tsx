@@ -2,6 +2,7 @@ import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { CustomerInfo } from "react-native-purchases";
 
 import { InspirationCard } from "../services/api";
 import { ProjectContext } from "../services/projectContext";
@@ -10,8 +11,12 @@ import { LibraryScreen } from "./LibraryScreen";
 import { ProfileScreen } from "./ProfileScreen";
 
 type MainScreenProps = {
+  customerInfo: CustomerInfo | null;
   firebaseUser: User;
+  isPalletoProActive: boolean;
   onEditProject: () => void;
+  onOpenCustomerCenter: () => void;
+  onRestorePurchases: () => void;
   onScan: () => void;
   onSelectCard: (card: InspirationCard) => void;
   projectContext: ProjectContext | null;
@@ -20,8 +25,12 @@ type MainScreenProps = {
 type Tab = "library" | "profile";
 
 export function MainScreen({
+  customerInfo,
   firebaseUser,
+  isPalletoProActive,
   onEditProject,
+  onOpenCustomerCenter,
+  onRestorePurchases,
   onScan,
   onSelectCard,
   projectContext
@@ -46,8 +55,12 @@ export function MainScreen({
           />
         ) : (
           <ProfileScreen
+            customerInfo={customerInfo}
             firebaseUser={firebaseUser}
+            isPalletoProActive={isPalletoProActive}
             onEditProject={onEditProject}
+            onOpenCustomerCenter={onOpenCustomerCenter}
+            onRestorePurchases={onRestorePurchases}
             projectContext={projectContext}
           />
         )}

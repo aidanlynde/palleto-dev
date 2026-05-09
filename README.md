@@ -73,6 +73,40 @@ npm run start:dev-client
 
 The development build uses `mobile/eas.json` and the Firebase native config files in `mobile/`.
 
+## RevenueCat
+
+The mobile app uses RevenueCat for the paid Palleto Pro unlock.
+
+Installed packages:
+
+```bash
+cd mobile
+npm install --save react-native-purchases react-native-purchases-ui
+```
+
+Code entry points:
+
+- `mobile/src/services/revenueCat.ts` configures the SDK with the public API key, tracks `CustomerInfo`, checks the `Palleto Pro` entitlement, presents the RevenueCat paywall, restores purchases, and opens Customer Center.
+- `mobile/App.tsx` initializes RevenueCat once, identifies Firebase users with `Purchases.logIn(firebaseUser.uid)`, listens for `CustomerInfo` updates, and gates Share/Save/Refine through the paywall.
+- `mobile/src/screens/ProfileScreen.tsx` exposes restore purchases and Customer Center.
+
+RevenueCat dashboard setup required:
+
+1. Create or open the Palleto RevenueCat project.
+2. Add the app/store connection you are testing with. For early testing, RevenueCat Test Store can work; for TestFlight/App Store, connect the Apple app.
+3. Create an entitlement with identifier exactly `Palleto Pro`.
+4. Create a lifetime product with identifier exactly `lifetime`.
+5. Attach `lifetime` to the `Palleto Pro` entitlement.
+6. Create an Offering and add the lifetime package/product to it.
+7. Create and attach a RevenueCat Paywall to that Offering.
+8. Configure Customer Center in RevenueCat if the account plan supports it.
+
+Native build notes:
+
+- RevenueCat native modules do not work in Expo Go for real purchases. Use an EAS development or production build.
+- iOS TestFlight/App Store purchase testing requires the In-App Purchase capability and an App Store Connect in-app purchase matching the RevenueCat product.
+- Android purchase testing requires a Google Play product matching the RevenueCat product.
+
 ## Environment
 
 Root `.env.example` contains shared development defaults. Each app also has a local example file:

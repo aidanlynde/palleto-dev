@@ -8,6 +8,7 @@ const refinePreviewSource = require("../../assets/onboarding/refine-preview.mov"
 type LockedFeatureScreenProps = {
   buttonLabel?: string;
   feature: "refine" | "save" | "share";
+  isLoading?: boolean;
   onContinue: () => void;
 };
 
@@ -44,6 +45,7 @@ const lockedFeatureCopy = {
 export function LockedFeatureScreen({
   buttonLabel = "Continue for now",
   feature,
+  isLoading,
   onContinue
 }: LockedFeatureScreenProps) {
   const copy = lockedFeatureCopy[feature];
@@ -85,9 +87,16 @@ export function LockedFeatureScreen({
           ))}
         </View>
 
-        {/* TODO(RevenueCat): this button is the shared paywall CTA for preview share/save/refine. */}
-        <Pressable onPress={onContinue} style={({ pressed }) => [styles.button, pressed && styles.pressed]}>
-          <Text style={styles.buttonText}>{buttonLabel}</Text>
+        <Pressable
+          disabled={isLoading}
+          onPress={onContinue}
+          style={({ pressed }) => [
+            styles.button,
+            pressed && styles.pressed,
+            isLoading && styles.disabled
+          ]}
+        >
+          <Text style={styles.buttonText}>{isLoading ? "Opening..." : buttonLabel}</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -199,5 +208,8 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.72
+  },
+  disabled: {
+    opacity: 0.5
   }
 });

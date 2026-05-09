@@ -8,6 +8,8 @@ import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { useEffect, useState } from "react";
+import { Alert } from "react-native";
+import { CustomerInfo } from "react-native-purchases";
 
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { CaptureScreen } from "./src/screens/CaptureScreen";
@@ -41,6 +43,15 @@ import {
   ProjectContext,
   ProjectContextInput
 } from "./src/services/projectContext";
+import {
+  configureRevenueCat,
+  hasPalletoPro,
+  identifyRevenueCatUser,
+  presentPalletoProPaywall,
+  presentRevenueCatCustomerCenter,
+  restoreRevenueCatPurchases,
+  subscribeToCustomerInfo
+} from "./src/services/revenueCat";
 import { theme } from "./src/theme";
 
 export type RootStackParamList = {
@@ -98,6 +109,8 @@ export default function App() {
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
   const [guestScanStarted, setGuestScanStarted] = useState(false);
   const [lockedFeatureIntent, setLockedFeatureIntent] = useState<LockedFeatureIntent>("refine");
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
+  const [isPaywallLoading, setIsPaywallLoading] = useState(false);
   const [pendingInitialScan, setPendingInitialScan] = useState(false);
   const [startupWarning, setStartupWarning] = useState<string | null>(null);
 
@@ -111,6 +124,45 @@ export default function App() {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    configureRevenueCat()
+      .then((nextCustomerInfo) => {
+        if (isMounted && nextCustomerInfo) {
+          setCustomerInfo(nextCustomerInfo);
+        }
+      })
+      .catch((error) => {
+        console.warn("Failed to configure RevenueCat", error);
+      });
+
+    const unsubscribe = subscribeToCustomerInfo((nextCustomerInfo) => {
+      setCustomerInfo(nextCustomerInfo);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+
+    identifyRevenueCatUser(firebaseUser?.uid ?? null)
+      .then((nextCustomerInfo) => {
+        if (nextCustomerInfo) {
+          setCustomerInfo(nextCustomerInfo);
+        }
+      })
+      .catch((error) => {
+        console.warn("Failed to identify RevenueCat user", error);
+      });
+  }, [firebaseUser, isAuthReady]);
 
   useEffect(() => {
     async function loadOnboardingState() {
@@ -229,10 +281,84 @@ export default function App() {
       source
     });
 
-    // TODO(RevenueCat): replace this navigation with the one-time-purchase paywall hook.
-    // Entry points currently funneling here: preview share, preview save, preview refine,
-    // signed-in refine CTA, and any locked CTA inside the refine promo screen.
     navigationRef.navigate("LockedFeature");
+  }
+
+  async function handleLockedFeatureContinue(navigate: (screen: keyof RootStackParamList) => void) {
+    if (isPaywallLoading) {
+      return;
+    }
+
+    try {
+      setIsPaywallLoading(true);
+      trackEvent("paywall_opened", {
+        card_id: selectedCard?.id,
+        feature: lockedFeatureIntent
+      });
+
+      const outcome = await presentPalletoProPaywall(lockedFeatureIntent);
+      if (outcome.customerInfo) {
+        setCustomerInfo(outcome.customerInfo);
+      }
+
+      trackEvent("paywall_result", {
+        feature: lockedFeatureIntent,
+        result: outcome.result,
+        unlocked: outcome.unlocked
+      });
+
+      if (!outcome.unlocked) {
+        return;
+      }
+
+      if (!firebaseUser) {
+        navigate("Auth");
+        return;
+      }
+
+      if (!selectedCard) {
+        navigate("Home");
+        return;
+      }
+
+      if (lockedFeatureIntent === "refine") {
+        navigate("Refine");
+        return;
+      }
+
+      navigate("Home");
+    } catch (error) {
+      console.warn("RevenueCat paywall failed", error);
+      trackEvent("paywall_failed", { feature: lockedFeatureIntent });
+      Alert.alert("Purchase unavailable", "We could not open the paywall. Try again in a moment.");
+    } finally {
+      setIsPaywallLoading(false);
+    }
+  }
+
+  async function handleRestorePurchases() {
+    try {
+      const restoredCustomerInfo = await restoreRevenueCatPurchases();
+      setCustomerInfo(restoredCustomerInfo);
+      Alert.alert(
+        hasPalletoPro(restoredCustomerInfo) ? "Purchases restored" : "No active purchase found",
+        hasPalletoPro(restoredCustomerInfo)
+          ? "Palleto Pro is active on this account."
+          : "RevenueCat did not find an active Palleto Pro entitlement."
+      );
+    } catch (error) {
+      console.warn("RevenueCat restore failed", error);
+      Alert.alert("Restore failed", "Try again in a moment.");
+    }
+  }
+
+  async function handleOpenCustomerCenter() {
+    try {
+      await presentRevenueCatCustomerCenter();
+    } catch (error) {
+      console.warn("RevenueCat Customer Center failed", error);
+      Alert.alert("Manage purchases unavailable", "Try again in a moment.");
+    }
   }
 
   async function handleSaveProject(project: ProjectContextInput) {
@@ -367,8 +493,12 @@ export default function App() {
           <Stack.Screen name="Home" options={{ title: "Palleto" }}>
             {({ navigation }) => (
               <MainScreen
+                customerInfo={customerInfo}
                 firebaseUser={firebaseUser}
+                isPalletoProActive={hasPalletoPro(customerInfo)}
                 onEditProject={() => navigation.navigate("ProjectIntake")}
+                onOpenCustomerCenter={handleOpenCustomerCenter}
+                onRestorePurchases={handleRestorePurchases}
                 onScan={() => {
                   trackEvent("capture_opened", { source: "home_scan_button" });
                   navigation.navigate("Capture");
@@ -479,10 +609,16 @@ export default function App() {
                     <CardResultScreen
                       card={selectedCard}
                       firebaseUser={firebaseUser}
+                      isPalletoProActive={hasPalletoPro(customerInfo)}
                       isPreview={!firebaseUser || selectedCard.id.startsWith("preview-")}
                       onDone={() => navigation.navigate(firebaseUser ? "Home" : "Auth")}
                       onLockedAction={(feature) => openLockedFeature(feature, "preview_result")}
                       onRefine={() => {
+                        if (hasPalletoPro(customerInfo)) {
+                          navigation.navigate("Refine");
+                          return;
+                        }
+
                         openLockedFeature("refine", "result");
                       }}
                       onViewLibrary={() => navigation.navigate(firebaseUser ? "Home" : "Auth")}
@@ -507,8 +643,10 @@ export default function App() {
                       <CardDetailScreen
                         card={selectedCard}
                         firebaseUser={firebaseUser}
+                        isPalletoProActive={hasPalletoPro(customerInfo)}
+                        onLockedAction={(feature) => openLockedFeature(feature, "card_detail")}
                         onRefine={() => {
-                          openLockedFeature("refine", "card_detail");
+                          navigation.navigate("Refine");
                         }}
                         onDeleted={() => {
                           trackEvent("card_deleted", { card_id: selectedCard.id });
@@ -540,37 +678,10 @@ export default function App() {
             >
               {({ navigation }) => (
                 <LockedFeatureScreen
-                  buttonLabel={firebaseUser ? "Continue for now" : "Sign in to continue"}
+                  buttonLabel={hasPalletoPro(customerInfo) ? "Continue" : "Unlock Palleto Pro"}
                   feature={lockedFeatureIntent}
-                  onContinue={() => {
-                    if (!firebaseUser) {
-                      trackEvent("locked_feature_sign_in_clicked", {
-                        card_id: selectedCard?.id,
-                        feature: lockedFeatureIntent
-                      });
-                      // TODO(RevenueCat): this becomes the paywall purchase CTA before auth handoff.
-                      navigation.navigate("Auth");
-                      return;
-                    }
-
-                    if (!selectedCard) {
-                      navigation.navigate("Home");
-                      return;
-                    }
-
-                    trackEvent("locked_feature_continue", {
-                      card_id: selectedCard.id,
-                      feature: lockedFeatureIntent
-                    });
-                    if (lockedFeatureIntent === "refine") {
-                      // TODO(RevenueCat): require entitlement before allowing real AI refinement.
-                      navigation.navigate("Refine");
-                      return;
-                    }
-
-                    // TODO(RevenueCat): share/save should unlock here, then resume the original action.
-                    navigation.navigate("Home");
-                  }}
+                  isLoading={isPaywallLoading}
+                  onContinue={() => handleLockedFeatureContinue(navigation.navigate)}
                 />
               )}
             </Stack.Screen>

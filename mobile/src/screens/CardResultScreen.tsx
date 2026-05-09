@@ -16,6 +16,7 @@ type RelatedLink = InspirationCard["related_links"][number];
 type CardResultScreenProps = {
   card: InspirationCard;
   firebaseUser: User | null;
+  isPalletoProActive?: boolean;
   isPreview?: boolean;
   onDone: () => void;
   onLockedAction?: (feature: "refine" | "save" | "share") => void;
@@ -26,6 +27,7 @@ type CardResultScreenProps = {
 export function CardResultScreen({
   card,
   firebaseUser,
+  isPalletoProActive,
   isPreview,
   onDone,
   onLockedAction,
@@ -33,7 +35,7 @@ export function CardResultScreen({
   onViewLibrary
 }: CardResultScreenProps) {
   async function shareCard() {
-    if (isPreview || !firebaseUser) {
+    if (isPreview || !firebaseUser || !isPalletoProActive) {
       onLockedAction?.("share");
       return;
     }
@@ -59,7 +61,7 @@ export function CardResultScreen({
         <Pressable
           style={styles.secondaryButton}
           onPress={() => {
-            if (isPreview || !firebaseUser) {
+            if (isPreview || !firebaseUser || !isPalletoProActive) {
               onLockedAction?.("refine");
               return;
             }
@@ -238,17 +240,26 @@ export function CardDetail({ card }: { card: InspirationCard }) {
 export function CardDetailScreen({
   card,
   firebaseUser,
+  isPalletoProActive,
+  onLockedAction,
   onRefine,
   onDeleted
 }: {
   card: InspirationCard;
   firebaseUser: User;
+  isPalletoProActive?: boolean;
+  onLockedAction?: (feature: "refine" | "share") => void;
   onRefine: () => void;
   onDeleted: () => void;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   async function shareCard() {
+    if (!isPalletoProActive) {
+      onLockedAction?.("share");
+      return;
+    }
+
     trackEvent("share_clicked", { card_id: card.id, source: "card_detail" });
     try {
       await shareCardFromApi(firebaseUser, card.id, card.title);
@@ -294,7 +305,14 @@ export function CardDetailScreen({
         <Text style={styles.primaryButtonText}>Share card</Text>
       </Pressable>
       <Pressable
-        onPress={onRefine}
+        onPress={() => {
+          if (!isPalletoProActive) {
+            onLockedAction?.("refine");
+            return;
+          }
+
+          onRefine();
+        }}
         style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
       >
         <Text style={styles.secondaryButtonText}>Refine with AI</Text>

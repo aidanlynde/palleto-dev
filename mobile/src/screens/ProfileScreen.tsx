@@ -1,6 +1,7 @@
 import { signOut, User } from "firebase/auth";
 import { useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { CustomerInfo } from "react-native-purchases";
 
 import { getMe, UserProfile } from "../services/api";
 import { firebaseAuth } from "../services/firebase";
@@ -8,12 +9,24 @@ import { ProjectContext } from "../services/projectContext";
 import { theme } from "../theme";
 
 type ProfileScreenProps = {
+  customerInfo: CustomerInfo | null;
   firebaseUser: User;
+  isPalletoProActive: boolean;
   onEditProject: () => void;
+  onOpenCustomerCenter: () => void;
+  onRestorePurchases: () => void;
   projectContext: ProjectContext | null;
 };
 
-export function ProfileScreen({ firebaseUser, onEditProject, projectContext }: ProfileScreenProps) {
+export function ProfileScreen({
+  customerInfo,
+  firebaseUser,
+  isPalletoProActive,
+  onEditProject,
+  onOpenCustomerCenter,
+  onRestorePurchases,
+  projectContext
+}: ProfileScreenProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [statusText, setStatusText] = useState("Syncing your profile...");
 
@@ -96,6 +109,27 @@ export function ProfileScreen({ firebaseUser, onEditProject, projectContext }: P
           </Pressable>
         </View>
       )}
+
+      <View style={styles.panel}>
+        <Text style={styles.panelLabel}>Palleto Pro</Text>
+        <Text style={styles.projectTitle}>{isPalletoProActive ? "Unlocked" : "Not unlocked yet"}</Text>
+        <Text style={styles.projectDescription}>
+          {isPalletoProActive
+            ? "Your account has the Palleto Pro entitlement."
+            : "Unlock Palleto Pro with the lifetime purchase to use paid actions."}
+        </Text>
+        <Text style={styles.projectMeta}>
+          RevenueCat user: {customerInfo?.originalAppUserId ?? "Loading..."}
+        </Text>
+        <View style={styles.inlineButtonRow}>
+          <Pressable style={styles.inlineButton} onPress={onRestorePurchases}>
+            <Text style={styles.inlineButtonText}>Restore purchases</Text>
+          </Pressable>
+          <Pressable style={styles.inlineButton} onPress={onOpenCustomerCenter}>
+            <Text style={styles.inlineButtonText}>Manage purchases</Text>
+          </Pressable>
+        </View>
+      </View>
 
       <View style={styles.panel}>
         <Text style={styles.panelLabel}>Signed in as</Text>
@@ -201,6 +235,9 @@ const styles = StyleSheet.create({
   inlineButton: {
     alignSelf: "flex-start",
     marginTop: theme.spacing.xs
+  },
+  inlineButtonRow: {
+    gap: theme.spacing.sm
   },
   inlineButtonText: {
     color: theme.colors.textPrimary,
