@@ -50,7 +50,10 @@ async def create_public_card_preview(
         image_url=image_url,
         project_context=None,
     )
-    card_payload["related_links"] = enrich_related_links(card_payload["related_links"])
+    card_payload["related_links"] = enrich_related_links(
+        card_payload["related_links"],
+        fallback_queries=card_payload.get("search_language", []),
+    )
     created_at = datetime.now(UTC)
 
     return {

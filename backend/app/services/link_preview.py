@@ -1,6 +1,6 @@
 from html.parser import HTMLParser
 import string
-from urllib.parse import quote, urljoin, urlparse
+from urllib.parse import parse_qs, quote, unquote, urljoin, urlparse
 
 import httpx
 
@@ -74,15 +74,25 @@ def enrich_related_links(
 
 
 def _enrich_link(link: dict) -> dict | None:
-    preview = _fetch_preview(link.get("url"))
+    original_url = _clean_url(link.get("url"))
+    if not original_url:
+        return None
+
+    preview = _fetch_preview(original_url)
     if not preview:
+        return None
+
+    title = _clean_fallback_query(preview.get("title")) or _clean_fallback_query(link.get("title"))
+    if not title:
         return None
 
     return {
         **link,
-        "url": preview.get("url") or link.get("url"),
+        "provider": _clean_provider(link.get("provider"), preview.get("url") or original_url),
+        "reason": _clean_reason(link.get("reason")),
+        "url": preview.get("url") or original_url,
         "thumbnail_url": preview.get("image") or None,
-        "title": preview.get("title") or link.get("title"),
+        "title": title,
     }
 
 
@@ -158,6 +168,7 @@ def _fallback_links(source_links: list[dict], fallback_queries: list[str]) -> li
     for raw_query in [
         *fallback_queries,
         *[str(link.get("title") or "").strip() for link in source_links],
+        *[_search_query_from_url(link.get("url")) for link in source_links],
     ]:
         query = _clean_fallback_query(raw_query)
         if not query or query.lower() in seen_queries:
@@ -174,7 +185,7 @@ def _fallback_links(source_links: list[dict], fallback_queries: list[str]) -> li
         fallback_links.append(
             {
                 "provider": "Are.na",
-                "reason": "Fallback visual search lane based on this direction.",
+                "reason": "Visual search lane based on this scan.",
                 "thumbnail_url": None,
                 "title": query,
                 "url": f"https://www.are.na/search?q={quote(query)}",
@@ -185,7 +196,7 @@ def _fallback_links(source_links: list[dict], fallback_queries: list[str]) -> li
 
 
 def _clean_fallback_query(raw_query: object) -> str | None:
-    query = str(raw_query or "").strip()
+    query = unquote(str(raw_query or "")).strip()
     if not query:
         return None
 
@@ -196,12 +207,21 @@ def _clean_fallback_query(raw_query: object) -> str | None:
             lowered_query = query.lower()
             break
 
+    if "q=*" in lowered_query or "q=%2a" in lowered_query:
+        return None
+
     if lowered_query in {
         "*",
+        "-",
+        "—",
         "related inspiration",
         "search this visual direction",
         "open reference",
+        "placeholder",
     }:
+        return None
+
+    if lowered_query.startswith("are.na") and "*" in lowered_query:
         return None
 
     alphanumeric_count = sum(character.isalnum() for character in query)
@@ -210,3 +230,54 @@ def _clean_fallback_query(raw_query: object) -> str | None:
         return None
 
     return " ".join(query.split())
+
+
+def _clean_url(raw_url: object) -> str | None:
+    url = str(raw_url or "").strip()
+    if not url:
+        return None
+
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return None
+
+    return url
+
+
+def _clean_provider(raw_provider: object, url: str) -> str:
+    provider = str(raw_provider or "").strip()
+    if provider and provider.lower() not in {"placeholder", "unknown"}:
+        return provider
+
+    host = urlparse(url).netloc.replace("www.", "")
+    if "are.na" in host:
+        return "Are.na"
+    if "pinterest" in host:
+        return "Pinterest"
+    if "behance" in host:
+        return "Behance"
+    if "google" in host:
+        return "Google Images"
+
+    return host or "Reference"
+
+
+def _clean_reason(raw_reason: object) -> str | None:
+    reason = str(raw_reason or "").strip()
+    if not reason or "fallback" in reason.lower() or reason.lower() == "placeholder":
+        return None
+
+    return reason
+
+
+def _search_query_from_url(raw_url: object) -> str | None:
+    url = _clean_url(raw_url)
+    if not url:
+        return None
+
+    parsed = urlparse(url)
+    query_values = parse_qs(parsed.query).get("q")
+    if not query_values:
+        return None
+
+    return query_values[0]

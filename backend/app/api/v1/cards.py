@@ -27,7 +27,7 @@ from app.services.refinement_versions import (
 from app.services.shares import (
     build_share_card_image_url,
     build_share_url,
-    create_or_get_card_share,
+    create_or_get_card_share as create_or_get_card_share_record,
 )
 from app.services.storage import delete_card_image, upload_card_image
 from app.services.taste_profiles import get_taste_profile
@@ -146,7 +146,8 @@ def list_card_refinements(
 
     for refinement in refinements:
         refinement.refined_card["related_links"] = enrich_related_links(
-            refinement.refined_card["related_links"]
+            refinement.refined_card["related_links"],
+            fallback_queries=refinement.refined_card.get("search_language", []),
         )
 
     return [
@@ -204,7 +205,10 @@ def create_card_refinement(
         instruction=payload.instruction,
         project_context=project_context,
     )
-    refined_card["related_links"] = enrich_related_links(refined_card["related_links"])
+    refined_card["related_links"] = enrich_related_links(
+        refined_card["related_links"],
+        fallback_queries=refined_card.get("search_language", []),
+    )
     changed_sections = diff_changed_sections(base_card=base_card, refined_card=refined_card)
     summary = summarize_refinement(
         instruction=payload.instruction,
@@ -260,7 +264,7 @@ def create_or_get_card_share(
             detail="Card not found.",
         )
 
-    share = create_or_get_card_share(db, card)
+    share = create_or_get_card_share_record(db, card)
     db.commit()
     db.refresh(share)
 
@@ -331,5 +335,8 @@ def _resolve_project_context(
 
 
 def _refresh_card_related_links(card: Card) -> Card:
-    card.related_links = enrich_related_links(card.related_links)
+    card.related_links = enrich_related_links(
+        card.related_links,
+        fallback_queries=card.search_language,
+    )
     return card
