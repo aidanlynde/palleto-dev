@@ -111,6 +111,9 @@ export default function App() {
   const [lockedFeatureIntent, setLockedFeatureIntent] = useState<LockedFeatureIntent>("refine");
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [isPaywallLoading, setIsPaywallLoading] = useState(false);
+  const [authRequestedFromLanding, setAuthRequestedFromLanding] = useState(false);
+  const [revenueCatUserId, setRevenueCatUserId] = useState<string | null>(null);
+  const [landingAuthPaywallUserId, setLandingAuthPaywallUserId] = useState<string | null>(null);
   const [pendingInitialScan, setPendingInitialScan] = useState(false);
   const [startupWarning, setStartupWarning] = useState<string | null>(null);
 
@@ -158,11 +161,42 @@ export default function App() {
         if (nextCustomerInfo) {
           setCustomerInfo(nextCustomerInfo);
         }
+        setRevenueCatUserId(firebaseUser?.uid ?? null);
       })
       .catch((error) => {
         console.warn("Failed to identify RevenueCat user", error);
       });
   }, [firebaseUser, isAuthReady]);
+
+  useEffect(() => {
+    if (!firebaseUser) {
+      setLandingAuthPaywallUserId(null);
+      return;
+    }
+
+    if (!authRequestedFromLanding || revenueCatUserId !== firebaseUser.uid) {
+      return;
+    }
+
+    if (hasPalletoPro(customerInfo)) {
+      setAuthRequestedFromLanding(false);
+      return;
+    }
+
+    if (landingAuthPaywallUserId === firebaseUser.uid || isPaywallLoading) {
+      return;
+    }
+
+    setLandingAuthPaywallUserId(firebaseUser.uid);
+    openAccountPaywallAfterAuth();
+  }, [
+    authRequestedFromLanding,
+    customerInfo,
+    firebaseUser,
+    isPaywallLoading,
+    landingAuthPaywallUserId,
+    revenueCatUserId
+  ]);
 
   useEffect(() => {
     async function loadOnboardingState() {
@@ -269,6 +303,11 @@ export default function App() {
     setPendingInitialScan(true);
   }
 
+  function startLandingSignIn() {
+    trackEvent("landing_existing_account_clicked");
+    setAuthRequestedFromLanding(true);
+  }
+
   function openLockedFeature(feature: LockedFeatureIntent, source: string) {
     if (!selectedCard) {
       return;
@@ -330,6 +369,36 @@ export default function App() {
     } catch (error) {
       console.warn("RevenueCat paywall failed", error);
       trackEvent("paywall_failed", { feature: lockedFeatureIntent });
+      Alert.alert("Purchase unavailable", "We could not open the paywall. Try again in a moment.");
+    } finally {
+      setIsPaywallLoading(false);
+    }
+  }
+
+  async function openAccountPaywallAfterAuth() {
+    try {
+      setIsPaywallLoading(true);
+      trackEvent("paywall_opened", {
+        feature: "landing_auth"
+      });
+
+      const outcome = await presentPalletoProPaywall("save");
+      if (outcome.customerInfo) {
+        setCustomerInfo(outcome.customerInfo);
+      }
+
+      trackEvent("paywall_result", {
+        feature: "landing_auth",
+        result: outcome.result,
+        unlocked: outcome.unlocked
+      });
+
+      if (outcome.unlocked) {
+        setAuthRequestedFromLanding(false);
+      }
+    } catch (error) {
+      console.warn("RevenueCat landing auth paywall failed", error);
+      trackEvent("paywall_failed", { feature: "landing_auth" });
       Alert.alert("Purchase unavailable", "We could not open the paywall. Try again in a moment.");
     } finally {
       setIsPaywallLoading(false);
@@ -464,6 +533,8 @@ export default function App() {
           <Stack.Screen name="Splash" options={{ headerShown: false }}>
             {() => <SplashScreen detail={splashDetail} warning={startupWarning} />}
           </Stack.Screen>
+        ) : authRequestedFromLanding && !firebaseUser ? (
+          <Stack.Screen name="Auth" component={AuthScreen} options={{ title: "Sign in" }} />
         ) : firebaseUser && guestScanStarted && !onboardingComplete && !projectContext ? (
           <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
             {() => (
@@ -485,6 +556,7 @@ export default function App() {
             {() => (
               <OnboardingScreen
                 onComplete={finishOnboarding}
+                onSignInPress={startLandingSignIn}
                 onStartFirstScan={startFirstScanOnboarding}
               />
             )}

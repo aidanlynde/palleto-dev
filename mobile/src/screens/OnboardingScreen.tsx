@@ -27,6 +27,7 @@ const refinePreviewSource = require("../../assets/onboarding/refine-preview.mov"
 type OnboardingScreenProps = {
   initialStep?: number;
   onComplete: (surveyAnswers: OnboardingSurveyAnswers) => void;
+  onSignInPress?: () => void;
   onStartFirstScan?: () => void;
   onSkip?: () => void;
 };
@@ -118,6 +119,7 @@ const koiImageUrl = Image.resolveAssetSource(koiImageSource).uri;
 export function OnboardingScreen({
   initialStep = 0,
   onComplete,
+  onSignInPress,
   onSkip,
   onStartFirstScan
 }: OnboardingScreenProps) {
@@ -241,7 +243,7 @@ export function OnboardingScreen({
       <View style={styles.landingFallback}>
         {showLandingVideo ? <LandingLoopBackground /> : null}
         <View style={styles.heroScrim}>
-          <TopRow onSkip={onSkip} />
+          <TopRow onSignInPress={onSignInPress} onSkip={onSkip} />
           <View style={styles.heroContent}>
             <Image
               source={require("../../assets/brand/palleto-logo-transparent.png")}
@@ -394,11 +396,24 @@ function LandingLoopBackground() {
   );
 }
 
-function TopRow({ onSkip }: { onSkip?: () => void }) {
+function TopRow({
+  onSignInPress,
+  onSkip
+}: {
+  onSignInPress?: () => void;
+  onSkip?: () => void;
+}) {
   return (
     <View style={styles.topRow}>
       <View />
-      {onSkip ? (
+      {onSignInPress ? (
+        <Pressable
+          onPress={onSignInPress}
+          style={({ pressed }) => [styles.signInButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.signInButtonText}>Already have an account?</Text>
+        </Pressable>
+      ) : onSkip ? (
         <Pressable onPress={onSkip} style={({ pressed }) => [styles.skipButton, pressed && styles.pressed]}>
           <Text style={styles.skipButtonText}>Skip</Text>
         </Pressable>
@@ -958,6 +973,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center"
+  },
+  signInButton: {
+    paddingVertical: theme.spacing.xs
+  },
+  signInButtonText: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "800"
   },
   skipButton: {
     paddingVertical: theme.spacing.xs,
