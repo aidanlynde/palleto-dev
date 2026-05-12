@@ -76,6 +76,7 @@ type SelectedImage = {
 };
 
 type LockedFeatureIntent = "refine" | "save" | "share";
+type PendingAuthDestination = "landing" | LockedFeatureIntent;
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
@@ -112,10 +113,14 @@ export default function App() {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
   const [isPaywallLoading, setIsPaywallLoading] = useState(false);
   const [authRequestedFromLanding, setAuthRequestedFromLanding] = useState(false);
+  const [pendingAuthDestination, setPendingAuthDestination] = useState<PendingAuthDestination | null>(null);
   const [revenueCatUserId, setRevenueCatUserId] = useState<string | null>(null);
-  const [landingAuthPaywallUserId, setLandingAuthPaywallUserId] = useState<string | null>(null);
+  const [pendingPaywallUserKey, setPendingPaywallUserKey] = useState<string | null>(null);
   const [pendingInitialScan, setPendingInitialScan] = useState(false);
   const [startupWarning, setStartupWarning] = useState<string | null>(null);
+  const isPalletoProActive = Boolean(
+    firebaseUser && revenueCatUserId === firebaseUser.uid && hasPalletoPro(customerInfo)
+  );
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
@@ -170,31 +175,33 @@ export default function App() {
 
   useEffect(() => {
     if (!firebaseUser) {
-      setLandingAuthPaywallUserId(null);
+      setPendingPaywallUserKey(null);
       return;
     }
 
-    if (!authRequestedFromLanding || revenueCatUserId !== firebaseUser.uid) {
+    if (!pendingAuthDestination || revenueCatUserId !== firebaseUser.uid) {
       return;
     }
 
-    if (hasPalletoPro(customerInfo)) {
-      setAuthRequestedFromLanding(false);
+    if (isPalletoProActive) {
+      completePendingAuthDestination(pendingAuthDestination);
       return;
     }
 
-    if (landingAuthPaywallUserId === firebaseUser.uid || isPaywallLoading) {
+    const nextPaywallUserKey = `${firebaseUser.uid}:${pendingAuthDestination}`;
+    if (pendingPaywallUserKey === nextPaywallUserKey || isPaywallLoading) {
       return;
     }
 
-    setLandingAuthPaywallUserId(firebaseUser.uid);
-    openAccountPaywallAfterAuth();
+    setPendingPaywallUserKey(nextPaywallUserKey);
+    openPaywallAfterAuth(pendingAuthDestination);
   }, [
-    authRequestedFromLanding,
     customerInfo,
     firebaseUser,
+    isPalletoProActive,
     isPaywallLoading,
-    landingAuthPaywallUserId,
+    pendingAuthDestination,
+    pendingPaywallUserKey,
     revenueCatUserId
   ]);
 
@@ -305,6 +312,7 @@ export default function App() {
 
   function startLandingSignIn() {
     trackEvent("landing_existing_account_clicked");
+    setPendingAuthDestination("landing");
     setAuthRequestedFromLanding(true);
   }
 
@@ -325,6 +333,17 @@ export default function App() {
 
   async function handleLockedFeatureContinue(navigate: (screen: keyof RootStackParamList) => void) {
     if (isPaywallLoading) {
+      return;
+    }
+
+    if (!firebaseUser) {
+      setPendingAuthDestination(lockedFeatureIntent);
+      setAuthRequestedFromLanding(true);
+      trackEvent("locked_feature_auth_required", {
+        card_id: selectedCard?.id,
+        feature: lockedFeatureIntent
+      });
+      navigate("Auth");
       return;
     }
 
@@ -350,13 +369,13 @@ export default function App() {
         return;
       }
 
-      if (!firebaseUser) {
-        navigate("Auth");
+      if (!selectedCard) {
+        navigate("Home");
         return;
       }
 
-      if (!selectedCard) {
-        navigate("Home");
+      if (selectedCard.id.startsWith("preview-")) {
+        navigate("Onboarding");
         return;
       }
 
@@ -375,34 +394,61 @@ export default function App() {
     }
   }
 
-  async function openAccountPaywallAfterAuth() {
+  async function openPaywallAfterAuth(destination: PendingAuthDestination) {
     try {
       setIsPaywallLoading(true);
       trackEvent("paywall_opened", {
-        feature: "landing_auth"
+        feature: destination
       });
 
-      const outcome = await presentPalletoProPaywall("save");
+      const paywallFeature = destination === "landing" ? "save" : destination;
+      const outcome = await presentPalletoProPaywall(paywallFeature);
       if (outcome.customerInfo) {
         setCustomerInfo(outcome.customerInfo);
       }
 
       trackEvent("paywall_result", {
-        feature: "landing_auth",
+        feature: destination,
         result: outcome.result,
         unlocked: outcome.unlocked
       });
 
       if (outcome.unlocked) {
-        setAuthRequestedFromLanding(false);
+        completePendingAuthDestination(destination);
       }
     } catch (error) {
-      console.warn("RevenueCat landing auth paywall failed", error);
-      trackEvent("paywall_failed", { feature: "landing_auth" });
+      console.warn("RevenueCat post-auth paywall failed", error);
+      trackEvent("paywall_failed", { feature: destination });
       Alert.alert("Purchase unavailable", "We could not open the paywall. Try again in a moment.");
     } finally {
       setIsPaywallLoading(false);
     }
+  }
+
+  async function completePendingAuthDestination(destination: PendingAuthDestination) {
+    setPendingAuthDestination(null);
+    setPendingPaywallUserKey(null);
+    setAuthRequestedFromLanding(false);
+
+    if (destination === "landing") {
+      const emptyAnswers = createEmptyOnboardingSurveyAnswers();
+      await completeOnboarding(emptyAnswers);
+      setOnboardingAnswers(emptyAnswers);
+      setOnboardingComplete(true);
+      trackEvent("landing_auth_unlocked");
+      return;
+    }
+
+    if (!selectedCard || selectedCard.id.startsWith("preview-")) {
+      return;
+    }
+
+    if (destination === "refine") {
+      navigationRef.navigate("Refine");
+      return;
+    }
+
+    navigationRef.navigate("Home");
   }
 
   async function handleRestorePurchases() {
@@ -567,7 +613,7 @@ export default function App() {
               <MainScreen
                 customerInfo={customerInfo}
                 firebaseUser={firebaseUser}
-                isPalletoProActive={hasPalletoPro(customerInfo)}
+                isPalletoProActive={isPalletoProActive}
                 onEditProject={() => navigation.navigate("ProjectIntake")}
                 onOpenCustomerCenter={handleOpenCustomerCenter}
                 onRestorePurchases={handleRestorePurchases}
@@ -681,12 +727,12 @@ export default function App() {
                     <CardResultScreen
                       card={selectedCard}
                       firebaseUser={firebaseUser}
-                      isPalletoProActive={hasPalletoPro(customerInfo)}
+                      isPalletoProActive={isPalletoProActive}
                       isPreview={!firebaseUser || selectedCard.id.startsWith("preview-")}
                       onDone={() => navigation.navigate(firebaseUser ? "Home" : "Auth")}
                       onLockedAction={(feature) => openLockedFeature(feature, "preview_result")}
                       onRefine={() => {
-                        if (hasPalletoPro(customerInfo)) {
+                        if (isPalletoProActive) {
                           navigation.navigate("Refine");
                           return;
                         }
@@ -715,7 +761,7 @@ export default function App() {
                       <CardDetailScreen
                         card={selectedCard}
                         firebaseUser={firebaseUser}
-                        isPalletoProActive={hasPalletoPro(customerInfo)}
+                        isPalletoProActive={isPalletoProActive}
                         onLockedAction={(feature) => openLockedFeature(feature, "card_detail")}
                         onRefine={() => {
                           navigation.navigate("Refine");
@@ -750,7 +796,7 @@ export default function App() {
             >
               {({ navigation }) => (
                 <LockedFeatureScreen
-                  buttonLabel={hasPalletoPro(customerInfo) ? "Continue" : "Unlock Palleto Pro"}
+                  buttonLabel={isPalletoProActive ? "Continue" : firebaseUser ? "Unlock Palleto Pro" : "Sign in to continue"}
                   feature={lockedFeatureIntent}
                   isLoading={isPaywallLoading}
                   onContinue={() => handleLockedFeatureContinue(navigation.navigate)}
