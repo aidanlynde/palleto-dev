@@ -83,6 +83,7 @@ export function ProcessingScreen({
     isVeryShort ? 236 : isShort ? 286 : 340
   );
   const displaySize = isVeryShort ? 23 : isShort ? 25 : 28;
+  const displayLineHeight = displaySize + 9;
 
   // Stage cycle
   useEffect(() => {
@@ -219,7 +220,7 @@ export function ProcessingScreen({
         {error ? (
           <>
             <Meta>SOMETHING BROKE</Meta>
-            <Display size={displaySize} style={{ marginTop: 6 }}>
+            <Display size={displaySize} style={[s.stageTitle, { lineHeight: displayLineHeight }]}>
               We lost the scan
             </Display>
             <Body style={{ marginTop: 10, color: theme.colors.error }}>{error}</Body>
@@ -230,9 +231,15 @@ export function ProcessingScreen({
         ) : (
           <>
             <Meta>STAGE {String(stageIndex + 1).padStart(2, "0")}</Meta>
-            <Display size={displaySize} style={{ marginTop: 6 }}>
+            <Display size={displaySize} style={[s.stageTitle, { lineHeight: displayLineHeight }]}>
               {STAGES[stageIndex]}
-              <DisplayItalic size={displaySize} color={theme.ink[3]}>…</DisplayItalic>
+              <DisplayItalic
+                size={displaySize}
+                color={theme.ink[3]}
+                style={{ lineHeight: displayLineHeight }}
+              >
+                …
+              </DisplayItalic>
             </Display>
             <View
               style={[
@@ -360,6 +367,11 @@ const s = StyleSheet.create({
   copyCompact: {
     flex: 0,
     marginTop: 0
+  },
+  stageTitle: {
+    marginTop: 4,
+    paddingTop: 4,
+    paddingBottom: 2
   },
   stageList: {
     flexDirection: "row",
