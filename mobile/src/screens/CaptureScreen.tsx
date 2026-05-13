@@ -94,8 +94,8 @@ export function CaptureScreen({ onImageSelected }: CaptureScreenProps) {
 const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
-    justifyContent: "center",
-    paddingTop: 72,
+    justifyContent: "flex-start",
+    paddingTop: 154,
     paddingBottom: 96
   },
   hero: {
@@ -108,7 +108,8 @@ const styles = StyleSheet.create({
     lineHeight: 49
   },
   displayItalic: {
-    lineHeight: 49
+    lineHeight: 58,
+    paddingBottom: 4
   },
   body: {
     marginTop: 16,
