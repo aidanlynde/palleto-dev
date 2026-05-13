@@ -6,13 +6,13 @@ import { GoogleAuthProvider, OAuthProvider, signInWithCredential } from "firebas
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   View
 } from "react-native";
+import Svg, { Circle, Text as SvgText } from "react-native-svg";
 
 import { firebaseAuth } from "../services/firebase";
 import { theme } from "../theme";
@@ -126,15 +126,23 @@ export function AuthScreen() {
   return (
     <View style={styles.container}>
       <View>
-        <Image
-          source={require("../../assets/brand/palleto-logo-transparent.png")}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.eyebrow}>Palleto</Text>
-        <Text style={styles.title}>Save the scan you are about to make.</Text>
+        <Svg width={240} height={96} viewBox="0 0 280 120" style={styles.wordmark}>
+          <SvgText
+            x="0"
+            y="92"
+            fontFamily={theme.font.display}
+            fontSize="110"
+            fill={theme.ink[1]}
+            letterSpacing={0}
+          >
+            palleto
+          </SvgText>
+          <Circle cx={258} cy={88} r={8} fill="#C5683E" />
+        </Svg>
+        <Text style={styles.eyebrow}>A field guide for the eye</Text>
+        <Text style={styles.title}>Sign in to keep your palette close.</Text>
         <Text style={styles.body}>
-          Continue with your account and Palleto will open the camera so you can generate a real first card.
+          Continue with your account to save references, project context, and inspiration cards.
         </Text>
       </View>
 
@@ -189,9 +197,7 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     backgroundColor: theme.colors.background
   },
-  logo: {
-    width: 72,
-    height: 72,
+  wordmark: {
     marginBottom: theme.spacing.lg
   },
   eyebrow: {

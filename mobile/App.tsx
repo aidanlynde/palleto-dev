@@ -783,6 +783,7 @@ export default function App() {
                           setSelectedCard(null);
                           navigation.navigate("Home");
                         }}
+                        onBack={() => navigation.goBack()}
                       />
                     ) : null
                   }

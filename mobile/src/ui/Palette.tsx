@@ -9,7 +9,7 @@ import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { theme } from "../theme";
-import { Display, Meta, Text } from "./Text";
+import { Body, Meta, Text } from "./Text";
 
 export type SwatchColor = { hex: string; role?: string; label?: string };
 
@@ -61,34 +61,25 @@ export function PaletteHero({ colors }: { colors: SwatchColor[] }) {
   }
 
   return (
-    <View style={{ gap: 8 }}>
-      <View style={{ flexDirection: "row", gap: 6 }}>
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         {colors.map((c, i) => (
           <Pressable
             key={`${c.hex}-${i}`}
             onPress={() => onCopy(c.hex)}
             style={({ pressed }) => [
-              s.bigSwatch,
-              { backgroundColor: c.hex },
+              s.swatchCard,
               pressed && { opacity: 0.85 }
             ]}
           >
-            <View style={s.hexPill}>
-              <Text style={s.hexText}>
-                {copied === c.hex.toUpperCase() ? "COPIED" : c.hex.replace("#", "").toUpperCase()}
-              </Text>
+            <View style={[s.swatchBlock, { backgroundColor: c.hex }]} />
+            <View style={s.swatchCopy}>
+              <Body numberOfLines={1} style={s.swatchLabel}>
+                {c.label || c.role || "Color"}
+              </Body>
+              <Meta numberOfLines={1}>{copied === c.hex.toUpperCase() ? "COPIED" : c.hex.toUpperCase()}</Meta>
             </View>
           </Pressable>
-        ))}
-      </View>
-      <View style={{ flexDirection: "row", gap: 6 }}>
-        {colors.map((c, i) => (
-          <View key={`label-${i}`} style={{ flex: 1, paddingHorizontal: 2 }}>
-            <Display size={14} style={{ lineHeight: 16 }}>
-              {c.label ?? ""}
-            </Display>
-            <Meta>{c.role ?? ""}</Meta>
-          </View>
         ))}
       </View>
     </View>
@@ -96,24 +87,39 @@ export function PaletteHero({ colors }: { colors: SwatchColor[] }) {
 }
 
 const s = StyleSheet.create({
-  bigSwatch: {
-    flex: 1,
-    height: 88,
-    borderRadius: 14,
-    justifyContent: "flex-end",
-    padding: 8
+  swatchCard: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minWidth: 132,
+    padding: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 16,
+    backgroundColor: theme.palette.putty,
+    borderWidth: 1,
+    borderColor: theme.palette.line
   },
-  hexPill: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: "rgba(0,0,0,0.32)"
+  swatchBlock: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0,0,0,0.08)"
+  },
+  swatchCopy: {
+    flex: 1,
+    minWidth: 0
+  },
+  swatchLabel: {
+    marginBottom: 2,
+    color: theme.ink[1],
+    lineHeight: 18
   },
   hexText: {
     fontFamily: theme.font.mono,
     fontSize: 10,
     color: "rgba(255,255,255,0.95)",
-    letterSpacing: 0.6
+    letterSpacing: 0
   }
 });

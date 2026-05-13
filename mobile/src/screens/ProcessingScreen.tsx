@@ -6,7 +6,15 @@
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Image, StyleSheet, View } from "react-native";
+import {
+  Animated,
+  Easing,
+  Image,
+  LayoutChangeEvent,
+  StyleSheet,
+  useWindowDimensions,
+  View
+} from "react-native";
 
 import { InspirationCard, uploadCard, uploadPreviewCard } from "../services/api";
 import { trackEvent } from "../services/analytics";
@@ -50,6 +58,8 @@ const PROGRESS_PALETTE = [
   "#E9DFC9"
 ];
 
+const SCAN_BAND_HEIGHT = 58;
+
 export function ProcessingScreen({
   firebaseUser,
   imageUri,
@@ -61,8 +71,18 @@ export function ProcessingScreen({
 }: ProcessingScreenProps) {
   const submittedUri = useRef<string | null>(null);
   const scan = useRef(new Animated.Value(0)).current;
+  const { height, width } = useWindowDimensions();
+  const [imageFrameHeight, setImageFrameHeight] = useState(360);
   const [stageIndex, setStageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const isVeryShort = height < 620;
+  const isShort = height < 700;
+  const isNarrow = width < 370;
+  const polaroidWidth = Math.min(
+    width - (isNarrow ? 32 : 40),
+    isVeryShort ? 236 : isShort ? 286 : 340
+  );
+  const displaySize = isVeryShort ? 23 : isShort ? 25 : 28;
 
   // Stage cycle
   useEffect(() => {
@@ -119,10 +139,24 @@ export function ProcessingScreen({
     };
   }, [firebaseUser, imageUri, mimeType, onCardCreated, projectContext, sourceType]);
 
+  const onImageFrameLayout = (event: LayoutChangeEvent) => {
+    setImageFrameHeight(event.nativeEvent.layout.height);
+  };
+
   return (
-    <View style={s.container}>
+    <View
+      style={[
+        s.container,
+        {
+          paddingHorizontal: isNarrow ? 16 : 20,
+          paddingTop: isVeryShort ? 34 : isShort ? 46 : 72,
+          paddingBottom: isVeryShort ? 16 : isShort ? 20 : 32,
+          gap: isVeryShort ? 8 : isShort ? 12 : 18
+        }
+      ]}
+    >
       {/* Stepper */}
-      <View style={s.stepper}>
+      <View style={[s.stepper, isShort && s.stepperCompact]}>
         {STAGES.map((_, i) => (
           <View
             key={i}
@@ -132,8 +166,8 @@ export function ProcessingScreen({
       </View>
 
       {/* Polaroid frame around image */}
-      <View style={s.polaroid}>
-        <View style={s.imageFrame}>
+      <View style={[s.polaroid, { width: polaroidWidth }]}>
+        <View style={s.imageFrame} onLayout={onImageFrameLayout}>
           <Image source={{ uri: imageUri }} style={s.image} resizeMode="cover" />
           <View style={s.imageTint} pointerEvents="none" />
           {!error ? (
@@ -146,7 +180,10 @@ export function ProcessingScreen({
                     {
                       translateY: scan.interpolate({
                         inputRange: [0, 1],
-                        outputRange: [-40, 480]
+                        outputRange: [
+                          -SCAN_BAND_HEIGHT,
+                          imageFrameHeight + SCAN_BAND_HEIGHT
+                        ]
                       })
                     }
                   ]
@@ -168,6 +205,7 @@ export function ProcessingScreen({
             key={i}
             style={[
               s.swatch,
+              isVeryShort && s.swatchVeryCompact,
               i <= stageIndex - 1
                 ? { backgroundColor: c }
                 : { backgroundColor: "rgba(28,26,23,0.06)" }
@@ -177,11 +215,11 @@ export function ProcessingScreen({
       </View>
 
       {/* Copy */}
-      <View style={s.copy}>
+      <View style={[s.copy, isShort && s.copyCompact]}>
         {error ? (
           <>
             <Meta>SOMETHING BROKE</Meta>
-            <Display size={28} style={{ marginTop: 6 }}>
+            <Display size={displaySize} style={{ marginTop: 6 }}>
               We lost the scan
             </Display>
             <Body style={{ marginTop: 10, color: theme.colors.error }}>{error}</Body>
@@ -192,24 +230,35 @@ export function ProcessingScreen({
         ) : (
           <>
             <Meta>STAGE {String(stageIndex + 1).padStart(2, "0")}</Meta>
-            <Display size={28} style={{ marginTop: 6 }}>
+            <Display size={displaySize} style={{ marginTop: 6 }}>
               {STAGES[stageIndex]}
-              <DisplayItalic size={28} color={theme.ink[3]}>…</DisplayItalic>
+              <DisplayItalic size={displaySize} color={theme.ink[3]}>…</DisplayItalic>
             </Display>
-            <View style={{ marginTop: 14, gap: 6 }}>
+            <View
+              style={[
+                s.stageList,
+                isShort && s.stageListCompact,
+                isVeryShort && s.stageListVeryCompact
+              ]}
+            >
               {STAGES.map((stage, i) => (
                 <Text
                   key={stage}
-                  style={{
-                    fontFamily: i === stageIndex ? theme.font.sansMedium : theme.font.sans,
-                    fontSize: 13.5,
-                    color:
-                      i < stageIndex
-                        ? theme.ink[3]
-                        : i === stageIndex
-                          ? theme.ink[1]
-                          : theme.ink[4]
-                  }}
+                  numberOfLines={1}
+                  style={[
+                    s.stageItem,
+                    {
+                      fontFamily: i === stageIndex ? theme.font.sansMedium : theme.font.sans,
+                      color:
+                        i < stageIndex
+                          ? theme.ink[3]
+                          : i === stageIndex
+                            ? theme.ink[1]
+                            : theme.ink[4]
+                    },
+                    isShort && s.stageItemCompact,
+                    isVeryShort && s.stageItemVeryCompact
+                  ]}
                 >
                   {i < stageIndex ? "✓  " : i === stageIndex ? "•  " : "·  "}
                   {stage}
@@ -226,16 +275,16 @@ export function ProcessingScreen({
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 72,
-    paddingBottom: 32,
     backgroundColor: theme.palette.bone,
-    gap: 18
+    alignItems: "stretch"
   },
   stepper: {
     flexDirection: "row",
     gap: 4,
     marginBottom: 6
+  },
+  stepperCompact: {
+    marginBottom: 0
   },
   stepperBar: {
     flex: 1,
@@ -247,6 +296,7 @@ const s = StyleSheet.create({
     backgroundColor: theme.ink[1]
   },
   polaroid: {
+    alignSelf: "center",
     padding: 10,
     paddingBottom: 10,
     backgroundColor: theme.palette.paper,
@@ -272,11 +322,15 @@ const s = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    height: 64,
-    backgroundColor: "rgba(28,26,23,0.10)",
+    height: SCAN_BAND_HEIGHT,
+    backgroundColor: "rgba(255,252,245,0.22)",
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: "rgba(28,26,23,0.28)"
+    borderColor: "rgba(28,26,23,0.24)",
+    shadowColor: theme.ink[1],
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 }
   },
   polaroidMeta: {
     flexDirection: "row",
@@ -287,15 +341,52 @@ const s = StyleSheet.create({
   },
   palette: {
     flexDirection: "row",
-    gap: 6
+    gap: 6,
+    flexShrink: 0
   },
   swatch: {
     flex: 1,
-    height: 36,
+    height: 32,
     borderRadius: 8
+  },
+  swatchVeryCompact: {
+    height: 28
   },
   copy: {
     flex: 1,
-    marginTop: 6
+    minHeight: 0,
+    marginTop: 2
+  },
+  copyCompact: {
+    flex: 0,
+    marginTop: 0
+  },
+  stageList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    columnGap: 10,
+    rowGap: 6,
+    marginTop: 14
+  },
+  stageListCompact: {
+    rowGap: 4,
+    marginTop: 10
+  },
+  stageListVeryCompact: {
+    rowGap: 3,
+    marginTop: 8
+  },
+  stageItem: {
+    width: "47%",
+    fontSize: 13,
+    lineHeight: 17
+  },
+  stageItemCompact: {
+    fontSize: 12.5,
+    lineHeight: 16
+  },
+  stageItemVeryCompact: {
+    fontSize: 12,
+    lineHeight: 15
   }
 });

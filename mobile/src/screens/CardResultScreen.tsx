@@ -80,7 +80,9 @@ export function CardResultScreen({
         left={<Pill icon="back" onPress={onDone} />}
         right={<Pill icon="share" onPress={shareCard} />}
       >
-        <Meta>{isPreview ? "PREVIEW SCAN" : "SAVED TO LIBRARY"}</Meta>
+        <View style={s.topBadge}>
+          <Meta numberOfLines={1}>{isPreview ? "PREVIEW" : "SAVED"}</Meta>
+        </View>
       </TopBar>
 
       <ScrollView
@@ -125,9 +127,9 @@ export function CardDetail({ card }: { card: InspirationCard }) {
       {/* Hero — polaroid frame */}
       <View style={s.polaroid}>
         <Image source={{ uri: card.image_url }} style={s.heroImage} resizeMode="cover" />
-        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4, paddingTop: 8 }}>
-          <Meta>{shortId(card.id)}</Meta>
-          <Meta>{`${card.palette.length} COLORS · ${card.type_direction.length} TYPE`}</Meta>
+        <View style={s.polaroidMeta}>
+          <Meta numberOfLines={1}>{shortId(card.id)}</Meta>
+          <Meta numberOfLines={1}>{`${card.palette.length} COLORS · ${card.type_direction.length} TYPE`}</Meta>
         </View>
       </View>
 
@@ -171,14 +173,14 @@ export function CardDetail({ card }: { card: InspirationCard }) {
           {card.type_direction.map((t) => (
             <View key={t.style} style={s.typeCard}>
               <Text style={[
-                { fontSize: 28, color: theme.ink[1], marginBottom: 8, lineHeight: 30 },
+                { fontSize: 26, color: theme.ink[1], marginBottom: 10, lineHeight: 30 },
                 typePreviewStyle(t.style)
               ]}>
                 {t.style}
               </Text>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-                <Meta>{t.style.toUpperCase()}</Meta>
-                <Text style={{ fontSize: 12, color: theme.ink[3] }}>{t.use}</Text>
+              <View style={{ gap: 5 }}>
+                <Meta numberOfLines={1}>{t.style.toUpperCase()}</Meta>
+                <Body style={{ fontSize: 13.5, lineHeight: 19 }}>{t.use}</Body>
               </View>
             </View>
           ))}
@@ -239,7 +241,8 @@ export function CardDetailScreen({
   isPalletoProActive,
   onLockedAction,
   onRefine,
-  onDeleted
+  onDeleted,
+  onBack
 }: {
   card: InspirationCard;
   firebaseUser: User;
@@ -247,6 +250,7 @@ export function CardDetailScreen({
   onLockedAction?: (feature: "refine" | "share") => void;
   onRefine: () => void;
   onDeleted: () => void;
+  onBack?: () => void;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -289,7 +293,7 @@ export function CardDetailScreen({
   return (
     <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
       <TopBar
-        left={<Pill icon="back" />}
+        left={<Pill icon="back" onPress={onBack} />}
         right={<Pill icon="share" onPress={shareCard} />}
       />
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -367,10 +371,21 @@ function shortId(id: string) {
 
 const s = StyleSheet.create({
   content: {
-    paddingTop: 110,
+    paddingTop: 124,
     paddingHorizontal: 16,
     paddingBottom: 60,
     gap: 14
+  },
+  topBadge: {
+    alignSelf: "center",
+    maxWidth: 112,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.palette.glass,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0,0,0,0.06)",
+    ...theme.shadow.pill
   },
   polaroid: {
     backgroundColor: theme.palette.paper,
@@ -385,8 +400,15 @@ const s = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: theme.palette.putty
   },
+  polaroidMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    paddingHorizontal: 4,
+    paddingTop: 9
+  },
   typeCard: {
-    padding: 18,
+    padding: 16,
     backgroundColor: theme.palette.putty,
     borderRadius: theme.radius.md,
     borderWidth: 1,
