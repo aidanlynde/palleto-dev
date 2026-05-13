@@ -81,7 +81,7 @@ export function CardResultScreen({
         right={<Pill icon="share" onPress={shareCard} />}
       >
         <View style={s.topBadge}>
-          <Meta numberOfLines={1}>{isPreview ? "PREVIEW" : "SAVED"}</Meta>
+          <Meta>{isPreview ? "PREVIEW" : "SAVED"}</Meta>
         </View>
       </TopBar>
 
@@ -135,7 +135,9 @@ export function CardDetail({ card }: { card: InspirationCard }) {
 
       {/* Title + one-liner */}
       <View style={{ paddingHorizontal: 4, marginBottom: 4 }}>
-        <Display size={36}>{card.title}</Display>
+        <Display size={36} style={s.title}>
+          {card.title}
+        </Display>
         <DisplayItalic
           size={19}
           color={theme.ink[2]}
@@ -366,20 +368,24 @@ function typePreviewStyle(style: string) {
 }
 
 function shortId(id: string) {
+  if (id.startsWith("preview-")) {
+    return "PREVIEW";
+  }
+
   return `№ ${id.slice(0, 6).toUpperCase()}`;
 }
 
 const s = StyleSheet.create({
   content: {
-    paddingTop: 124,
+    paddingTop: 144,
     paddingHorizontal: 16,
     paddingBottom: 60,
     gap: 14
   },
   topBadge: {
     alignSelf: "center",
-    maxWidth: 112,
-    paddingHorizontal: 12,
+    minWidth: 132,
+    paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.palette.glass,
@@ -399,6 +405,11 @@ const s = StyleSheet.create({
     aspectRatio: 4 / 5,
     borderRadius: 12,
     backgroundColor: theme.palette.putty
+  },
+  title: {
+    lineHeight: 44,
+    paddingTop: 4,
+    paddingBottom: 2
   },
   polaroidMeta: {
     flexDirection: "row",
