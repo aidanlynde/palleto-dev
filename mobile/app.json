@@ -4,7 +4,7 @@
     "slug": "palleto",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "scheme": "palleto",
     "icon": "./assets/app-icon.png",
     "assetBundlePatterns": [
@@ -14,7 +14,7 @@
       "image": "./assets/brand/palleto-logo-transparent.png",
       "imageWidth": 64,
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#F2EEE4"
     },
     "ios": {
       "bundleIdentifier": "com.palleto.palletolabs",
@@ -30,7 +30,7 @@
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#F2EEE4"
       }
     },
     "extra": {
