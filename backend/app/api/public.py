@@ -164,17 +164,20 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
     <meta name="twitter:image" content="{escape(share_preview_image_url)}" />
     <style>
       :root {{
-        color-scheme: dark;
-        --bg: #050505;
-        --surface: #141414;
-        --border: #2a2a2a;
-        --text: #ffffff;
-        --muted: #a3a3a3;
+        color-scheme: light;
+        --bg: #F2EEE4;
+        --surface: #FFFFFF;
+        --surface-soft: #F7F4ED;
+        --border: rgba(28,26,23,0.08);
+        --border-strong: rgba(28,26,23,0.14);
+        --text: #1C1A17;
+        --body: #4A4640;
+        --muted: #8B847A;
       }}
       * {{ box-sizing: border-box; }}
       body {{
         margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         background: var(--bg);
         color: var(--text);
       }}
@@ -186,8 +189,9 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
       }}
       .eyebrow {{
         color: var(--muted);
-        font-size: 12px;
-        font-weight: 800;
+        font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+        font-size: 11px;
+        font-weight: 700;
         letter-spacing: 0;
         text-transform: uppercase;
       }}
@@ -197,19 +201,22 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
       }}
       .hero-media img {{
         width: 100%;
-        border-radius: 8px;
+        border-radius: 32px;
         display: block;
         object-fit: cover;
         max-height: 480px;
+        box-shadow: 0 18px 48px rgba(28, 22, 10, 0.12);
       }}
       .hero-copy h1 {{
         margin: 8px 0 12px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-weight: 400;
         font-size: clamp(36px, 6vw, 64px);
         line-height: 0.98;
       }}
       .hero-copy p {{
         margin: 0;
-        color: var(--muted);
+        color: var(--body);
         font-size: 18px;
         line-height: 1.6;
         max-width: 720px;
@@ -225,16 +232,18 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
         align-items: center;
         justify-content: center;
         min-height: 48px;
-        padding: 0 18px;
-        border-radius: 8px;
-        border: 1px solid var(--border);
+        padding: 0 22px;
+        border-radius: 999px;
+        border: 1px solid var(--border-strong);
         background: var(--text);
         color: var(--bg);
-        font-weight: 800;
+        font-weight: 700;
+        box-shadow: 0 10px 22px rgba(28, 22, 10, 0.12);
       }}
       .button.secondary {{
-        background: transparent;
+        background: rgba(255,252,245,0.72);
         color: var(--text);
+        box-shadow: 0 8px 18px rgba(28, 22, 10, 0.06);
       }}
       .grid {{
         display: grid;
@@ -245,15 +254,17 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
         padding: 18px;
         background: var(--surface);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 24px;
+        box-shadow: 0 8px 28px rgba(28, 22, 10, 0.06);
       }}
       .panel h3 {{
         margin: 6px 0 12px;
+        font-weight: 600;
         font-size: 22px;
         line-height: 1.1;
       }}
       .panel p, .panel li {{
-        color: var(--muted);
+        color: var(--body);
         font-size: 15px;
         line-height: 1.6;
       }}
@@ -264,7 +275,7 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
       }}
       .swatch-color {{
         height: 92px;
-        border-radius: 8px;
+        border-radius: 18px;
         margin-bottom: 10px;
       }}
       .swatch-meta {{
@@ -277,6 +288,7 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
       }}
       code {{
         color: var(--muted);
+        font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
         font-size: 12px;
       }}
       ul {{ margin: 0; padding-left: 18px; }}
@@ -287,8 +299,8 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
       .type-item, .link-item {{
         padding: 14px;
         border: 1px solid var(--border);
-        border-radius: 8px;
-        background: rgba(255,255,255,0.02);
+        border-radius: 18px;
+        background: var(--surface-soft);
       }}
       .type-item h4, .link-item strong {{
         margin: 0 0 6px;
@@ -305,6 +317,7 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
       .footer {{
         margin-top: 32px;
         color: var(--muted);
+        font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
         font-size: 14px;
       }}
       @media (min-width: 860px) {{
@@ -411,54 +424,59 @@ def _enforce_preview_rate_limit(request: Request) -> None:
 def render_public_share_preview_image(share_token: str) -> Response:
     share = _get_share(share_token)
     card = share.card
-    image = Image.new("RGB", (1200, 630), "#050505")
+    image = Image.new("RGB", (1200, 630), "#F2EEE4")
     draw = ImageDraw.Draw(image)
 
     canvas_width = 1200
     canvas_height = 630
-    image_height = 330
-    body_y = image_height
+    image_x = 42
+    image_y = 42
+    image_width = 500
+    image_height = 546
+    body_x = 590
 
-    _paste_card_image(image, card.image_url, 0, 0, canvas_width, image_height)
-    draw.rectangle((0, body_y, canvas_width, canvas_height), fill="#000000")
-    draw.rectangle((0, 0, canvas_width - 1, canvas_height - 1), outline="#2A2A2A", width=2)
+    draw.rounded_rectangle((24, 24, canvas_width - 24, canvas_height - 24), radius=34, fill="#FFFFFF")
+    _paste_card_image(image, card.image_url, image_x, image_y, image_width, image_height, radius=28)
+    draw.rounded_rectangle((24, 24, canvas_width - 24, canvas_height - 24), radius=34, outline="#E8E1D5", width=2)
 
-    brand_font = _font(22, bold=True)
-    title_font = _font(50, bold=True)
-    body_font = _font(24, bold=False)
+    brand_font = _font(20, bold=True)
+    title_font = _font(54, bold=True)
+    body_font = _font(25, bold=False)
+    code_font = _font(18, bold=False)
 
-    horizontal_padding = 48
-    draw.text((horizontal_padding, body_y + 30), "PALLETO", fill="#FFFFFF", font=brand_font)
+    draw.text((body_x, 74), "PALLETO SHARE", fill="#8B847A", font=brand_font)
 
     title_lines = _wrap_text(
         text=card.title,
         font=title_font,
-        max_width=canvas_width - (horizontal_padding * 2),
+        max_width=canvas_width - body_x - 58,
         max_lines=2,
     )
-    title_y = body_y + 64
+    title_y = 112
     for line in title_lines:
-        draw.text((horizontal_padding, title_y), line, fill="#FFFFFF", font=title_font)
-        title_y += 52
+        draw.text((body_x, title_y), line, fill="#1C1A17", font=title_font)
+        title_y += 60
 
     read_lines = _wrap_text(
         text=card.one_line_read,
         font=body_font,
-        max_width=canvas_width - (horizontal_padding * 2),
+        max_width=canvas_width - body_x - 70,
         max_lines=3,
     )
-    read_y = title_y + 10
+    read_y = title_y + 18
     for line in read_lines:
-        draw.text((horizontal_padding, read_y), line, fill="#BDBDBD", font=body_font)
-        read_y += 30
+        draw.text((body_x, read_y), line, fill="#4A4640", font=body_font)
+        read_y += 33
 
-    swatch_y = canvas_height - 48
+    swatch_y = canvas_height - 112
     for index, color in enumerate(card.palette[:5]):
-        swatch_x = horizontal_padding + (index * 86)
-        draw.rectangle(
-            (swatch_x, swatch_y - 16, swatch_x + 70, swatch_y + 14),
+        swatch_x = body_x + (index * 92)
+        draw.rounded_rectangle(
+            (swatch_x, swatch_y, swatch_x + 72, swatch_y + 58),
+            radius=16,
             fill=_safe_color(color["hex"]),
         )
+        draw.text((swatch_x, swatch_y + 70), color["hex"].upper(), fill="#8B847A", font=code_font)
 
     png = BytesIO()
     image.save(png, format="PNG")
@@ -473,19 +491,20 @@ def render_public_share_card_image(share_token: str) -> Response:
     image_height = 680
     body_height = 360
     height = image_height + body_height
-    image = Image.new("RGB", (width, height), "#000000")
+    image = Image.new("RGB", (width, height), "#F2EEE4")
     draw = ImageDraw.Draw(image)
 
-    _paste_card_image(image, card.image_url, 0, 0, width, image_height)
-    draw.rectangle((0, image_height, width, height), fill="#000000")
-    draw.rounded_rectangle((0, 0, width - 1, height - 1), radius=18, outline="#2A2A2A", width=2)
+    outer_padding = 34
+    draw.rounded_rectangle((outer_padding, outer_padding, width - outer_padding, height - outer_padding), radius=38, fill="#FFFFFF")
+    _paste_card_image(image, card.image_url, 58, 58, width - 116, image_height - 42, radius=32)
 
     brand_font = _font(26, bold=True)
-    title_font = _font(62, bold=True)
+    title_font = _font(64, bold=True)
     body_font = _font(34, bold=False)
-    padding = 44
+    padding = 68
+    body_top = image_height + 38
 
-    draw.text((padding, image_height + 42), "PALLETO", fill="#A3A3A3", font=brand_font)
+    draw.text((padding, body_top), "PALLETO SHARE", fill="#8B847A", font=brand_font)
 
     title_lines = _wrap_text(
         text=card.title,
@@ -493,31 +512,35 @@ def render_public_share_card_image(share_token: str) -> Response:
         max_width=width - (padding * 2),
         max_lines=2,
     )
-    title_y = image_height + 92
+    title_y = body_top + 48
     for line in title_lines:
-        draw.text((padding, title_y), line, fill="#FFFFFF", font=title_font)
+        draw.text((padding, title_y), line, fill="#1C1A17", font=title_font)
         title_y += 74
 
     read_lines = _wrap_text(
         text=card.one_line_read,
         font=body_font,
         max_width=width - (padding * 2),
-        max_lines=3,
+        max_lines=2,
     )
     read_y = title_y + 8
     for line in read_lines:
-        draw.text((padding, read_y), line, fill="#A3A3A3", font=body_font)
+        draw.text((padding, read_y), line, fill="#4A4640", font=body_font)
         read_y += 44
 
-    swatch_gap = 0
-    swatch_width = (width - (padding * 2)) // min(len(card.palette[:5]) or 1, 5)
-    swatch_y = height - 46
+    swatch_gap = 8
+    swatch_count = min(len(card.palette[:5]) or 1, 5)
+    swatch_width = (width - (padding * 2) - (swatch_gap * (swatch_count - 1))) // swatch_count
+    swatch_y = height - 94
     for index, color in enumerate(card.palette[:5]):
         swatch_x = padding + (index * (swatch_width + swatch_gap))
-        draw.rectangle(
-            (swatch_x, swatch_y, swatch_x + swatch_width, swatch_y + 18),
+        draw.rounded_rectangle(
+            (swatch_x, swatch_y, swatch_x + swatch_width, swatch_y + 34),
+            radius=12,
             fill=_safe_color(color["hex"]),
         )
+
+    draw.rounded_rectangle((outer_padding, outer_padding, width - outer_padding, height - outer_padding), radius=38, outline="#E8E1D5", width=2)
 
     png = BytesIO()
     image.save(png, format="PNG")
@@ -547,6 +570,7 @@ def _paste_card_image(
     y: int,
     width: int,
     height: int,
+    radius: int = 0,
 ) -> None:
     try:
         response = httpx.get(image_url, follow_redirects=True, timeout=6.0)
@@ -557,7 +581,14 @@ def _paste_card_image(
         source_image = Image.new("RGB", (width, height), "#1A1A1A")
 
     fitted = ImageOps.fit(source_image, (width, height), method=Image.Resampling.LANCZOS)
-    canvas.paste(fitted, (x, y))
+    if radius <= 0:
+        canvas.paste(fitted, (x, y))
+        return
+
+    mask = Image.new("L", (width, height), 0)
+    mask_draw = ImageDraw.Draw(mask)
+    mask_draw.rounded_rectangle((0, 0, width, height), radius=radius, fill=255)
+    canvas.paste(fitted, (x, y), mask)
 
 
 def _font(size: int, *, bold: bool) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:

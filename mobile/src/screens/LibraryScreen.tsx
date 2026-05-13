@@ -1,10 +1,26 @@
+/**
+ * LibraryScreen — hero surface. Drop-in replacement; props match original.
+ * Same behavior (focus refetch, project context, empty/error states) — new shell.
+ */
 import { useFocusEffect } from "@react-navigation/native";
 import { User } from "firebase/auth";
 import { useCallback, useState } from "react";
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, View } from "react-native";
 
 import { InspirationCard, listCards } from "../services/api";
 import { theme } from "../theme";
+import {
+  Body,
+  Button,
+  Display,
+  DisplayItalic,
+  Meta,
+  Pill,
+  ProjectChip,
+  ScrollScreen,
+  Tile,
+  TopBar
+} from "../ui";
 
 type LibraryScreenProps = {
   firebaseUser: User;
@@ -26,7 +42,7 @@ export function LibraryScreen({
   projectContext
 }: LibraryScreenProps) {
   const [cards, setCards] = useState<InspirationCard[]>([]);
-  const [status, setStatus] = useState("Loading library...");
+  const [status, setStatus] = useState("Loading library…");
 
   const loadCards = useCallback(async () => {
     try {
@@ -46,214 +62,104 @@ export function LibraryScreen({
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.eyebrow}>Library</Text>
-      <Text style={styles.title}>Saved inspiration</Text>
-      {projectContext ? (
-        <View style={styles.projectChip}>
-          <Text style={styles.projectChipLabel}>Working on</Text>
-          <Text style={styles.projectChipText}>
-            {projectContext.projectType}: {projectContext.name}
-          </Text>
-          {projectContext.desiredFeeling ? (
-            <Text style={styles.projectChipBody}>{projectContext.desiredFeeling}</Text>
-          ) : null}
-          <Pressable style={styles.projectChipAction} onPress={onEditProject}>
-            <Text style={styles.projectChipActionText}>Edit active project</Text>
-          </Pressable>
-        </View>
-      ) : cards.length ? (
-        <View style={styles.projectPrompt}>
-          <Text style={styles.projectPromptLabel}>Customize future scans</Text>
-          <Text style={styles.projectPromptTitle}>Add your current project context</Text>
-          <Text style={styles.projectPromptBody}>
-            Tell Palleto what you are building, what it should feel like, and what to avoid.
-          </Text>
-          <Pressable style={styles.projectPromptButton} onPress={onEditProject}>
-            <Text style={styles.projectPromptButtonText}>Add project context</Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {status ? <Text style={styles.status}>{status}</Text> : null}
-      {!cards.length && !status.includes("failed") ? (
-        <Pressable style={styles.emptyButton} onPress={onScan}>
-          <Text style={styles.emptyButtonText}>Scan your first reference</Text>
-        </Pressable>
-      ) : null}
-      <FlatList
-        contentContainerStyle={styles.grid}
-        data={cards}
-        keyExtractor={(card) => card.id}
-        numColumns={2}
-        renderItem={({ item }) => (
-          <Pressable style={styles.tile} onPress={() => onSelectCard(item)}>
-            <Image source={{ uri: item.image_url }} style={styles.tileImage} resizeMode="cover" />
-            <View style={styles.tileBody}>
-              <Text style={styles.tileTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <View style={styles.paletteStrip}>
-                {item.palette.slice(0, 5).map((color) => (
-                  <View
-                    key={`${item.id}-${color.hex}`}
-                    style={[styles.paletteSwatch, { backgroundColor: color.hex }]}
-                  />
-                ))}
-              </View>
-            </View>
-          </Pressable>
-        )}
+    <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
+      <TopBar
+        left={<Pill icon="folder" onPress={onEditProject} />}
       />
+      <ScrollScreen>
+        {/* Headline */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            marginBottom: 20
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Meta style={{ marginBottom: 6 }}>
+              {cards.length ? `${cards.length} SCANS · LIBRARY` : "LIBRARY"}
+            </Meta>
+            <Display size={56}>Library</Display>
+          </View>
+          <DisplayItalic size={22} color={theme.ink[3]} style={{ paddingBottom: 8 }}>
+            no.1
+          </DisplayItalic>
+        </View>
+
+        {/* Project chip */}
+        {projectContext ? (
+          <View style={{ marginBottom: 18 }}>
+            <ProjectChip
+              name={projectContext.name}
+              projectType={projectContext.projectType}
+              feeling={projectContext.desiredFeeling}
+              onEdit={onEditProject}
+            />
+          </View>
+        ) : cards.length ? (
+          <View style={{ marginBottom: 18 }}>
+            <Pill icon="plus" onPress={onEditProject}>
+              Add project context
+            </Pill>
+          </View>
+        ) : null}
+
+        {/* Empty / error state */}
+        {!cards.length && status ? (
+          <View
+            style={{
+              alignItems: "center",
+              paddingVertical: 60,
+              paddingHorizontal: 24,
+              gap: 16
+            }}
+          >
+            <Body style={{ textAlign: "center" }}>{status}</Body>
+            {!status.includes("failed") ? (
+              <Button icon="plus" onPress={onScan}>
+                Scan your first reference
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Tiles grid (staggered) */}
+        <FlatList
+          data={cards}
+          keyExtractor={(c) => c.id}
+          numColumns={2}
+          scrollEnabled={false}
+          columnWrapperStyle={{ gap: 12 }}
+          contentContainerStyle={{ gap: 12 }}
+          renderItem={({ item, index }) => (
+            <View style={{ flex: 1, marginTop: index % 2 ? 24 : 0 }}>
+              <Tile
+                card={{
+                  id: item.id,
+                  title: item.title,
+                  image_url: item.image_url,
+                  palette: item.palette,
+                  meta: formatMeta(item)
+                }}
+                onPress={() => onSelectCard(item)}
+                tall={index % 3 === 1}
+              />
+            </View>
+          )}
+        />
+      </ScrollScreen>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.background
-  },
-  eyebrow: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  title: {
-    marginTop: theme.spacing.sm,
-    color: theme.colors.textPrimary,
-    fontSize: 34,
-    fontWeight: "800",
-    lineHeight: 40
-  },
-  status: {
-    marginTop: theme.spacing.md,
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22
-  },
-  projectChip: {
-    gap: 2,
-    marginTop: theme.spacing.md,
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  projectChipLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  projectChipText: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "800"
-  },
-  projectChipBody: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18
-  },
-  projectChipAction: {
-    alignSelf: "flex-start",
-    marginTop: theme.spacing.xs
-  },
-  projectChipActionText: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "800"
-  },
-  projectPrompt: {
-    gap: theme.spacing.xs,
-    marginTop: theme.spacing.md,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  projectPromptLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  projectPromptTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 18,
-    fontWeight: "800",
-    lineHeight: 22
-  },
-  projectPromptBody: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18
-  },
-  projectPromptButton: {
-    alignSelf: "flex-start",
-    justifyContent: "center",
-    minHeight: 40,
-    marginTop: theme.spacing.sm,
-    paddingHorizontal: theme.spacing.md,
-    borderColor: theme.colors.textPrimary,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  projectPromptButtonText: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "800"
-  },
-  emptyButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 52,
-    marginTop: theme.spacing.lg,
-    backgroundColor: theme.colors.textPrimary,
-    borderRadius: theme.radius.small
-  },
-  emptyButtonText: {
-    color: theme.colors.background,
-    fontSize: 15,
-    fontWeight: "800"
-  },
-  grid: {
-    gap: theme.spacing.md,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl
-  },
-  tile: {
-    flex: 1,
-    overflow: "hidden",
-    margin: theme.spacing.xs,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  tileImage: {
-    width: "100%",
-    aspectRatio: 1
-  },
-  tileBody: {
-    gap: theme.spacing.sm,
-    padding: theme.spacing.sm
-  },
-  tileTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "800",
-    lineHeight: 18
-  },
-  paletteStrip: {
-    flexDirection: "row",
-    height: 8
-  },
-  paletteSwatch: {
-    flex: 1
+function formatMeta(card: InspirationCard) {
+  // If your card has a created_at field, prefer that.
+  // Fallback: short id stamp.
+  const anyCard = card as any;
+  if (anyCard.created_at) {
+    const d = new Date(anyCard.created_at);
+    return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")} · ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   }
-});
+  return `№ ${card.id.slice(0, 4).toUpperCase()}`;
+}

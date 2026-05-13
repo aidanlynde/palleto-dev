@@ -1,16 +1,41 @@
-import * as Clipboard from "expo-clipboard";
+/**
+ * CardResultScreen + CardDetailScreen — drop-in replacement.
+ *
+ * Public surface preserved exactly:
+ *   export function CardResultScreen({ card, firebaseUser, isPalletoProActive,
+ *     isPreview, onDone, onLockedAction, onRefine, onViewLibrary })
+ *   export function CardDetail({ card })
+ *   export function CardDetailScreen({ card, firebaseUser, isPalletoProActive,
+ *     onLockedAction, onRefine, onDeleted })
+ *
+ * All side-effects (share, delete, analytics) preserved.
+ */
 import * as FileSystem from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
-import { ReactNode, useState } from "react";
-import { Alert, Image, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Alert, Image, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from "react-native";
 import RNShare from "react-native-share";
 
-import { createOrGetCardShare, deleteCard, InspirationCard } from "../services/api";
 import { trackEvent } from "../services/analytics";
+import { createOrGetCardShare, deleteCard, InspirationCard } from "../services/api";
 import { theme } from "../theme";
+import {
+  Body,
+  Button,
+  Chip,
+  Display,
+  DisplayItalic,
+  Headline,
+  Icon,
+  Meta,
+  PaletteHero,
+  Pill,
+  SectionCard,
+  Text,
+  TopBar
+} from "../ui";
 
-type PaletteColor = InspirationCard["palette"][number];
 type RelatedLink = InspirationCard["related_links"][number];
 
 type CardResultScreenProps = {
@@ -39,7 +64,6 @@ export function CardResultScreen({
       onLockedAction?.("share");
       return;
     }
-
     trackEvent("share_clicked", { card_id: card.id, source: "result" });
     try {
       await shareCardFromApi(firebaseUser, card.id, card.title);
@@ -51,188 +75,160 @@ export function CardResultScreen({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.saved}>{isPreview ? "Preview scan" : "Saved to library"}</Text>
-      <CardDetail card={card} />
-      <View style={styles.actions}>
-        <Pressable style={styles.primaryButton} onPress={shareCard}>
-          <Text style={styles.primaryButtonText}>Share card</Text>
-        </Pressable>
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() => {
+    <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
+      <TopBar
+        left={<Pill icon="back" onPress={onDone} />}
+        right={<Pill icon="share" onPress={shareCard} />}
+      >
+        <Meta>{isPreview ? "PREVIEW SCAN" : "SAVED TO LIBRARY"}</Meta>
+      </TopBar>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={s.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <CardDetail card={card} />
+
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 6 }}>
+          <Button icon="sparkle" full onPress={() => {
             if (isPreview || !firebaseUser || !isPalletoProActive) {
               onLockedAction?.("refine");
               return;
             }
-
             onRefine();
-          }}
-        >
-          <Text style={styles.secondaryButtonText}>Refine with AI</Text>
-        </Pressable>
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() => {
-            if (isPreview || !firebaseUser) {
-              onLockedAction?.("save");
-              return;
-            }
+          }}>
+            Refine
+          </Button>
+          <Button icon="share" variant="secondary" full onPress={shareCard}>
+            Share
+          </Button>
+        </View>
 
-            onViewLibrary();
-          }}
-        >
-          <Text style={styles.secondaryButtonText}>{isPreview ? "Save to library" : "View library"}</Text>
-        </Pressable>
-        {!isPreview ? (
-          <Pressable style={styles.textButton} onPress={onDone}>
-            <Text style={styles.textButtonText}>Done</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    </ScrollView>
+        <Button variant="secondary" icon={isPreview ? "plus" : "grid"} onPress={() => {
+          if (isPreview || !firebaseUser) {
+            onLockedAction?.("save");
+            return;
+          }
+          onViewLibrary();
+        }}>
+          {isPreview ? "Save to library" : "View library"}
+        </Button>
+      </ScrollView>
+    </View>
   );
 }
 
 export function CardDetail({ card }: { card: InspirationCard }) {
-  const [copiedHex, setCopiedHex] = useState<string | null>(null);
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
-
-  async function copyHex(hex: string) {
-    const normalizedHex = `#${hex.replace(/[^0-9a-f]/gi, "").slice(0, 6).toUpperCase()}`;
-    await Clipboard.setStringAsync(normalizedHex);
-    setCopiedHex(normalizedHex);
-    Haptics.selectionAsync();
-    setTimeout(() => {
-      setCopiedHex((current) => (current === normalizedHex ? null : current));
-    }, 1400);
-  }
-
-  function toggleSection(section: string) {
-    setExpandedSection((current) => (current === section ? null : section));
-  }
-
   return (
-    <View style={styles.card}>
-      <Image source={{ uri: card.image_url }} style={styles.cardImage} resizeMode="cover" />
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTitle}>{card.title}</Text>
-        <Text style={styles.oneLine}>{card.one_line_read}</Text>
-        <Text style={styles.direction}>{card.creative_direction}</Text>
+    <View style={{ gap: 14 }}>
+      {/* Hero — polaroid frame */}
+      <View style={s.polaroid}>
+        <Image source={{ uri: card.image_url }} style={s.heroImage} resizeMode="cover" />
+        <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4, paddingTop: 8 }}>
+          <Meta>{shortId(card.id)}</Meta>
+          <Meta>{`${card.palette.length} COLORS · ${card.type_direction.length} TYPE`}</Meta>
+        </View>
+      </View>
 
-        <CollapsibleSection
-          expanded={expandedSection === "palette"}
-          icon="◐"
-          onPress={() => toggleSection("palette")}
-          subtitle={`${card.palette.length} colors with copyable hex`}
-          title="Palette"
+      {/* Title + one-liner */}
+      <View style={{ paddingHorizontal: 4, marginBottom: 4 }}>
+        <Display size={36}>{card.title}</Display>
+        <DisplayItalic
+          size={19}
+          color={theme.ink[2]}
+          style={{ marginTop: 12, lineHeight: 25 }}
         >
-          <View style={styles.paletteHero}>
-            {card.palette.map((color) => (
+          {card.one_line_read}
+        </DisplayItalic>
+      </View>
+
+      {/* Palette */}
+      <SectionCard eyebrow="PALETTE · TAP TO COPY">
+        <PaletteHero colors={card.palette} />
+      </SectionCard>
+
+      {/* Creative direction */}
+      <SectionCard eyebrow="CREATIVE DIRECTION" title="What to steal">
+        <Body style={{ marginBottom: 4 }}>{card.creative_direction}</Body>
+      </SectionCard>
+
+      {/* Visual DNA */}
+      <SectionCard eyebrow="VISUAL DNA">
+        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+          {Object.entries(card.visual_dna).map(([k, v]) => (
+            <View key={k} style={{ width: "50%", paddingVertical: 8, paddingRight: 12 }}>
+              <Meta style={{ marginBottom: 4 }}>{k.toUpperCase()}</Meta>
+              <Headline>{v as string}</Headline>
+            </View>
+          ))}
+        </View>
+      </SectionCard>
+
+      {/* Type direction */}
+      <SectionCard eyebrow="TYPE DIRECTION">
+        <View style={{ gap: 10 }}>
+          {card.type_direction.map((t) => (
+            <View key={t.style} style={s.typeCard}>
+              <Text style={[
+                { fontSize: 28, color: theme.ink[1], marginBottom: 8, lineHeight: 30 },
+                typePreviewStyle(t.style)
+              ]}>
+                {t.style}
+              </Text>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
+                <Meta>{t.style.toUpperCase()}</Meta>
+                <Text style={{ fontSize: 12, color: theme.ink[3] }}>{t.use}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </SectionCard>
+
+      {/* Related */}
+      {card.related_links && card.related_links.length ? (
+        <SectionCard eyebrow="RELATED INSPIRATION">
+          <View>
+            {card.related_links.map((link, i) => (
               <Pressable
-                key={`${color.hex}-${color.role}`}
-                onPress={() => copyHex(color.hex)}
-                style={({ pressed }) => [styles.paletteColumn, pressed && styles.pressed]}
+                key={link.url}
+                onPress={() => Linking.openURL(link.url)}
+                style={({ pressed }) => [
+                  {
+                    flexDirection: "row",
+                    gap: 12,
+                    paddingVertical: 12,
+                    borderTopWidth: i ? 1 : 0,
+                    borderTopColor: theme.palette.line
+                  },
+                  pressed && { opacity: 0.7 }
+                ]}
               >
-                <View style={[styles.swatchBlock, { backgroundColor: color.hex }]}>
-                  <Text style={styles.swatchHex}>{color.hex.toUpperCase()}</Text>
+                {link.thumbnail_url ? (
+                  <Image source={{ uri: link.thumbnail_url }} style={s.relatedThumb} />
+                ) : null}
+                <View style={{ flex: 1 }}>
+                  <Headline>{link.title}</Headline>
+                  {link.reason ? <Body style={{ fontSize: 13, marginTop: 4 }}>{link.reason}</Body> : null}
+                  <Meta style={{ marginTop: 6 }}>{link.provider.toUpperCase()}</Meta>
                 </View>
-                <View style={styles.paletteCopy}>
-                  <Text style={styles.swatchLabel}>{color.label}</Text>
-                  <Text style={styles.swatchRole}>{color.role}</Text>
-                  <Text style={styles.copyHint}>
-                    {copiedHex === color.hex.toUpperCase() ? "Copied" : "Tap to copy"}
-                  </Text>
-                </View>
+                <Icon name="arrowup" size={16} color={theme.ink[3]} />
               </Pressable>
             ))}
           </View>
-          <Text style={[styles.paletteStatus, copiedHex && styles.paletteStatusActive]}>
-            {copiedHex ? `Copied ${copiedHex}` : "Tap any color to copy the hex"}
-          </Text>
-        </CollapsibleSection>
+        </SectionCard>
+      ) : null}
 
-        <CollapsibleSection
-          expanded={expandedSection === "links"}
-          icon="↗"
-          onPress={() => toggleSection("links")}
-          subtitle="Real references with previews"
-          title="Related inspiration"
-        >
-          <RelatedInspiration links={card.related_links} />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          expanded={expandedSection === "translation"}
-          icon="✦"
-          onPress={() => toggleSection("translation")}
-          subtitle="What to steal and how to use it"
-          title="Creative translation"
-        >
-          <CreativeTranslation card={card} />
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          expanded={expandedSection === "type"}
-          icon="Aa"
-          onPress={() => toggleSection("type")}
-          subtitle="Typography direction from the same scan"
-          title="Type direction"
-        >
-          {card.type_direction.map((direction) => (
-            <View key={direction.style} style={styles.typeItem}>
-              <Text style={[styles.typePreview, typePreviewStyle(direction.style)]}>
-                {direction.style}
-              </Text>
-              <Text style={styles.typeStyle}>{direction.style}</Text>
-              <Text style={styles.typeUse}>{direction.use}</Text>
-            </View>
-          ))}
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          expanded={expandedSection === "share"}
-          icon="⤴"
-          onPress={() => toggleSection("share")}
-          subtitle="A share card that opens as a public web link"
-          title="Share preview"
-        >
-          <View style={styles.sharePreview}>
-            <Image source={{ uri: card.image_url }} style={styles.shareImage} resizeMode="cover" />
-            <View style={styles.shareBody}>
-              <Text style={styles.shareBrand}>PALLETO</Text>
-              <Text style={styles.shareTitle}>{card.title}</Text>
-              <Text style={styles.shareRead} numberOfLines={3}>
-                {card.one_line_read}
-              </Text>
-              <View style={styles.sharePalette}>
-                {card.palette.map((color) => (
-                  <View
-                    key={`share-${color.hex}`}
-                    style={[styles.shareSwatch, { backgroundColor: color.hex }]}
-                  />
-                ))}
-              </View>
-            </View>
-          </View>
-        </CollapsibleSection>
-
-        <CollapsibleSection
-          expanded={expandedSection === "search"}
-          icon="⌕"
-          onPress={() => toggleSection("search")}
-          subtitle="Language to keep exploring this direction"
-          title="Search language"
-        >
-          <View style={styles.tagRow}>
+      {/* Search language */}
+      {card.search_language && card.search_language.length ? (
+        <SectionCard eyebrow="LANGUAGE FOR MORE OF THIS">
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {card.search_language.map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
+              <Chip key={tag}>{tag}</Chip>
             ))}
           </View>
-        </CollapsibleSection>
-      </View>
+        </SectionCard>
+      ) : null}
     </View>
   );
 }
@@ -259,7 +255,6 @@ export function CardDetailScreen({
       onLockedAction?.("share");
       return;
     }
-
     trackEvent("share_clicked", { card_id: card.id, source: "card_detail" });
     try {
       await shareCardFromApi(firebaseUser, card.id, card.title);
@@ -273,11 +268,7 @@ export function CardDetailScreen({
   function confirmDelete() {
     Alert.alert("Delete this card?", "This removes it from your library.", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: deleteCurrentCard
-      }
+      { text: "Delete", style: "destructive", onPress: deleteCurrentCard }
     ]);
   }
 
@@ -296,41 +287,38 @@ export function CardDetailScreen({
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <CardDetail card={card} />
-      <Pressable
-        onPress={shareCard}
-        style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
-      >
-        <Text style={styles.primaryButtonText}>Share card</Text>
-      </Pressable>
-      <Pressable
-        onPress={() => {
-          if (!isPalletoProActive) {
-            onLockedAction?.("refine");
-            return;
-          }
+    <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
+      <TopBar
+        left={<Pill icon="back" />}
+        right={<Pill icon="share" onPress={shareCard} />}
+      />
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <CardDetail card={card} />
 
-          onRefine();
-        }}
-        style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
-      >
-        <Text style={styles.secondaryButtonText}>Refine with AI</Text>
-      </Pressable>
-      <Pressable
-        disabled={isDeleting}
-        onPress={confirmDelete}
-        style={({ pressed }) => [
-          styles.deleteButton,
-          pressed && styles.pressed,
-          isDeleting && styles.disabled
-        ]}
-      >
-        <Text style={styles.deleteButtonText}>{isDeleting ? "Deleting..." : "Delete from library"}</Text>
-      </Pressable>
-    </ScrollView>
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 6 }}>
+          <Button icon="sparkle" full onPress={() => {
+            if (!isPalletoProActive) {
+              onLockedAction?.("refine");
+              return;
+            }
+            onRefine();
+          }}>
+            Refine with AI
+          </Button>
+          <Button icon="share" variant="secondary" full onPress={shareCard}>
+            Share
+          </Button>
+        </View>
+
+        <Button variant="destructive" onPress={confirmDelete} disabled={isDeleting}>
+          {isDeleting ? "Deleting…" : "Delete from library"}
+        </Button>
+      </ScrollView>
+    </View>
   );
 }
+
+/* ── helpers ─────────────────────────────────────────────────── */
 
 async function shareCardFromApi(firebaseUser: User, cardId: string, cardTitle: string) {
   const token = await firebaseUser.getIdToken();
@@ -344,19 +332,9 @@ async function shareCardFromApi(firebaseUser: User, cardId: string, cardTitle: s
       failOnCancel: false,
       activityItemSources: [
         {
-          placeholderItem: {
-            type: "url",
-            content: share.share_url
-          },
-          item: {
-            default: {
-              type: "url",
-              content: share.share_url
-            }
-          },
-          subject: {
-            default: cardTitle
-          },
+          placeholderItem: { type: "url", content: share.share_url },
+          item: { default: { type: "url", content: share.share_url } },
+          subject: { default: cardTitle },
           linkMetadata: {
             originalUrl: share.share_url,
             url: share.share_url,
@@ -370,582 +348,54 @@ async function shareCardFromApi(firebaseUser: User, cardId: string, cardTitle: s
   }
 
   trackEvent("share_sheet_opened", { card_id: cardId, platform: "android" });
-  await Share.share({
-    message: share.share_url,
-    url: downloaded.uri
-  });
-}
-
-function CollapsibleSection({
-  children,
-  expanded,
-  icon,
-  onPress,
-  subtitle,
-  title
-}: {
-  children: ReactNode;
-  expanded: boolean;
-  icon: string;
-  onPress: () => void;
-  subtitle: string;
-  title: string;
-}) {
-  return (
-    <View style={styles.section}>
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [styles.sectionHeader, pressed && styles.pressed]}
-      >
-        <View style={styles.sectionHeading}>
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionIcon}>{icon}</Text>
-            <Text style={styles.sectionLabel}>{title}</Text>
-          </View>
-          <Text style={styles.sectionSubtitle}>{subtitle}</Text>
-        </View>
-        <Text style={styles.sectionToggle}>{expanded ? "Hide" : "Open"}</Text>
-      </Pressable>
-      {expanded ? <View style={styles.sectionContent}>{children}</View> : null}
-    </View>
-  );
-}
-
-function RelatedInspiration({ links }: { links: RelatedLink[] }) {
-  return (
-    <View style={styles.relatedList}>
-      {links.map((link) => (
-        <Pressable
-          key={link.url}
-          style={[styles.relatedTile, !link.thumbnail_url && styles.relatedTileTextOnly]}
-          onPress={() => Linking.openURL(link.url)}
-        >
-          {link.thumbnail_url ? (
-            <View style={styles.relatedImageFrame}>
-              <Image source={{ uri: link.thumbnail_url }} style={styles.relatedImage} resizeMode="cover" />
-            </View>
-          ) : null}
-          <View style={styles.relatedCopy}>
-            <Text style={styles.relatedTitle}>{link.title}</Text>
-            {link.reason ? <Text style={styles.relatedReason}>{link.reason}</Text> : null}
-            <Text style={styles.relatedProvider}>
-              {link.thumbnail_url ? link.provider : `${link.provider} / open link`}
-            </Text>
-          </View>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
-function CreativeTranslation({ card }: { card: InspirationCard }) {
-  return (
-    <View style={styles.translationPanel}>
-      <View style={styles.translationHero}>
-        <Image source={{ uri: card.image_url }} style={styles.translationHeroImage} resizeMode="cover" />
-        <View style={styles.translationHeroShade} />
-        <View style={styles.translationHeroCopy}>
-          <Text style={styles.translationEyebrow}>What to steal</Text>
-          <Text style={styles.translationTitle}>{card.project_lens.summary}</Text>
-        </View>
-      </View>
-
-      <View style={styles.translationBody}>
-        <View style={styles.projectUseHeader}>
-          <Text style={styles.translationEyebrow}>Use it for</Text>
-          <Text style={styles.projectUseTitle}>{card.project_lens.project_type}</Text>
-        </View>
-
-        <View style={styles.moveList}>
-          {card.project_lens.applications.slice(0, 4).map((application, index) => (
-            <View key={application} style={styles.moveRow}>
-              <Text style={styles.moveNumber}>{String(index + 1).padStart(2, "0")}</Text>
-              <Text style={styles.moveText}>{application}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.systemNotes}>
-          <SystemNote label="Surface" value={card.visual_dna.texture} />
-          <SystemNote label="Form" value={card.visual_dna.shape_language} />
-          <SystemNote label="Contrast" value={card.visual_dna.contrast} />
-          <SystemNote label="Layout" value={card.visual_dna.composition} />
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function SystemNote({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.systemNote}>
-      <Text style={styles.systemNoteLabel}>{label}</Text>
-      <Text style={styles.systemNoteValue}>{value}</Text>
-    </View>
-  );
+  await Share.share({ message: share.share_url, url: downloaded.uri });
 }
 
 function typePreviewStyle(style: string) {
-  if (style.toLowerCase().includes("serif")) {
-    return styles.typePreviewSerif;
+  const lower = style.toLowerCase();
+  if (lower.includes("serif")) return { fontFamily: theme.font.display };
+  if (lower.includes("mono")) return { fontFamily: theme.font.mono };
+  if (lower.includes("grotesk") || lower.includes("sans")) {
+    return { fontFamily: theme.font.sansMedium };
   }
-
-  if (style.toLowerCase().includes("mono")) {
-    return styles.typePreviewMono;
-  }
-
-  if (style.toLowerCase().includes("grotesk")) {
-    return styles.typePreviewGrotesk;
-  }
-
-  return styles.typePreviewSans;
+  return { fontFamily: theme.font.sans };
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background
-  },
+function shortId(id: string) {
+  return `№ ${id.slice(0, 6).toUpperCase()}`;
+}
+
+const s = StyleSheet.create({
   content: {
-    gap: theme.spacing.lg,
-    padding: theme.spacing.lg
+    paddingTop: 110,
+    paddingHorizontal: 16,
+    paddingBottom: 60,
+    gap: 14
   },
-  saved: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
+  polaroid: {
+    backgroundColor: theme.palette.paper,
+    padding: 10,
+    paddingBottom: 12,
+    borderRadius: theme.radius.md,
+    ...theme.shadow.lifted
   },
-  card: {
-    overflow: "hidden",
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  cardImage: {
+  heroImage: {
     width: "100%",
-    height: 340
+    aspectRatio: 4 / 5,
+    borderRadius: 12,
+    backgroundColor: theme.palette.putty
   },
-  cardBody: {
-    gap: theme.spacing.md,
-    padding: theme.spacing.md
-  },
-  cardTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 30,
-    fontWeight: "800",
-    lineHeight: 36
-  },
-  oneLine: {
-    color: theme.colors.textPrimary,
-    fontSize: 17,
-    fontWeight: "700",
-    lineHeight: 24
-  },
-  direction: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 23
-  },
-  section: {
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    paddingTop: theme.spacing.md
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: theme.spacing.md
-  },
-  sectionHeading: {
-    flex: 1,
-    gap: 3
-  },
-  sectionTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8
-  },
-  sectionIcon: {
-    width: 18,
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textAlign: "center"
-  },
-  sectionLabel: {
-    color: theme.colors.textPrimary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  sectionSubtitle: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18
-  },
-  sectionToggle: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "800"
-  },
-  sectionContent: {
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.md
-  },
-  paletteHero: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.xs
-  },
-  paletteColumn: {
-    width: "48.5%",
-    gap: theme.spacing.sm,
-    padding: theme.spacing.xs,
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
+  typeCard: {
+    padding: 18,
+    backgroundColor: theme.palette.putty,
+    borderRadius: theme.radius.md,
     borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  swatchBlock: {
-    justifyContent: "flex-end",
-    height: 76,
-    padding: theme.spacing.xs,
-    borderColor: "rgba(255,255,255,0.18)",
-    borderWidth: 1,
-    borderRadius: 4
-  },
-  swatchHex: {
-    alignSelf: "flex-start",
-    overflow: "hidden",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    color: theme.colors.textPrimary,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 4,
-    fontSize: 11,
-    fontWeight: "900"
-  },
-  paletteCopy: {
-    flex: 1,
-    gap: 2
-  },
-  swatchLabel: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "700"
-  },
-  swatchRole: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  copyHint: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: "700"
-  },
-  paletteStatus: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "700"
-  },
-  paletteStatusActive: {
-    color: theme.colors.textPrimary
-  },
-  translationPanel: {
-    overflow: "hidden",
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  translationHero: {
-    minHeight: 300,
-    overflow: "hidden",
-    backgroundColor: theme.colors.surface
-  },
-  translationHeroImage: {
-    position: "absolute",
-    width: "100%",
-    minHeight: 300,
-    transform: [{ scale: 1.1 }]
-  },
-  translationHeroShade: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.48)"
-  },
-  translationHeroCopy: {
-    justifyContent: "flex-end",
-    minHeight: 300,
-    gap: theme.spacing.xs,
-    padding: theme.spacing.md,
-    paddingTop: 92
-  },
-  translationEyebrow: {
-    color: theme.colors.textPrimary,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase"
-  },
-  translationTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 21,
-    fontWeight: "900",
-    lineHeight: 27
-  },
-  translationBody: {
-    gap: theme.spacing.md,
-    padding: theme.spacing.md
-  },
-  projectUseHeader: {
-    gap: 2
-  },
-  projectUseTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 20,
-    fontWeight: "900",
-    lineHeight: 25
-  },
-  moveList: {
-    gap: theme.spacing.sm
-  },
-  moveRow: {
-    flexDirection: "row",
-    gap: theme.spacing.sm
-  },
-  moveNumber: {
-    width: 28,
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    lineHeight: 21
-  },
-  moveText: {
-    flex: 1,
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "700",
-    lineHeight: 21
-  },
-  systemNotes: {
-    gap: theme.spacing.sm,
-  },
-  systemNote: {
-    gap: 2,
-    paddingTop: theme.spacing.sm,
-    borderTopColor: theme.colors.border,
-    borderTopWidth: 1
-  },
-  systemNoteLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase"
-  },
-  systemNoteValue: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20
-  },
-  typeItem: {
-    gap: theme.spacing.xs,
-    padding: theme.spacing.sm,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  typePreview: {
-    color: theme.colors.textPrimary,
-    fontSize: 28,
-    lineHeight: 34
-  },
-  typePreviewGrotesk: {
-    fontFamily: "Archivo_900Black",
-    fontWeight: "900",
-    textTransform: "uppercase"
-  },
-  typePreviewMono: {
-    fontFamily: "IBMPlexMono_600SemiBold",
-    fontWeight: "700"
-  },
-  typePreviewSerif: {
-    fontFamily: "CormorantGaramond_600SemiBold",
-    fontSize: 34
-  },
-  typePreviewSans: {
-    fontFamily: "SpaceGrotesk_700Bold",
-    fontWeight: "800"
-  },
-  typeStyle: {
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "800"
-  },
-  typeUse: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  relatedList: {
-    gap: theme.spacing.sm
-  },
-  relatedTile: {
-    flexDirection: "row",
-    gap: theme.spacing.sm,
-    padding: theme.spacing.sm,
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  relatedTileTextOnly: {
-    paddingVertical: theme.spacing.md
-  },
-  relatedImageFrame: {
-    width: 86,
-    height: 86,
-    overflow: "hidden",
-    borderRadius: 4
-  },
-  relatedImage: {
-    width: "100%",
-    height: "100%"
-  },
-  relatedCopy: {
-    flex: 1,
-    gap: theme.spacing.xs
-  },
-  relatedTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "800"
-  },
-  relatedReason: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18
-  },
-  relatedProvider: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  sharePreview: {
-    overflow: "hidden",
-    backgroundColor: theme.colors.background,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  shareImage: {
-    width: "100%",
-    height: 220
-  },
-  shareBody: {
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md
-  },
-  shareBrand: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: "900",
-    textTransform: "uppercase"
-  },
-  shareTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 24,
-    fontWeight: "900",
-    lineHeight: 29
-  },
-  shareRead: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  sharePalette: {
-    flexDirection: "row",
-    height: 12
-  },
-  shareSwatch: {
-    flex: 1
-  },
-  tagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm
-  },
-  tag: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 7,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  tagText: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "700"
-  },
-  actions: {
-    gap: theme.spacing.md
-  },
-  primaryButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 54,
-    backgroundColor: theme.colors.textPrimary,
-    borderRadius: theme.radius.small
-  },
-  primaryButtonText: {
-    color: theme.colors.background,
-    fontSize: 16,
-    fontWeight: "800"
-  },
-  secondaryButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 54,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  secondaryButtonText: {
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "800"
-  },
-  textButton: {
-    alignItems: "center",
-    paddingVertical: theme.spacing.sm
-  },
-  textButtonText: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    fontWeight: "800"
-  },
-  deleteButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 52,
-    borderColor: theme.colors.error,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  deleteButtonText: {
-    color: theme.colors.error,
-    fontSize: 15,
-    fontWeight: "900"
-  },
-  disabled: {
-    opacity: 0.5
-  },
-  pressed: {
-    opacity: 0.72
+    borderColor: theme.palette.line
+  },
+  relatedThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+    backgroundColor: theme.palette.putty
   }
 });

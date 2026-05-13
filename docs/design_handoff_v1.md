@@ -1,179 +1,79 @@
-# design_handoff_v1.md
+# Palleto Design System
 
-## 1. Overview
+## Overview
 
-This app allows users to scan real-world inspiration and convert it into a structured, shareable inspiration card containing:
-- color palette
-- texture descriptors
-- vibe tags
-- font recommendations
-- related inspiration
+Palleto uses the v2 "Bone" design system: a warm, editorial, iOS-native interface where the app chrome stays quiet and scanned inspiration provides the color. Product surfaces should feel like paper, glass, and collected visual artifacts rather than a dark utility dashboard.
 
-The app should feel premium, restrained, and content-first. The core UI should be neutral black and white with both light and dark mode support. User-uploaded inspiration, generated color palettes, textures, imagery, and inspo cards should provide the visual color in the experience.
+This document is the canonical source for new product work. Preserve existing behavior, routes, auth, paywall gates, analytics, and API contracts when applying these visual patterns.
 
----
+## Visual Direction
 
-## 2. Navigation Flow
+- Background: warm bone `#F2EEE4`.
+- Elevated surfaces: paper white `#FFFFFF`, linen `#FAF7F0`, putty `#F7F4ED`.
+- Ink: primary `#1C1A17`, body `#4A4640`, meta `#8B847A`, hint `#B8B1A4`.
+- Lines: soft warm hairlines using `rgba(28,26,23,0.07)` and stronger dividers using `rgba(28,26,23,0.14)`.
+- Color usage: scanned images, extracted palettes, share cards, and user content carry the chromatic energy. Do not introduce dominant app-level accent colors or gradients.
+- Shape: generous rounded rectangles and pills. Use `24-32px` radius for content cards and `999px` radius for pills.
+- Depth: use soft layered shadows, especially for floating navigation, cards, and CTAs.
 
-- Splash → Onboarding (3 screens)
-- Onboarding → Auth
-- Auth → Home
-- Home → Scan
-- Scan → Processing
-- Processing → Result Card
-- Result Card → Save / Share / Library
-- Library → Card Detail
-- Paywall triggered after free scan limit
+## Typography
 
----
+- Display/editorial: Instrument Serif.
+- UI/body: Inter Tight.
+- Meta/code/system labels: JetBrains Mono.
+- Keep letter spacing at `0` unless a mono uppercase meta label needs subtle positive tracking.
+- Use large serif type for hero/result titles and restrained sans type for controls and body copy.
 
-## 3. Core Screens
+## Mobile Tokens
 
-### Home Screen
-Purpose: entry point  
-Layout:
-- title at top
-- large Scan button
-- recent cards horizontal scroll
+Use `mobile/src/theme.ts` for all new mobile styling.
 
----
+Key token groups:
 
-### Scan Screen
-- camera view
-- capture button bottom center
-- upload from gallery
+- `theme.palette`: `bone`, `linen`, `paper`, `putty`, `glass`, `line`, `lineStrong`.
+- `theme.ink`: `1`, `2`, `3`, `4`.
+- `theme.font`: `display`, `displayItalic`, `sans`, `sansMedium`, `sansSemibold`, `mono`, `monoMedium`.
+- `theme.shadow`: `quiet`, `lifted`, `floating`, `pill`, `fab`.
 
----
+Legacy fields like `theme.colors.background`, `theme.colors.surface`, and `theme.radius.medium` remain for older screens and map into the new visual system.
 
-### Processing Screen
-- loader
-- text: "Analyzing inspiration..."
+## Mobile Components
 
----
+Prefer the primitives in `mobile/src/ui` for new or touched screens:
 
-### Result Card Screen (CORE)
+- `Screen` / `ScrollScreen`: bone screen wrappers with safe-area handling.
+- `Display`, `DisplayItalic`, `Headline`, `Body`, `Meta`: typography primitives.
+- `Pill`, `Button`, `Chip`, `ProjectChip`: controls and compact labels.
+- `TopBar`, `TabBar`: floating navigation chrome.
+- `SectionCard`, `Tile`: content containers.
+- `PaletteRow`, `PaletteGrid`, `PaletteHero`: palette display.
 
-Structure:
-1. Image
-2. Color Palette (4–6 swatches)
-3. Texture tags
-4. Vibe tags
-5. Font recommendations
-6. Related inspiration (list)
-7. Actions: Save / Share
+## Core Screens
 
----
+- Onboarding: keep the real pre-auth scan hook intact. Use warm bone surfaces, serif headlines, glass/ink pills, and user scan imagery as the color source.
+- Capture: preserve camera/library behavior. Visual controls should feel floating and minimal over the capture surface.
+- Processing: keep the visual scanning/processing loop alive until generation finishes; avoid dead loading time.
+- Result/Card Detail: prioritize the image, palette, creative read, project lens, type direction, related inspiration, and locked Share/Save/Refine gateways.
+- Library: use artifact-like tiles, palette strips, and floating bottom navigation.
+- Profile/Project Intake/Auth/Locked Feature/Refine: inherit tokens at minimum, then convert to primitives when touched.
 
-### Library Screen
-- grid (2 columns)
-- scrollable
-- tap for detail
+## Sharing Surfaces
 
----
+Public share URLs and share images must use the same Bone system:
 
-### Card Detail
-- full scrollable card
-- persistent actions
+- `/s/{share_token}`: warm share page with paper panels, serif title, ink/body/meta hierarchy, and palette-driven color.
+- `/og/share/{share_token}.png`: iMessage/social preview image using bone background, paper card, rounded captured image, title/read, and palette chips.
+- `/share/card/{share_token}.png`: shareable artifact image using the same palette and typography direction.
 
----
+Do not change the public route contracts or metadata fields while updating visuals.
 
-### Paywall
-- headline: Unlock unlimited inspiration
-- features:
-  - unlimited scans
-  - deeper analysis
-  - full library
-- pricing CTA
+## Behavior Guardrails
 
----
+Visual updates must not change:
 
-## 4. Components
-
-Button:
-- rounded
-- neutral primary treatment
-- high-contrast text
-- subtle state changes
-
-Card:
-- neutral surface
-- rounded corners
-- padding
-
-Tag:
-- pill shape
-- subtle background
-- optional subtle color only when it helps communicate meaning
-
-Color Swatch:
-- clickable
-- evenly spaced
-- color comes from the analyzed inspiration, not the app theme
-
----
-
-## 5. Design Tokens
-
-Colors:
-- light background: #FFFFFF
-- light surface: #F6F6F6
-- light border: #E5E5E5
-- light text primary: #0A0A0A
-- light text secondary: #5F5F5F
-- dark background: #000000
-- dark surface: #141414
-- dark border: #2A2A2A
-- dark text primary: #FFFFFF
-- dark text secondary: #A3A3A3
-- primary action light: #0A0A0A
-- primary action dark: #FFFFFF
-- semantic success: #2E7D32
-- semantic warning: #B26A00
-- semantic error: #C62828
-- semantic info: #1565C0
-
-Color Usage:
-- The product chrome should stay black, white, and grayscale.
-- Avoid branded color themes, large tinted backgrounds, and decorative gradients.
-- User content is the main source of color: uploaded images, extracted palettes, inspo cards, and related inspiration.
-- Use subtle semantic colors only for status, validation, alerts, and small indicators.
-- Vibe tickers or vibe tags may use restrained accent colors when they clarify category or mood, but should not dominate the screen.
-
-Radius:
-- small: 8
-- medium: 16
-- large: 24
-
-Spacing:
-- xs: 4
-- sm: 8
-- md: 16
-- lg: 24
-- xl: 32
-
-Typography:
-- clean sans-serif
-- bold headers
-- readable body
-
----
-
-## 6. Visual Style
-
-- light and dark mode
-- minimal, neutral, and content-first
-- black and white product UI
-- color reserved for user content, extracted palettes, semantic states, and subtle vibe indicators
-- strong spacing
-- smooth subtle animations
-- avoid app-level color treatments that compete with uploaded inspiration
-
----
-
-## 7. Assets
-
-- app icon
-- splash logo
-- onboarding visuals
-- paywall visual
-- share card template
+- Auth/onboarding routing.
+- RevenueCat entitlement checks and locked feature gates.
+- Capture permissions, selected image shape, upload quality, or scan API calls.
+- Library refresh behavior.
+- Share creation, share URL generation, native share flows, or public share routes.
+- Analytics event names and trigger points.

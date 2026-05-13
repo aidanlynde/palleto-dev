@@ -1,7 +1,16 @@
-import { Archivo_900Black } from "@expo-google-fonts/archivo";
-import { CormorantGaramond_600SemiBold } from "@expo-google-fonts/cormorant-garamond";
-import { IBMPlexMono_600SemiBold } from "@expo-google-fonts/ibm-plex-mono";
-import { SpaceGrotesk_700Bold } from "@expo-google-fonts/space-grotesk";
+import {
+  InstrumentSerif_400Regular,
+  InstrumentSerif_400Regular_Italic
+} from "@expo-google-fonts/instrument-serif";
+import {
+  InterTight_400Regular,
+  InterTight_500Medium,
+  InterTight_600SemiBold
+} from "@expo-google-fonts/inter-tight";
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium
+} from "@expo-google-fonts/jetbrains-mono";
 import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useFonts } from "expo-font";
@@ -94,10 +103,13 @@ const navigationTheme = {
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    Archivo_900Black,
-    CormorantGaramond_600SemiBold,
-    IBMPlexMono_600SemiBold,
-    SpaceGrotesk_700Bold
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Italic: InstrumentSerif_400Regular_Italic,
+    InterTight_400Regular,
+    InterTight_500Medium,
+    InterTight_600SemiBold,
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium
   });
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isOnboardingReady, setIsOnboardingReady] = useState(false);
@@ -566,7 +578,7 @@ export default function App() {
 
   return (
     <NavigationContainer ref={navigationRef} theme={navigationTheme}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack.Navigator
         screenOptions={{
           contentStyle: { backgroundColor: theme.colors.background },
