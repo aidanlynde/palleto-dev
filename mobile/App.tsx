@@ -592,7 +592,16 @@ export default function App() {
             {() => <SplashScreen detail={splashDetail} warning={startupWarning} />}
           </Stack.Screen>
         ) : authRequestedFromLanding && !firebaseUser ? (
-          <Stack.Screen name="Auth" component={AuthScreen} options={{ title: "Sign in" }} />
+          <Stack.Screen name="Auth" options={{ headerShown: false }}>
+            {() => (
+              <AuthScreen
+                onBack={() => {
+                  setAuthRequestedFromLanding(false);
+                  setPendingAuthDestination(null);
+                }}
+              />
+            )}
+          </Stack.Screen>
         ) : firebaseUser && guestScanStarted && !onboardingComplete && !projectContext ? (
           <Stack.Screen name="Onboarding" options={{ headerShown: false }}>
             {() => (
@@ -616,9 +625,6 @@ export default function App() {
                 onComplete={finishOnboarding}
                 onSignInPress={startLandingSignIn}
                 onStartFirstScan={startFirstScanOnboarding}
-                onSkip={() => {
-                  skipOnboarding();
-                }}
               />
             )}
           </Stack.Screen>

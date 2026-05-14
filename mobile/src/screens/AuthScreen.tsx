@@ -29,7 +29,11 @@ const googleClientConfig = {
   androidClientId: googleAndroidClientId
 };
 
-export function AuthScreen() {
+type AuthScreenProps = {
+  onBack?: () => void;
+};
+
+export function AuthScreen({ onBack }: AuthScreenProps) {
   const [isAppleAvailable, setIsAppleAvailable] = useState(false);
   const [activeProvider, setActiveProvider] = useState<"google" | "apple" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -125,6 +129,15 @@ export function AuthScreen() {
 
   return (
     <View style={styles.container}>
+      {onBack ? (
+        <Pressable
+          onPress={onBack}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.backButtonText}>Back</Text>
+        </Pressable>
+      ) : null}
+
       <View>
         <Svg width={240} height={96} viewBox="0 0 280 120" style={styles.wordmark}>
           <SvgText
@@ -196,6 +209,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: theme.spacing.lg,
     backgroundColor: theme.colors.background
+  },
+  backButton: {
+    position: "absolute",
+    top: 58,
+    left: theme.spacing.lg,
+    zIndex: 2,
+    minHeight: 44,
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    backgroundColor: theme.palette.glass,
+    ...theme.shadow.pill
+  },
+  backButtonText: {
+    color: theme.colors.textPrimary,
+    fontSize: 15,
+    fontWeight: "700"
   },
   wordmark: {
     marginBottom: theme.spacing.lg

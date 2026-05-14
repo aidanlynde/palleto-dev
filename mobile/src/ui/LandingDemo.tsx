@@ -25,7 +25,6 @@ import {
   Image,
   ImageSourcePropType,
   Pressable,
-  ScrollView,
   StyleSheet,
   View
 } from "react-native";
@@ -73,10 +72,9 @@ type Props = {
   onPrimary: () => void;
   onSecondary?: () => void;
   onSignIn?: () => void;
-  onSkip?: () => void;
 };
 
-export function LandingDemo({ onPrimary, onSecondary, onSignIn, onSkip }: Props) {
+export function LandingDemo({ onPrimary, onSecondary, onSignIn }: Props) {
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
@@ -85,13 +83,10 @@ export function LandingDemo({ onPrimary, onSecondary, onSignIn, onSkip }: Props)
   }, [idx]);
 
   return (
-    <ScrollView
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={s.container}
-    >
+    <View style={s.container}>
       {/* Top row */}
       <View style={s.topRow}>
-        {onSkip ? <Pill tight onPress={onSkip}>Skip</Pill> : <View style={{ width: 56 }} />}
+        <View style={{ width: 56 }} />
         <SceneDots count={SCENES.length} active={idx} />
         {onSignIn ? <Pill tight onPress={onSignIn}>Sign in</Pill> : <View style={{ width: 56 }} />}
       </View>
@@ -154,7 +149,7 @@ export function LandingDemo({ onPrimary, onSecondary, onSignIn, onSkip }: Props)
           </Pressable>
         ) : null}
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -583,18 +578,36 @@ function Swatch({ color, visible, index }: { color: string; visible: boolean; in
 function SceneRefine({ active }: { active: boolean }) {
   const [stage, setStage] = useState<"orig" | "sweep" | "quiet" | "done">("orig");
   const [direction, setDirection] = useState("Editorial · saturated");
+  const pillScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (!active) {
       setStage("orig");
       setDirection("Editorial · saturated");
+      pillScale.setValue(1);
       return;
     }
-    const t1 = setTimeout(() => setStage("sweep"), 700);
-    const t2 = setTimeout(() => { setStage("quiet"); setDirection("Quiet luxury · muted"); }, 1750);
-    const t3 = setTimeout(() => setStage("done"), 3150);
-    return () => { [t1, t2, t3].forEach(clearTimeout); };
-  }, [active]);
+    const t1 = setTimeout(() => {
+      Animated.sequence([
+        Animated.timing(pillScale, {
+          toValue: 0.92,
+          duration: 110,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true
+        }),
+        Animated.timing(pillScale, {
+          toValue: 1,
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true
+        })
+      ]).start();
+    }, 540);
+    const t2 = setTimeout(() => setStage("sweep"), 860);
+    const t3 = setTimeout(() => { setStage("quiet"); setDirection("Quiet luxury · muted"); }, 1850);
+    const t4 = setTimeout(() => setStage("done"), 3150);
+    return () => { [t1, t2, t3, t4].forEach(clearTimeout); };
+  }, [active, pillScale]);
 
   const wandX = useRef(new Animated.Value(-30)).current;
 
@@ -618,9 +631,7 @@ function SceneRefine({ active }: { active: boolean }) {
           <Image source={KOI_SOURCE} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
           <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(28,26,23,0.04)" }]} />
           {stage === "sweep" ? (
-            <Animated.View pointerEvents="none" style={[s.wand, { transform: [{ translateX: wandX }] }]}>
-              <Text style={{ fontSize: 22, color: theme.ink[1] }}>✦</Text>
-            </Animated.View>
+            <Animated.View pointerEvents="none" style={[s.refineSweep, { transform: [{ translateX: wandX }] }]} />
           ) : null}
         </View>
 
@@ -643,10 +654,10 @@ function SceneRefine({ active }: { active: boolean }) {
         </View>
       </View>
 
-      <View style={s.refinePill}>
+      <Animated.View style={[s.refinePill, { transform: [{ scale: pillScale }] }]}>
         <Text style={{ color: "#fff", fontSize: 12 }}>✦</Text>
         <Text style={s.refinePillText}>Refine</Text>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -1012,11 +1023,14 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    height: 1.5,
-    backgroundColor: "rgba(28,26,23,0.55)",
-    shadowColor: "#1C1A17",
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
+    height: 28,
+    backgroundColor: "rgba(250,247,240,0.26)",
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: "rgba(28,26,23,0.24)",
+    shadowColor: "#FAF7F0",
+    shadowOpacity: 0.6,
+    shadowRadius: 18,
     shadowOffset: { width: 0, height: 0 }
   },
   scanMetaRow: {
@@ -1066,18 +1080,19 @@ const s = StyleSheet.create({
     overflow: "hidden",
     position: "relative"
   },
-  wand: {
+  refineSweep: {
     position: "absolute",
-    top: "50%",
-    left: 0,
-    marginTop: -14,
-    width: 28,
-    height: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#1C1A17",
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
+    top: 0,
+    bottom: 0,
+    left: -72,
+    width: 72,
+    backgroundColor: "rgba(250,247,240,0.28)",
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: "rgba(255,255,255,0.42)",
+    shadowColor: "#FAF7F0",
+    shadowOpacity: 0.7,
+    shadowRadius: 16,
     shadowOffset: { width: 0, height: 0 }
   },
   refineMetaRow: {

@@ -229,7 +229,6 @@ export function OnboardingScreen({
         onPrimary={startFirstScan}
         onSecondary={continueFlow}
         onSignIn={onSignInPress}
-        onSkip={onSkip}
       />
     );
   }
