@@ -1,35 +1,68 @@
 /**
- * LandingDemo · onboarding step 0 animated tour.
+ * LandingDemo — animated 6-scene tour for OnboardingScreen step 0.
  *
- * Self-contained and dependency-free. Uses the existing Bone UI tokens and
- * the image assets already in the repo to give the landing step a living
- * preview of the product without a video background.
+ * Replaces the `landing-loop.mov` background video with a self-contained
+ * animation that explains what Palleto does:
+ *
+ *   1. Project context — typing animation + mood tags
+ *   2. Capture       — viewfinder reticle + flash → polaroid
+ *   3. Scan          — scan line sweep + palette emerge + title
+ *   4. Refine        — sparkle wand + palette morphs muted
+ *   5. Share         — card shrinks to right, "DELIVERED", reply bubble
+ *   6. Library       — 2×2 grid of saved scans cascades in
+ *
+ * Pure RN — no extra dependencies. Uses RN Animated for transforms,
+ * setTimeout/setInterval for phase orchestration.
+ *
+ * Hardcodes the two reference images (koi, garden) via require().
+ * If you want to customize the references shown, edit the constants
+ * at the top of this file (KOI_*, GARDEN_*).
  */
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Image, Pressable, StyleSheet, View } from "react-native";
+import {
+  Animated,
+  Easing,
+  Image,
+  ImageSourcePropType,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View
+} from "react-native";
 
 import { theme } from "../theme";
 import { Body, Display, DisplayItalic, Meta, Text } from "./Text";
 import { Button } from "./Button";
 import { Pill } from "./Pill";
 
-const DEMO_REFERENCES = [
-  {
-    source: require("../../assets/onboarding/capture-cathedral.png"),
-    title: "Stained light, slow stone",
-    palette: ["#3D2A2E", "#7C0F1F", "#CA8B2E", "#385E76", "#E9DFC9"]
-  },
-  {
-    source: require("../../assets/demo/koi-street-reference.png"),
-    title: "Wet pavement, bright fish",
-    palette: ["#D14B2D", "#1F1B19", "#C9B591", "#5A6E64", "#EFE7D7"]
-  },
-  {
-    source: require("../../assets/demo/garden-objects-reference.png"),
-    title: "Tools the color of earth",
-    palette: ["#7B4528", "#5A6543", "#A89478", "#E3D7BF", "#1F1A14"]
-  }
+/* ──────────────────────────────────────────────────────────────
+   CONFIG — references used in the demo. Edit to customize.
+   ────────────────────────────────────────────────────────────── */
+
+const KOI_SOURCE: ImageSourcePropType = require("../../assets/demo/koi-street-reference.png");
+const GARDEN_SOURCE: ImageSourcePropType = require("../../assets/demo/garden-objects-reference.png");
+
+const KOI_PALETTE = ["#D14B2D", "#1F1B19", "#C9B591", "#5A6E64", "#EFE7D7"];
+const KOI_PALETTE_QUIET = ["#9B5742", "#2F2A24", "#C4AD8B", "#6A7268", "#E5DCC6"];
+const GARDEN_PALETTE = ["#7B4528", "#5A6543", "#A89478", "#E3D7BF", "#1F1A14"];
+
+const PROJECT_NAME = "Reverence Coffee";
+const PROJECT_MOODS = ["Quiet luxury", "Monastic", "Honest materials"];
+
+const SCENES = [
+  { id: "project", headline: "Tell Palleto",   italic: "what you're making",  sub: "Quiet luxury, monastic, technical and precise — your brief shapes every scan.", ms: 3400 },
+  { id: "capture", headline: "Snap",           italic: "anything with signal", sub: "A poster, an outfit, a corner of a room. Palleto reads the light.",            ms: 3000 },
+  { id: "scan",    headline: "Get a palette",  italic: "and a direction",      sub: "Hex codes you can copy, language you can search, type lanes to chase.",         ms: 4500 },
+  { id: "refine",  headline: "Refine",         italic: "with a tap",           sub: "Push it warmer, quieter, more editorial. The card responds in seconds.",        ms: 3200 },
+  { id: "share",   headline: "Send it",        italic: "to anyone",            sub: "A share card that opens as a public web link. Texts, emails, slacks.",          ms: 3000 },
+  { id: "library", headline: "Build",          italic: "your visual library",  sub: "Every scan filed under the project it belongs to. Searchable, beautiful.",       ms: 3000 }
 ] as const;
+
+type SceneId = (typeof SCENES)[number]["id"];
+
+/* ──────────────────────────────────────────────────────────────
+   ROOT
+   ────────────────────────────────────────────────────────────── */
 
 type Props = {
   onPrimary: () => void;
@@ -39,149 +72,756 @@ type Props = {
 };
 
 export function LandingDemo({ onPrimary, onSecondary, onSignIn, onSkip }: Props) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [idx, setIdx] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setActiveIndex((current) => (current + 1) % DEMO_REFERENCES.length);
-    }, 3800);
-
-    return () => clearInterval(timer);
-  }, []);
+    const t = setTimeout(() => setIdx((i) => (i + 1) % SCENES.length), SCENES[idx].ms);
+    return () => clearTimeout(t);
+  }, [idx]);
 
   return (
-    <View style={s.container}>
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={s.container}
+    >
+      {/* Top row */}
       <View style={s.topRow}>
-        {onSkip ? <Pill tight onPress={onSkip}>Skip</Pill> : <View style={s.topSlot} />}
-        {onSignIn ? <Pill tight onPress={onSignIn}>Sign in</Pill> : <View style={s.topSlot} />}
+        {onSkip ? <Pill tight onPress={onSkip}>Skip</Pill> : <View style={{ width: 56 }} />}
+        <SceneDots count={SCENES.length} active={idx} />
+        {onSignIn ? <Pill tight onPress={onSignIn}>Sign in</Pill> : <View style={{ width: 56 }} />}
       </View>
 
+      {/* Wordmark */}
       <View style={s.wordmarkRow}>
-        <Display size={42} style={s.wordmark}>
+        <Display size={42} style={{ lineHeight: 44 }}>
           palleto
         </Display>
-        <View style={s.dot} />
+        <View style={s.wordmarkDot} />
       </View>
 
-      <View style={s.sceneStage}>
-        {DEMO_REFERENCES.map((reference, index) => (
-          <ReferenceCard key={reference.title} reference={reference} active={index === activeIndex} />
+      {/* Stage */}
+      <View style={s.stage}>
+        {SCENES.map((scene, i) => (
+          <SceneWrap key={scene.id} active={i === idx}>
+            <SceneByID id={scene.id} active={i === idx} />
+          </SceneWrap>
         ))}
       </View>
 
-      <View style={s.caption}>
-        {activeIndex === 0 ? (
-          <View style={s.captionInner}>
-            <Display size={28} style={s.captionTitle}>
-              From a photo
-            </Display>
-            <DisplayItalic size={28} color={theme.ink[2]} style={s.captionTitleItalic}>
-              to a palette
-            </DisplayItalic>
-            <Body style={s.captionBody}>
-              Palleto reads the image, pulls out the signal, and turns it into something you can use.
-            </Body>
-          </View>
-        ) : activeIndex === 1 ? (
-          <View style={s.captionInner}>
-            <Display size={28} style={s.captionTitle}>
-              To a direction
-            </Display>
-            <DisplayItalic size={28} color={theme.ink[2]} style={s.captionTitleItalic}>
-              that fits your project
-            </DisplayItalic>
-            <Body style={s.captionBody}>
-              Every scan ties back to the work you are actually building.
-            </Body>
-          </View>
-        ) : (
-          <View style={s.captionInner}>
-            <Display size={28} style={s.captionTitle}>
-              And a system
-            </Display>
-            <DisplayItalic size={28} color={theme.ink[2]} style={s.captionTitleItalic}>
-              you can share
-            </DisplayItalic>
-            <Body style={s.captionBody}>
-              Save it, refine it, and send a public card to anyone who needs the context.
-            </Body>
-          </View>
-        )}
+      {/* Captions */}
+      <View style={s.captionStage}>
+        {SCENES.map((scene, i) => (
+          <CaptionWrap key={scene.id} active={i === idx}>
+            <View style={{ alignItems: "center" }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center" }}>
+                <Display size={26} style={{ lineHeight: 28 }}>
+                  {scene.headline}{" "}
+                </Display>
+                <DisplayItalic size={26} color={theme.ink[2]} style={{ lineHeight: 28 }}>
+                  {scene.italic}
+                </DisplayItalic>
+              </View>
+              <Body
+                style={{
+                  fontSize: 13.5,
+                  lineHeight: 19,
+                  marginTop: 8,
+                  color: theme.ink[3],
+                  maxWidth: 320,
+                  textAlign: "center"
+                }}
+              >
+                {scene.sub}
+              </Body>
+            </View>
+          </CaptionWrap>
+        ))}
       </View>
 
-      <View style={s.ctaRow}>
-        <Button icon="camera" full onPress={onPrimary}>
+      {/* CTAs */}
+      <View style={{ gap: 8, paddingTop: 12 }}>
+        <Button onPress={onPrimary} icon="camera" full>
           Open camera
         </Button>
         {onSecondary ? (
-          <Pressable onPress={onSecondary} style={({ pressed }) => [s.secondaryLink, pressed && { opacity: 0.6 }]}>
-            <Text style={s.secondaryLinkText}>See the Koi example instead</Text>
+          <Pressable onPress={onSecondary} style={({ pressed }) => [s.ghost, pressed && { opacity: 0.5 }]}>
+            <Text style={s.ghostText}>See the koi example instead</Text>
           </Pressable>
         ) : null}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
-function ReferenceCard({
-  active,
-  reference
-}: {
-  active: boolean;
-  reference: {
-    source: number;
-    title: string;
-    palette: readonly string[];
-  };
-}) {
-  const op = useRef(new Animated.Value(active ? 1 : 0)).current;
-  const ty = useRef(new Animated.Value(active ? 0 : 10)).current;
-  const scale = useRef(new Animated.Value(active ? 1 : 0.985)).current;
+function SceneByID({ id, active }: { id: SceneId; active: boolean }) {
+  switch (id) {
+    case "project": return <SceneProject active={active} />;
+    case "capture": return <SceneCapture active={active} />;
+    case "scan":    return <SceneScan    active={active} />;
+    case "refine":  return <SceneRefine  active={active} />;
+    case "share":   return <SceneShare   active={active} />;
+    case "library": return <SceneLibrary active={active} />;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Common scene + caption wrappers (cross-fade)
+   ────────────────────────────────────────────────────────────── */
+
+function SceneWrap({ active, children }: { active: boolean; children: React.ReactNode }) {
+  const op = useRef(new Animated.Value(0)).current;
+  const ty = useRef(new Animated.Value(8)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(op, {
         toValue: active ? 1 : 0,
-        duration: 420,
-        easing: Easing.out(Easing.cubic),
+        duration: 500,
+        easing: Easing.inOut(Easing.cubic),
         useNativeDriver: true
       }),
       Animated.timing(ty, {
-        toValue: active ? 0 : 10,
-        duration: 520,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true
-      }),
-      Animated.timing(scale, {
-        toValue: active ? 1 : 0.985,
-        duration: 520,
+        toValue: active ? 0 : 8,
+        duration: 600,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true
       })
     ]).start();
-  }, [active, op, scale, ty]);
+  }, [active, op, ty]);
 
   return (
-    <Animated.View style={[s.card, { opacity: op, transform: [{ translateY: ty }, { scale }] }]}>
-      <Image source={reference.source} style={s.cardImage} resizeMode="cover" />
-      <View style={s.cardMeta}>
-        <Meta numberOfLines={1}>REFERENCE</Meta>
-        <Meta numberOfLines={1}>{reference.title.toUpperCase()}</Meta>
+    <Animated.View
+      pointerEvents={active ? "auto" : "none"}
+      style={[
+        StyleSheet.absoluteFillObject,
+        {
+          opacity: op,
+          transform: [{ translateY: ty }],
+          alignItems: "center",
+          justifyContent: "center"
+        }
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+function CaptionWrap({ active, children }: { active: boolean; children: React.ReactNode }) {
+  const op = useRef(new Animated.Value(0)).current;
+  const ty = useRef(new Animated.Value(6)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(op, {
+        toValue: active ? 1 : 0,
+        duration: 400,
+        delay: active ? 100 : 0,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: true
+      }),
+      Animated.timing(ty, {
+        toValue: active ? 0 : 6,
+        duration: 500,
+        delay: active ? 100 : 0,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      })
+    ]).start();
+  }, [active, op, ty]);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[StyleSheet.absoluteFillObject, { opacity: op, transform: [{ translateY: ty }] }]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+function SceneDots({ count, active }: { count: number; active: number }) {
+  return (
+    <View style={s.sceneDots}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View
+          key={i}
+          style={{
+            width: i === active ? 16 : 5,
+            height: 5,
+            borderRadius: 4,
+            backgroundColor: i === active ? theme.ink[1] : "rgba(28,26,23,0.18)"
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SCENE 1 · Project context
+   ══════════════════════════════════════════════════════════════ */
+
+function SceneProject({ active }: { active: boolean }) {
+  const [typed, setTyped] = useState("");
+  const [tagsShown, setTagsShown] = useState(0);
+
+  useEffect(() => {
+    if (!active) {
+      setTyped("");
+      setTagsShown(0);
+      return;
+    }
+    let i = 0;
+    const typer = setInterval(() => {
+      i++;
+      setTyped(PROJECT_NAME.slice(0, i));
+      if (i >= PROJECT_NAME.length) clearInterval(typer);
+    }, 65);
+    const t1 = setTimeout(() => setTagsShown(1), 1500);
+    const t2 = setTimeout(() => setTagsShown(2), 1800);
+    const t3 = setTimeout(() => setTagsShown(3), 2100);
+    return () => {
+      clearInterval(typer);
+      [t1, t2, t3].forEach(clearTimeout);
+    };
+  }, [active]);
+
+  return (
+    <View style={{ width: 280, gap: 12 }}>
+      <View style={s.projectChip}>
+        <View style={s.projectDot} />
+        <View style={{ flex: 1 }}>
+          <Meta style={{ marginBottom: 2 }}>WORKING ON</Meta>
+          <View style={{ flexDirection: "row", alignItems: "baseline" }}>
+            <Text style={s.projectName}>{typed || " "}</Text>
+            {active && typed.length < PROJECT_NAME.length ? <BlinkingCaret /> : null}
+          </View>
+        </View>
       </View>
-      <View style={s.paletteRow}>
-        {reference.palette.map((color) => (
-          <View key={color} style={[s.paletteSwatch, { backgroundColor: color }]} />
+
+      <View>
+        <Meta style={{ marginBottom: 8, paddingLeft: 4 }}>SHOULD FEEL</Meta>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+          {PROJECT_MOODS.map((tag, i) => (
+            <Tag key={tag} visible={i < tagsShown} delay={i * 80}>
+              {tag}
+            </Tag>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function BlinkingCaret() {
+  const op = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(op, { toValue: 0, duration: 1, delay: 350, useNativeDriver: true }),
+        Animated.timing(op, { toValue: 1, duration: 1, delay: 350, useNativeDriver: true })
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [op]);
+  return (
+    <Animated.View
+      style={{
+        width: 1.5,
+        height: 16,
+        marginLeft: 2,
+        backgroundColor: theme.ink[1],
+        opacity: op
+      }}
+    />
+  );
+}
+
+function Tag({ children, visible, delay }: { children: React.ReactNode; visible: boolean; delay: number }) {
+  const op = useRef(new Animated.Value(0)).current;
+  const ty = useRef(new Animated.Value(8)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(op, { toValue: 1, duration: 400, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(ty, { toValue: 0, duration: 400, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+      ]).start();
+    } else {
+      op.setValue(0);
+      ty.setValue(8);
+    }
+  }, [visible, delay, op, ty]);
+
+  return (
+    <Animated.View style={[s.tag, { opacity: op, transform: [{ translateY: ty }] }]}>
+      <Text style={s.tagText}>{children}</Text>
+    </Animated.View>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SCENE 2 · Capture
+   ══════════════════════════════════════════════════════════════ */
+
+function SceneCapture({ active }: { active: boolean }) {
+  const [phase, setPhase] = useState<"aim" | "flash" | "settled">("aim");
+
+  useEffect(() => {
+    if (!active) { setPhase("aim"); return; }
+    const t1 = setTimeout(() => setPhase("flash"), 1800);
+    const t2 = setTimeout(() => setPhase("settled"), 2100);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [active]);
+
+  const settled = phase === "settled";
+  const flash = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (phase === "flash") {
+      flash.setValue(0.8);
+      Animated.timing(flash, {
+        toValue: 0,
+        duration: 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      }).start();
+    }
+  }, [phase, flash]);
+
+  return (
+    <View
+      style={[
+        s.captureFrame,
+        settled && s.captureFrameSettled
+      ]}
+    >
+      <View
+        style={[
+          s.capturePhoto,
+          settled && s.capturePhotoSettled
+        ]}
+      >
+        <Image source={KOI_SOURCE} style={s.captureImage} resizeMode="cover" />
+
+        {phase === "aim" ? (
+          <>
+            <Corner pos="tl" />
+            <Corner pos="tr" />
+            <Corner pos="bl" />
+            <Corner pos="br" />
+            <View style={s.reticle} />
+            <View style={s.captureChip}>
+              <PulseDot color="#D14B2D" />
+              <Text style={s.captureChipText}>Pointed at koi street</Text>
+            </View>
+          </>
+        ) : null}
+
+        {phase === "flash" ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFillObject,
+              { backgroundColor: "#FAF7F0", opacity: flash }
+            ]}
+          />
+        ) : null}
+      </View>
+
+      {settled ? (
+        <View style={s.captureMeta}>
+          <Meta>CAPTURED</Meta>
+          <Meta>12.04 · 16:08</Meta>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function Corner({ pos }: { pos: "tl" | "tr" | "bl" | "br" }) {
+  const top = pos.startsWith("t"), left = pos.endsWith("l");
+  return (
+    <View
+      style={{
+        position: "absolute",
+        [top ? "top" : "bottom"]: 12,
+        [left ? "left" : "right"]: 12,
+        width: 16,
+        height: 16,
+        borderTopWidth: top ? 1.5 : 0,
+        borderBottomWidth: !top ? 1.5 : 0,
+        borderLeftWidth: left ? 1.5 : 0,
+        borderRightWidth: !left ? 1.5 : 0,
+        borderColor: "rgba(255,255,255,0.85)"
+      }}
+    />
+  );
+}
+
+function PulseDot({ color }: { color: string }) {
+  const op = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(op, { toValue: 0.3, duration: 600, useNativeDriver: true }),
+        Animated.timing(op, { toValue: 1, duration: 600, useNativeDriver: true })
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [op]);
+  return <Animated.View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color, opacity: op }} />;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SCENE 3 · Scan
+   ══════════════════════════════════════════════════════════════ */
+
+function SceneScan({ active }: { active: boolean }) {
+  const [phase, setPhase] = useState<"scan" | "palette" | "title">("scan");
+
+  useEffect(() => {
+    if (!active) { setPhase("scan"); return; }
+    const t1 = setTimeout(() => setPhase("palette"), 2200);
+    const t2 = setTimeout(() => setPhase("title"), 3200);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [active]);
+
+  const scanY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (phase !== "scan") return;
+    scanY.setValue(0);
+    Animated.timing(scanY, {
+      toValue: 1,
+      duration: 2200,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [phase, scanY]);
+
+  return (
+    <View style={s.card220}>
+      <View style={s.scanPhoto}>
+        <Image source={KOI_SOURCE} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(28,26,23,0.04)" }]} />
+
+        {phase === "scan" ? (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              s.scanLine,
+              { transform: [{ translateY: scanY.interpolate({ inputRange: [0, 1], outputRange: [0, 230] }) }] }
+            ]}
+          />
+        ) : null}
+
+        {phase !== "title" ? (
+          <View style={s.captureChip}>
+            <PulseDot color={theme.ink[1]} />
+            <Text style={s.captureChipText}>{phase === "scan" ? "Reading palette" : "Distilling"}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <View style={s.scanMetaRow}>
+        <Meta>SCAN №024</Meta>
+        <Meta>5 COLORS</Meta>
+      </View>
+
+      <View style={s.swatchRow}>
+        {KOI_PALETTE.map((c, i) => (
+          <Swatch key={i} color={c} visible={phase === "palette" || phase === "title"} index={i} />
         ))}
+      </View>
+
+      <View style={[s.scanTitleWrap, { opacity: phase === "title" ? 1 : 0 }]}>
+        <Text style={s.scanTitle}>Wet Pavement, Bright Fish</Text>
+      </View>
+    </View>
+  );
+}
+
+function Swatch({ color, visible, index }: { color: string; visible: boolean; index: number }) {
+  const op = useRef(new Animated.Value(0)).current;
+  const ty = useRef(new Animated.Value(4)).current;
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(op, { toValue: 1, duration: 350, delay: index * 110, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(ty, { toValue: 0, duration: 350, delay: index * 110, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+      ]).start();
+    } else {
+      op.setValue(0); ty.setValue(4);
+    }
+  }, [visible, index, op, ty]);
+  return (
+    <View style={{ flex: 1, height: 22 }}>
+      <View style={[s.swatchSkeleton]} />
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFillObject,
+          { backgroundColor: color, borderRadius: 6, opacity: op, transform: [{ translateY: ty }] }
+        ]}
+      />
+    </View>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SCENE 4 · Refine
+   ══════════════════════════════════════════════════════════════ */
+
+function SceneRefine({ active }: { active: boolean }) {
+  const [stage, setStage] = useState<"orig" | "sweep" | "quiet" | "done">("orig");
+  const [direction, setDirection] = useState("Editorial · saturated");
+
+  useEffect(() => {
+    if (!active) {
+      setStage("orig");
+      setDirection("Editorial · saturated");
+      return;
+    }
+    const t1 = setTimeout(() => setStage("sweep"), 600);
+    const t2 = setTimeout(() => { setStage("quiet"); setDirection("Quiet luxury · muted"); }, 1500);
+    const t3 = setTimeout(() => setStage("done"), 2600);
+    return () => { [t1, t2, t3].forEach(clearTimeout); };
+  }, [active]);
+
+  const wandX = useRef(new Animated.Value(-30)).current;
+
+  useEffect(() => {
+    if (stage !== "sweep") {
+      wandX.setValue(-30);
+      return;
+    }
+    Animated.timing(wandX, {
+      toValue: 280,
+      duration: 900,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [stage, wandX]);
+
+  const palette = stage === "orig" ? KOI_PALETTE : KOI_PALETTE_QUIET;
+
+  return (
+    <View style={{ position: "relative", width: 280 }}>
+      <View style={s.refineCard}>
+        <View style={s.refinePhotoStrip}>
+          <Image source={KOI_SOURCE} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(28,26,23,0.04)" }]} />
+          {stage === "sweep" ? (
+            <Animated.View pointerEvents="none" style={[s.wand, { transform: [{ translateX: wandX }] }]}>
+              <Text style={{ fontSize: 22, color: theme.ink[1] }}>✦</Text>
+            </Animated.View>
+          ) : null}
+        </View>
+
+        <View style={s.refineMetaRow}>
+          <Meta>DIRECTION</Meta>
+          <Text style={s.refineDirection}>{direction}</Text>
+        </View>
+
+        <View style={s.swatchRowTall}>
+          {palette.map((c, i) => (
+            <RefineSwatch key={i} color={c} />
+          ))}
+        </View>
+      </View>
+
+      <View style={s.refinePill}>
+        <Text style={{ color: "#fff", fontSize: 12 }}>✦</Text>
+        <Text style={s.refinePillText}>Refine</Text>
+      </View>
+    </View>
+  );
+}
+
+function RefineSwatch({ color }: { color: string }) {
+  // Smooth color transition (animation not really needed since RN can't tween
+  // backgroundColor on UI thread; the state-change crossfade gives the effect).
+  return <View style={[s.swatchTall, { backgroundColor: color }]} />;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SCENE 5 · Share
+   ══════════════════════════════════════════════════════════════ */
+
+function SceneShare({ active }: { active: boolean }) {
+  const [phase, setPhase] = useState<"idle" | "sending" | "landed" | "reply">("idle");
+
+  useEffect(() => {
+    if (!active) { setPhase("idle"); return; }
+    const t1 = setTimeout(() => setPhase("sending"), 400);
+    const t2 = setTimeout(() => setPhase("landed"), 1300);
+    const t3 = setTimeout(() => setPhase("reply"), 2000);
+    return () => { [t1, t2, t3].forEach(clearTimeout); };
+  }, [active]);
+
+  const isSent = phase !== "idle";
+
+  // Animated card size + position
+  const cardScale = useRef(new Animated.Value(1)).current;
+  const cardX = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardScale, {
+        toValue: phase === "idle" ? 1 : 0.73,
+        duration: 800,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: true
+      }),
+      Animated.timing(cardX, {
+        toValue: phase === "idle" ? -30 : 0,
+        duration: 800,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: true
+      })
+    ]).start();
+  }, [phase, cardScale, cardX]);
+
+  return (
+    <View style={{ position: "relative", width: 280, height: 340 }}>
+      {/* Card holder, anchored top-right */}
+      <View style={{ position: "absolute", right: 0, top: 0 }}>
+        <Animated.View
+          style={[
+            s.shareCard,
+            {
+              transform: [
+                { translateX: cardX },
+                { translateY: phase === "idle" ? 38 : 0 },
+                { scale: cardScale }
+              ]
+            }
+          ]}
+        >
+          <View style={s.shareCardPhoto}>
+            <Image source={KOI_SOURCE} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+          </View>
+          <View style={s.shareCardPalette}>
+            {KOI_PALETTE.map((c, i) => (
+              <View key={i} style={[s.shareCardSwatch, { backgroundColor: c }]} />
+            ))}
+          </View>
+          <Text style={s.shareCardTitle}>Wet Pavement, Bright Fish</Text>
+        </Animated.View>
+
+        {isSent ? (
+          <View style={s.deliveredRow}>
+            <Meta>{phase === "sending" ? "SENDING..." : "DELIVERED"}</Meta>
+          </View>
+        ) : null}
+      </View>
+
+      {/* Reply */}
+      {phase === "reply" ? <ReplyBubble /> : null}
+    </View>
+  );
+}
+
+function ReplyBubble() {
+  const op = useRef(new Animated.Value(0)).current;
+  const ty = useRef(new Animated.Value(10)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(op, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(ty, { toValue: 0, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+    ]).start();
+  }, [op, ty]);
+  return (
+    <Animated.View
+      style={[s.replyWrap, { opacity: op, transform: [{ translateY: ty }] }]}
+    >
+      <View style={s.avatar}>
+        <Text style={{ fontFamily: theme.font.display, fontSize: 12, color: theme.ink[1] }}>M</Text>
+      </View>
+      <View>
+        <View style={s.replyBubble}>
+          <Text style={s.replyText}>ok this is unreal 🐟</Text>
+        </View>
+        <Meta style={{ marginTop: 6, marginLeft: 4, fontSize: 9.5 }}>MEL · NOW</Meta>
       </View>
     </Animated.View>
   );
 }
 
+/* ══════════════════════════════════════════════════════════════
+   SCENE 6 · Library
+   ══════════════════════════════════════════════════════════════ */
+
+function SceneLibrary({ active }: { active: boolean }) {
+  const TILES = [
+    { src: KOI_SOURCE,    pal: KOI_PALETTE,                                  title: "Wet Pavement" },
+    { src: GARDEN_SOURCE, pal: GARDEN_PALETTE,                               title: "Tools, Earth" },
+    { src: GARDEN_SOURCE, pal: ["#A89478","#7B4528","#1F1A14","#5A6543","#E3D7BF"], title: "Patina Study" },
+    { src: KOI_SOURCE,    pal: ["#1F1B19","#D14B2D","#EFE7D7","#5A6E64","#C9B591"], title: "Koi, no.4" }
+  ];
+
+  return (
+    <View style={{ width: 260 }}>
+      <View style={s.libraryHeader}>
+        <Meta>YOUR LIBRARY</Meta>
+        <Meta>04 SCANS</Meta>
+      </View>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+        {TILES.map((t, i) => (
+          <LibraryTile key={i} {...t} active={active} index={i} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function LibraryTile({ src, pal, title, active, index }: { src: ImageSourcePropType; pal: string[]; title: string; active: boolean; index: number }) {
+  const op = useRef(new Animated.Value(0)).current;
+  const ty = useRef(new Animated.Value(16)).current;
+  useEffect(() => {
+    if (active) {
+      Animated.parallel([
+        Animated.timing(op, { toValue: 1, duration: 500, delay: 100 + index * 100, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(ty, { toValue: 0, duration: 500, delay: 100 + index * 100, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+      ]).start();
+    } else {
+      op.setValue(0); ty.setValue(16);
+    }
+  }, [active, index, op, ty]);
+  return (
+    <Animated.View
+      style={[
+        s.libraryTile,
+        { opacity: op, transform: [{ translateY: ty }] }
+      ]}
+    >
+      <View style={{ width: "100%", aspectRatio: 1, overflow: "hidden" }}>
+        <Image source={src} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+      </View>
+      <View style={{ padding: 8, gap: 6 }}>
+        <Text style={s.libraryTitle}>{title}</Text>
+        <View style={{ flexDirection: "row", gap: 2 }}>
+          {pal.map((c, j) => (
+            <View key={j} style={{ flex: 1, height: 6, borderRadius: 2, backgroundColor: c }} />
+          ))}
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STYLES
+   ══════════════════════════════════════════════════════════════ */
+
 const s = StyleSheet.create({
   container: {
     flex: 1,
+    paddingHorizontal: 24,
     paddingTop: 60,
-    paddingHorizontal: 16,
     paddingBottom: 24,
     backgroundColor: theme.palette.bone
   },
@@ -190,97 +830,380 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center"
   },
-  topSlot: {
-    width: 72
+  sceneDots: {
+    flexDirection: "row",
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: theme.palette.glass,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "rgba(0,0,0,0.06)",
+    ...theme.shadow.pill
   },
   wordmarkRow: {
-    marginTop: 14,
-    marginBottom: 18,
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 8
+    justifyContent: "center",
+    marginTop: 16,
+    marginBottom: 8,
+    gap: 2
   },
-  wordmark: {
-    lineHeight: 42
+  wordmarkDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#C5683E",
+    marginBottom: -2
   },
-  dot: {
+  stage: {
+    width: "100%",
+    height: 380,
+    position: "relative"
+  },
+  captionStage: {
+    width: "100%",
+    height: 96,
+    marginTop: 4,
+    position: "relative"
+  },
+  ghost: {
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  ghostText: {
+    fontFamily: theme.font.sansMedium,
+    fontSize: 14,
+    color: theme.ink[2]
+  },
+
+  /* Project */
+  projectChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    backgroundColor: theme.palette.paper,
+    borderRadius: 18,
+    ...theme.shadow.lifted
+  },
+  projectDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#C5683E",
-    marginBottom: 8
+    backgroundColor: theme.ink[1]
   },
-  sceneStage: {
-    flex: 1,
-    minHeight: 332,
-    justifyContent: "center"
+  projectName: {
+    fontFamily: theme.font.display,
+    fontSize: 17,
+    lineHeight: 20,
+    color: theme.ink[1]
   },
-  card: {
+  tag: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: theme.palette.paper,
+    borderRadius: 999,
+    ...theme.shadow.quiet
+  },
+  tagText: {
+    fontFamily: theme.font.sansMedium,
+    fontSize: 12.5,
+    color: theme.ink[1]
+  },
+
+  /* Capture */
+  captureFrame: {
+    width: 220
+  },
+  captureFrameSettled: {
+    padding: 10,
+    paddingBottom: 12,
+    backgroundColor: theme.palette.paper,
+    borderRadius: 22,
+    ...theme.shadow.lifted
+  },
+  capturePhoto: {
+    width: "100%",
+    aspectRatio: 1 / 1.15,
+    borderRadius: 16,
+    overflow: "hidden",
+    position: "relative",
+    borderWidth: 1,
+    borderColor: "rgba(28,26,23,0.08)"
+  },
+  capturePhotoSettled: {
+    borderRadius: 14,
+    borderWidth: 0
+  },
+  captureImage: {
+    width: "100%",
+    height: "100%"
+  },
+  reticle: {
+    position: "absolute",
+    left: "50%",
+    top: "50%",
+    width: 22,
+    height: 22,
+    marginLeft: -11,
+    marginTop: -11,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.7)"
+  },
+  captureChip: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255,252,245,0.88)",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)"
+  },
+  captureChipText: {
+    fontFamily: theme.font.sansMedium,
+    fontSize: 10.5,
+    color: theme.ink[1]
+  },
+  captureMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    paddingHorizontal: 4,
+    paddingTop: 8
+  },
+
+  /* Scan */
+  card220: {
+    width: 220,
+    padding: 10,
+    paddingBottom: 12,
+    backgroundColor: theme.palette.paper,
+    borderRadius: 22,
+    ...theme.shadow.lifted
+  },
+  scanPhoto: {
+    width: "100%",
+    aspectRatio: 1 / 1.05,
+    borderRadius: 14,
+    overflow: "hidden",
+    position: "relative",
+    backgroundColor: theme.palette.putty
+  },
+  scanLine: {
     position: "absolute",
     left: 0,
     right: 0,
-    borderRadius: theme.radius.lg,
-    backgroundColor: theme.palette.paper,
-    padding: 10,
-    ...theme.shadow.lifted
+    top: 0,
+    height: 1.5,
+    backgroundColor: "rgba(28,26,23,0.55)",
+    shadowColor: "#1C1A17",
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 }
   },
-  cardImage: {
-    width: "100%",
-    aspectRatio: 0.86,
-    borderRadius: 18,
-    backgroundColor: theme.palette.putty
-  },
-  cardMeta: {
-    marginTop: 10,
+  scanMetaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 12
+    alignItems: "baseline",
+    paddingHorizontal: 4,
+    paddingTop: 10,
+    paddingBottom: 4
   },
-  paletteRow: {
-    marginTop: 10,
+  swatchRow: {
     flexDirection: "row",
-    gap: 6
+    gap: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 6
   },
-  paletteSwatch: {
-    flex: 1,
-    height: 12,
-    borderRadius: 999
+  swatchSkeleton: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(28,26,23,0.06)",
+    borderRadius: 6
   },
-  caption: {
-    minHeight: 114,
-    justifyContent: "center",
-    paddingTop: 12
+  scanTitleWrap: {
+    paddingHorizontal: 4,
+    paddingTop: 8,
+    paddingBottom: 2,
+    minHeight: 38
   },
-  captionInner: {
-    alignItems: "center"
-  },
-  captionTitle: {
-    lineHeight: 32
-  },
-  captionTitleItalic: {
-    lineHeight: 32
-  },
-  captionBody: {
-    marginTop: 8,
-    maxWidth: 320,
-    textAlign: "center",
-    fontSize: 13.5,
+  scanTitle: {
+    fontFamily: theme.font.display,
+    fontSize: 17,
     lineHeight: 19,
-    color: theme.ink[3]
+    color: theme.ink[1]
   },
-  ctaRow: {
-    gap: 8,
-    paddingTop: 12
+
+  /* Refine */
+  refineCard: {
+    padding: 10,
+    paddingBottom: 12,
+    backgroundColor: theme.palette.paper,
+    borderRadius: 22,
+    ...theme.shadow.lifted
   },
-  secondaryLink: {
+  refinePhotoStrip: {
+    width: "100%",
+    height: 110,
+    borderRadius: 12,
+    overflow: "hidden",
+    position: "relative"
+  },
+  wand: {
+    position: "absolute",
+    top: "50%",
+    left: 0,
+    marginTop: -14,
+    width: 28,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8
+    shadowColor: "#1C1A17",
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 }
   },
-  secondaryLinkText: {
+  refineMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    paddingHorizontal: 4,
+    paddingTop: 10,
+    paddingBottom: 4
+  },
+  refineDirection: {
     fontFamily: theme.font.sansMedium,
-    fontSize: 13,
-    color: theme.ink[1],
-    letterSpacing: 0
+    fontSize: 11,
+    color: theme.ink[1]
+  },
+  swatchRowTall: {
+    flexDirection: "row",
+    gap: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 6
+  },
+  swatchTall: {
+    flex: 1,
+    height: 28,
+    borderRadius: 6
+  },
+  refinePill: {
+    position: "absolute",
+    top: -10,
+    right: -10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: theme.ink[1],
+    borderRadius: 999,
+    ...theme.shadow.fab
+  },
+  refinePillText: {
+    fontFamily: theme.font.sansMedium,
+    fontSize: 11.5,
+    color: "#fff"
+  },
+
+  /* Share */
+  shareCard: {
+    width: 220,
+    padding: 8,
+    paddingBottom: 10,
+    backgroundColor: theme.palette.paper,
+    borderRadius: 20,
+    ...theme.shadow.lifted
+  },
+  shareCardPhoto: {
+    width: "100%",
+    aspectRatio: 4 / 5,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: theme.palette.putty
+  },
+  shareCardPalette: {
+    flexDirection: "row",
+    gap: 3,
+    paddingTop: 6,
+    paddingHorizontal: 2,
+    paddingBottom: 2
+  },
+  shareCardSwatch: {
+    flex: 1,
+    height: 10,
+    borderRadius: 2
+  },
+  shareCardTitle: {
+    fontFamily: theme.font.display,
+    fontSize: 14,
+    lineHeight: 15.4,
+    paddingHorizontal: 2,
+    paddingTop: 4,
+    color: theme.ink[1]
+  },
+  deliveredRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    paddingRight: 4,
+    paddingTop: 6
+  },
+  replyWrap: {
+    position: "absolute",
+    left: 0,
+    bottom: 0,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    maxWidth: 200
+  },
+  avatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#D9CBB1",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  replyBubble: {
+    backgroundColor: theme.palette.paper,
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    ...theme.shadow.quiet
+  },
+  replyText: {
+    fontFamily: theme.font.sans,
+    fontSize: 13.5,
+    color: theme.ink[1]
+  },
+
+  /* Library */
+  libraryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    marginBottom: 10
+  },
+  libraryTile: {
+    width: "47%", // gives a 2-col grid with the 12px gap
+    backgroundColor: theme.palette.paper,
+    borderRadius: 14,
+    overflow: "hidden",
+    ...theme.shadow.quiet
+  },
+  libraryTitle: {
+    fontFamily: theme.font.display,
+    fontSize: 12,
+    lineHeight: 13,
+    color: theme.ink[1]
   }
 });

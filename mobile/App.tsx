@@ -616,6 +616,9 @@ export default function App() {
                 onComplete={finishOnboarding}
                 onSignInPress={startLandingSignIn}
                 onStartFirstScan={startFirstScanOnboarding}
+                onSkip={() => {
+                  skipOnboarding();
+                }}
               />
             )}
           </Stack.Screen>
