@@ -1,6 +1,5 @@
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { useVideoPlayer, VideoView } from "expo-video";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import {
   Image,
@@ -19,10 +18,10 @@ import {
   OnboardingSurveyAnswers
 } from "../services/onboarding";
 import { theme } from "../theme";
+import { LandingDemo } from "../ui";
 
 const koiImageSource = require("../../assets/demo/koi-street-reference.png");
-const landingLoopSource = require("../../assets/onboarding/landing-loop.mov");
-const refinePreviewSource = require("../../assets/onboarding/refine-preview.mov");
+const refinePreviewSource = require("../../assets/onboarding/capture-studio.png");
 
 type OnboardingScreenProps = {
   initialStep?: number;
@@ -128,7 +127,6 @@ export function OnboardingScreen({
     createEmptyOnboardingSurveyAnswers()
   );
   const [processingIndex, setProcessingIndex] = useState(0);
-  const [showLandingVideo, setShowLandingVideo] = useState(false);
 
   const totalSteps = 9;
   const questionStartStep = 4;
@@ -170,19 +168,6 @@ export function OnboardingScreen({
 
     return () => clearInterval(interval);
   }, [previewStep, processingStep, step]);
-
-  useEffect(() => {
-    if (step !== 0) {
-      setShowLandingVideo(false);
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      setShowLandingVideo(true);
-    }, 180);
-
-    return () => clearTimeout(timeout);
-  }, [step]);
 
   function toggleAnswer(option: string) {
     if (!currentQuestion) {
@@ -240,33 +225,12 @@ export function OnboardingScreen({
 
   if (step === 0) {
     return (
-      <View style={styles.landingFallback}>
-        {showLandingVideo ? <LandingLoopBackground /> : null}
-        <View style={styles.heroScrim}>
-          <TopRow onSignInPress={onSignInPress} onSkip={onSkip} />
-          <View style={styles.heroContent}>
-            <Image
-              source={require("../../assets/brand/palleto-logo-transparent.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Text style={styles.kicker}>Palleto</Text>
-            <Text style={styles.heroTitle}>Scan something around you and see what Palleto pulls out.</Text>
-            <Text style={styles.heroBody}>
-              Point the camera at a poster, object, outfit, book, corner, or anything with a little visual signal.
-            </Text>
-          </View>
-          <View style={styles.landingActions}>
-            <FooterButton label="Open camera" onPress={startFirstScan} />
-            <Pressable
-              onPress={continueFlow}
-              style={({ pressed }) => [styles.exampleButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.exampleButtonText}>See the Koi example instead</Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
+      <LandingDemo
+        onPrimary={startFirstScan}
+        onSecondary={continueFlow}
+        onSignIn={onSignInPress}
+        onSkip={onSkip}
+      />
     );
   }
 
@@ -377,25 +341,6 @@ export function OnboardingScreen({
   return null;
 }
 
-function LandingLoopBackground() {
-  const landingPlayer = useVideoPlayer(landingLoopSource, (player) => {
-    player.loop = true;
-    player.muted = true;
-    player.play();
-  });
-
-  return (
-    <VideoView
-      allowsFullscreen={false}
-      allowsPictureInPicture={false}
-      contentFit="cover"
-      nativeControls={false}
-      player={landingPlayer}
-      style={styles.landingVideo}
-    />
-  );
-}
-
 function TopRow({
   onSignInPress,
   onSkip
@@ -464,11 +409,6 @@ function FooterButton({
 function PreviewScanCard({ card }: { card: InspirationCard }) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
-  const refinePreviewPlayer = useVideoPlayer(refinePreviewSource, (player) => {
-    player.loop = true;
-    player.muted = true;
-    player.play();
-  });
 
   function toggleSection(section: string) {
     setExpandedSection((current) => (current === section ? null : section));
@@ -666,14 +606,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
               Refinement lets you turn a saved scan into tighter type, sharper applications, and alternate creative directions.
             </Text>
             <View style={styles.previewRefineVideoSlot}>
-              <VideoView
-                allowsFullscreen={false}
-                allowsPictureInPicture={false}
-                contentFit="cover"
-                nativeControls={false}
-                player={refinePreviewPlayer}
-                style={styles.previewRefineVideo}
-              />
+              <Image source={refinePreviewSource} style={styles.previewRefineVideo} resizeMode="cover" />
               <View style={styles.previewRefineVideoOverlay}>
                 <Text style={styles.previewRefineVideoTitle}>Refinement preview</Text>
                 <Text style={styles.previewRefineVideoBody}>
@@ -954,21 +887,6 @@ const styles = StyleSheet.create({
   fullscreen: {
     flex: 1
   },
-  landingFallback: {
-    flex: 1,
-    backgroundColor: theme.colors.background
-  },
-  landingVideo: {
-    ...StyleSheet.absoluteFillObject
-  },
-  heroScrim: {
-    flex: 1,
-    justifyContent: "space-between",
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: 56,
-    paddingBottom: 34,
-    backgroundColor: "rgba(0,0,0,0.46)"
-  },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -991,43 +909,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700"
   },
-  heroContent: {
-    gap: theme.spacing.md
-  },
-  logo: {
-    width: 64,
-    height: 64
-  },
   kicker: {
     color: theme.colors.textSecondary,
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase"
-  },
-  heroTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 42,
-    fontWeight: "800",
-    lineHeight: 44
-  },
-  heroBody: {
-    maxWidth: 360,
-    color: theme.colors.textSecondary,
-    fontSize: 17,
-    lineHeight: 25
-  },
-  landingActions: {
-    gap: theme.spacing.md
-  },
-  exampleButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44
-  },
-  exampleButtonText: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    fontWeight: "800"
   },
   questionScreen: {
     flex: 1,

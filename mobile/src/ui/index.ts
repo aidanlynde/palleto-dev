@@ -9,6 +9,7 @@ export { Button } from "./Button";
 export { TabBar } from "./TabBar";
 export { SectionCard } from "./SectionCard";
 export { PaletteRow, PaletteGrid, PaletteHero } from "./Palette";
+export { LandingDemo } from "./LandingDemo";
 export { ProjectChip } from "./ProjectChip";
 export { Screen, ScrollScreen } from "./Screen";
 export { TopBar } from "./TopBar";
