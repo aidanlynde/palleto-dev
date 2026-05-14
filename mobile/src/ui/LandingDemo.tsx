@@ -139,8 +139,8 @@ export function LandingDemo({ onPrimary, onSecondary, onSignIn }: Props) {
       </View>
 
       {/* CTAs */}
-      <View style={{ gap: 8, paddingTop: 12 }}>
-        <Button onPress={onPrimary} icon="camera" full>
+      <View style={s.ctaStack}>
+        <Button onPress={onPrimary} icon="camera" style={s.primaryCta}>
           Open camera
         </Button>
         {onSecondary ? (
@@ -509,7 +509,7 @@ function SceneScan({ active }: { active: boolean }) {
         <Image source={KOI_SOURCE} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
         <View style={[StyleSheet.absoluteFillObject, { backgroundColor: "rgba(28,26,23,0.04)" }]} />
 
-        {phase === "scan" ? (
+        {phase !== "title" ? (
           <Animated.View
             pointerEvents="none"
             style={[
@@ -521,14 +521,14 @@ function SceneScan({ active }: { active: boolean }) {
 
         {phase !== "title" ? (
           <View style={s.captureChip}>
-            <ScanGlyph />
+            <ScanGlyph size={14} />
             <Text style={s.captureChipText}>{phase === "scan" ? "Reading palette" : "Finding direction"}</Text>
           </View>
         ) : null}
 
         {phase === "title" ? (
           <View style={s.scanIconBadge}>
-            <ScanGlyph />
+            <ScanGlyph size={14} />
             <Text style={s.captureChipText}>Scan complete</Text>
           </View>
         ) : null}
@@ -578,7 +578,7 @@ function Swatch({ color, visible, index }: { color: string; visible: boolean; in
   );
 }
 
-function ScanGlyph() {
+function ScanGlyph({ size = 11 }: { size?: number }) {
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -603,7 +603,7 @@ function ScanGlyph() {
   }, [scale]);
 
   return (
-    <Animated.View style={[s.scanGlyph, { transform: [{ scale }] }]}>
+    <Animated.View style={[s.scanGlyph, { width: size, height: size, transform: [{ scale }] }]}>
       <View style={[s.scanGlyphCorner, s.scanGlyphTopLeft]} />
       <View style={[s.scanGlyphCorner, s.scanGlyphTopRight]} />
       <View style={[s.scanGlyphCorner, s.scanGlyphBottomLeft]} />
@@ -726,18 +726,18 @@ function SceneShare({ active }: { active: boolean }) {
 
   const showStatus = phase !== "idle";
   const cardScale = useRef(new Animated.Value(1)).current;
-  const cardY = useRef(new Animated.Value(22)).current;
+  const cardY = useRef(new Animated.Value(18)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(cardScale, {
-        toValue: phase === "idle" ? 1 : 0.82,
+        toValue: phase === "idle" ? 1 : 0.86,
         duration: 800,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: true
       }),
       Animated.timing(cardY, {
-        toValue: phase === "idle" ? 22 : 0,
+        toValue: phase === "idle" ? 18 : 0,
         duration: 800,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: true
@@ -910,7 +910,7 @@ const s = StyleSheet.create({
   },
   stage: {
     width: "100%",
-    height: 380,
+    height: 330,
     position: "relative"
   },
   captionStage: {
@@ -923,6 +923,16 @@ const s = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center"
+  },
+  ctaStack: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    bottom: 24,
+    gap: 8
+  },
+  primaryCta: {
+    width: "100%"
   },
   ghostText: {
     fontFamily: theme.font.sansMedium,
@@ -1230,16 +1240,17 @@ const s = StyleSheet.create({
   /* Share */
   shareThread: {
     width: 280,
-    minHeight: 330,
-    justifyContent: "center",
-    gap: 14
+    height: 292,
+    justifyContent: "flex-start",
+    paddingTop: 10,
+    gap: 10
   },
   outgoingMessage: {
     alignSelf: "flex-end",
     alignItems: "flex-end"
   },
   shareCard: {
-    width: 220,
+    width: 190,
     padding: 8,
     paddingBottom: 10,
     backgroundColor: theme.palette.paper,
@@ -1280,7 +1291,7 @@ const s = StyleSheet.create({
     paddingTop: 6
   },
   replySlot: {
-    minHeight: 66,
+    minHeight: 58,
     justifyContent: "flex-start",
     alignSelf: "stretch"
   },
