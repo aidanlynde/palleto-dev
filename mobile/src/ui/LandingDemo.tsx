@@ -41,10 +41,15 @@ import { Pill } from "./Pill";
 
 const KOI_SOURCE: ImageSourcePropType = require("../../assets/demo/koi-street-reference.png");
 const GARDEN_SOURCE: ImageSourcePropType = require("../../assets/demo/garden-objects-reference.png");
+const STUDIO_SOURCE: ImageSourcePropType = require("../../assets/onboarding/capture-studio.png");
+const ARCHITECTURE_SOURCE: ImageSourcePropType = require("../../assets/onboarding/capture-architecture.png");
 
 const KOI_PALETTE = ["#D14B2D", "#1F1B19", "#C9B591", "#5A6E64", "#EFE7D7"];
 const KOI_PALETTE_QUIET = ["#9B5742", "#2F2A24", "#C4AD8B", "#6A7268", "#E5DCC6"];
 const GARDEN_PALETTE = ["#7B4528", "#5A6543", "#A89478", "#E3D7BF", "#1F1A14"];
+const GARDEN_PALETTE_QUIET = ["#7D6A59", "#5D654E", "#B3A384", "#DED4C3", "#24201B"];
+const STUDIO_PALETTE = ["#4D3D36", "#8C7B67", "#C6B79E", "#E6DBC6", "#1A1715"];
+const ARCHITECTURE_PALETTE = ["#4A5A65", "#8B9A9E", "#C7C2B3", "#E6E0D1", "#252321"];
 
 const PROJECT_NAME = "Reverence Coffee";
 const PROJECT_MOODS = ["Quiet luxury", "Monastic", "Honest materials"];
@@ -691,7 +696,7 @@ function SceneShare({ active }: { active: boolean }) {
   }, [phase, cardScale, cardX]);
 
   return (
-    <View style={{ position: "relative", width: 280, height: 340 }}>
+    <View style={{ position: "relative", width: 280, height: 352 }}>
       {/* Card holder, anchored top-right */}
       <View style={{ position: "absolute", right: 0, top: 0 }}>
         <Animated.View
@@ -710,7 +715,7 @@ function SceneShare({ active }: { active: boolean }) {
             <Image source={KOI_SOURCE} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
           </View>
           <View style={s.shareCardPalette}>
-            {KOI_PALETTE.map((c, i) => (
+            {KOI_PALETTE_QUIET.map((c, i) => (
               <View key={i} style={[s.shareCardSwatch, { backgroundColor: c }]} />
             ))}
           </View>
@@ -762,10 +767,10 @@ function ReplyBubble() {
 
 function SceneLibrary({ active }: { active: boolean }) {
   const TILES = [
-    { src: KOI_SOURCE,    pal: KOI_PALETTE,                                  title: "Wet Pavement" },
-    { src: GARDEN_SOURCE, pal: GARDEN_PALETTE,                               title: "Tools, Earth" },
-    { src: GARDEN_SOURCE, pal: ["#A89478","#7B4528","#1F1A14","#5A6543","#E3D7BF"], title: "Patina Study" },
-    { src: KOI_SOURCE,    pal: ["#1F1B19","#D14B2D","#EFE7D7","#5A6E64","#C9B591"], title: "Koi, no.4" }
+    { src: KOI_SOURCE,            pal: KOI_PALETTE_QUIET,      title: "Wet Pavement" },
+    { src: GARDEN_SOURCE,         pal: GARDEN_PALETTE_QUIET,   title: "Tools, Earth" },
+    { src: STUDIO_SOURCE,         pal: STUDIO_PALETTE,         title: "Studio Notes" },
+    { src: ARCHITECTURE_SOURCE,   pal: ARCHITECTURE_PALETTE,   title: "Architecture Study" }
   ];
 
   return (
