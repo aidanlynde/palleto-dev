@@ -521,8 +521,15 @@ function SceneScan({ active }: { active: boolean }) {
 
         {phase !== "title" ? (
           <View style={s.captureChip}>
-            <PulseDot color={theme.ink[1]} />
+            <ScanGlyph />
             <Text style={s.captureChipText}>{phase === "scan" ? "Reading palette" : "Finding direction"}</Text>
+          </View>
+        ) : null}
+
+        {phase === "title" ? (
+          <View style={s.scanIconBadge}>
+            <ScanGlyph />
+            <Text style={s.captureChipText}>Scan complete</Text>
           </View>
         ) : null}
       </View>
@@ -568,6 +575,40 @@ function Swatch({ color, visible, index }: { color: string; visible: boolean; in
         ]}
       />
     </View>
+  );
+}
+
+function ScanGlyph() {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scale, {
+          toValue: 0.82,
+          duration: 520,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: true
+        }),
+        Animated.timing(scale, {
+          toValue: 1,
+          duration: 520,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: true
+        })
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [scale]);
+
+  return (
+    <Animated.View style={[s.scanGlyph, { transform: [{ scale }] }]}>
+      <View style={[s.scanGlyphCorner, s.scanGlyphTopLeft]} />
+      <View style={[s.scanGlyphCorner, s.scanGlyphTopRight]} />
+      <View style={[s.scanGlyphCorner, s.scanGlyphBottomLeft]} />
+      <View style={[s.scanGlyphCorner, s.scanGlyphBottomRight]} />
+    </Animated.View>
   );
 }
 
@@ -683,43 +724,34 @@ function SceneShare({ active }: { active: boolean }) {
     return () => { [t1, t2, t3].forEach(clearTimeout); };
   }, [active]);
 
-  const isSent = phase !== "idle";
-
-  // Animated card size + position
+  const showStatus = phase !== "idle";
   const cardScale = useRef(new Animated.Value(1)).current;
-  const cardX = useRef(new Animated.Value(0)).current;
+  const cardY = useRef(new Animated.Value(22)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(cardScale, {
-        toValue: phase === "idle" ? 1 : 0.73,
+        toValue: phase === "idle" ? 1 : 0.82,
         duration: 800,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: true
       }),
-      Animated.timing(cardX, {
-        toValue: phase === "idle" ? -30 : 0,
+      Animated.timing(cardY, {
+        toValue: phase === "idle" ? 22 : 0,
         duration: 800,
         easing: Easing.inOut(Easing.cubic),
         useNativeDriver: true
       })
     ]).start();
-  }, [phase, cardScale, cardX]);
+  }, [phase, cardScale, cardY]);
 
   return (
-    <View style={{ position: "relative", width: 280, height: 330 }}>
-      {/* Card holder, anchored top-right */}
-      <View style={{ position: "absolute", right: 0, top: 0 }}>
+    <View style={s.shareThread}>
+      <View style={s.outgoingMessage}>
         <Animated.View
           style={[
             s.shareCard,
-            {
-              transform: [
-                { translateX: cardX },
-                { translateY: phase === "idle" ? 34 : 0 },
-                { scale: cardScale }
-              ]
-            }
+            { transform: [{ translateY: cardY }, { scale: cardScale }] }
           ]}
         >
           <View style={s.shareCardPhoto}>
@@ -733,15 +765,14 @@ function SceneShare({ active }: { active: boolean }) {
           <Text style={s.shareCardTitle}>Wet Pavement, Bright Fish</Text>
         </Animated.View>
 
-        {isSent ? (
-          <View style={s.deliveredRow}>
-            <Meta>{phase === "sending" ? "SENDING..." : "DELIVERED"}</Meta>
-          </View>
-        ) : null}
+        <View style={[s.deliveredRow, { opacity: showStatus ? 1 : 0 }]}>
+          <Meta>{phase === "sending" ? "SENDING..." : "DELIVERED"}</Meta>
+        </View>
       </View>
 
-      {/* Reply */}
-      {phase === "reply" ? <ReplyBubble /> : null}
+      <View style={s.replySlot}>
+        {phase === "reply" ? <ReplyBubble /> : null}
+      </View>
     </View>
   );
 }
@@ -993,6 +1024,55 @@ const s = StyleSheet.create({
     fontSize: 10.5,
     color: theme.ink[1]
   },
+  scanIconBadge: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "rgba(255,252,245,0.9)",
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)"
+  },
+  scanGlyph: {
+    width: 11,
+    height: 11,
+    position: "relative"
+  },
+  scanGlyphCorner: {
+    position: "absolute",
+    width: 4,
+    height: 4,
+    borderColor: theme.ink[1]
+  },
+  scanGlyphTopLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 1.3,
+    borderLeftWidth: 1.3
+  },
+  scanGlyphTopRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 1.3,
+    borderRightWidth: 1.3
+  },
+  scanGlyphBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 1.3,
+    borderLeftWidth: 1.3
+  },
+  scanGlyphBottomRight: {
+    right: 0,
+    bottom: 0,
+    borderRightWidth: 1.3,
+    borderBottomWidth: 1.3
+  },
   captureMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1148,6 +1228,16 @@ const s = StyleSheet.create({
   },
 
   /* Share */
+  shareThread: {
+    width: 280,
+    minHeight: 330,
+    justifyContent: "center",
+    gap: 14
+  },
+  outgoingMessage: {
+    alignSelf: "flex-end",
+    alignItems: "flex-end"
+  },
   shareCard: {
     width: 220,
     padding: 8,
@@ -1187,16 +1277,18 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     paddingRight: 2,
-    paddingTop: 8
+    paddingTop: 6
+  },
+  replySlot: {
+    minHeight: 66,
+    justifyContent: "flex-start",
+    alignSelf: "stretch"
   },
   replyWrap: {
-    position: "absolute",
-    left: 0,
-    top: 246,
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 8,
-    maxWidth: 210
+    maxWidth: 220
   },
   avatar: {
     width: 26,
