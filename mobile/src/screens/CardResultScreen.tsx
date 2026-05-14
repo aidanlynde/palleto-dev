@@ -33,7 +33,6 @@ import {
   Pill,
   SectionCard,
   Text,
-  TopBar
 } from "../ui";
 
 type RelatedLink = InspirationCard["related_links"][number];
@@ -76,14 +75,13 @@ export function CardResultScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
-      <TopBar
-        left={<Pill icon="back" onPress={onDone} />}
-        right={<Pill icon="share" onPress={shareCard} />}
-      >
-        <View style={s.topBadge}>
-          <Meta>{isPreview ? "PREVIEW" : "SAVED"}</Meta>
+      <View style={s.header}>
+        <Pill icon="back" onPress={onDone} />
+        <View style={s.headerCenter}>
+          <Meta>{isPreview ? "PREVIEW" : "INSPIRATION CARD"}</Meta>
         </View>
-      </TopBar>
+        <Pill icon="share" onPress={shareCard} />
+      </View>
 
       <ScrollView
         style={{ flex: 1 }}
@@ -294,10 +292,13 @@ export function CardDetailScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
-      <TopBar
-        left={<Pill icon="back" onPress={onBack} />}
-        right={<Pill icon="share" onPress={shareCard} />}
-      />
+      <View style={s.header}>
+        <Pill icon="back" onPress={onBack} />
+        <View style={s.headerCenter}>
+          <Meta>INSPIRATION CARD</Meta>
+        </View>
+        <Pill icon="share" onPress={shareCard} />
+      </View>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         <CardDetail card={card} />
 
@@ -377,21 +378,24 @@ function shortId(id: string) {
 
 const s = StyleSheet.create({
   content: {
-    paddingTop: 144,
+    paddingTop: 18,
     paddingHorizontal: 16,
     paddingBottom: 60,
     gap: 14
   },
-  topBadge: {
-    alignSelf: "center",
-    minWidth: 132,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: theme.radius.pill,
-    backgroundColor: theme.palette.glass,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(0,0,0,0.06)",
-    ...theme.shadow.pill
+  header: {
+    minHeight: 64,
+    paddingTop: 8,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center"
   },
   polaroid: {
     backgroundColor: theme.palette.paper,
