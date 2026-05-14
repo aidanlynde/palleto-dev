@@ -485,8 +485,8 @@ function SceneScan({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) { setPhase("scan"); return; }
-    const t1 = setTimeout(() => setPhase("palette"), 2200);
-    const t2 = setTimeout(() => setPhase("title"), 3200);
+    const t1 = setTimeout(() => setPhase("palette"), 2400);
+    const t2 = setTimeout(() => setPhase("title"), 3600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [active]);
 
@@ -497,8 +497,8 @@ function SceneScan({ active }: { active: boolean }) {
     scanY.setValue(0);
     Animated.timing(scanY, {
       toValue: 1,
-      duration: 2200,
-      easing: Easing.inOut(Easing.cubic),
+      duration: 2500,
+      easing: Easing.linear,
       useNativeDriver: true
     }).start();
   }, [phase, scanY]);
@@ -522,7 +522,7 @@ function SceneScan({ active }: { active: boolean }) {
         {phase !== "title" ? (
           <View style={s.captureChip}>
             <PulseDot color={theme.ink[1]} />
-            <Text style={s.captureChipText}>{phase === "scan" ? "Reading palette" : "Distilling"}</Text>
+            <Text style={s.captureChipText}>{phase === "scan" ? "Reading palette" : "Finding direction"}</Text>
           </View>
         ) : null}
       </View>
@@ -585,9 +585,9 @@ function SceneRefine({ active }: { active: boolean }) {
       setDirection("Editorial · saturated");
       return;
     }
-    const t1 = setTimeout(() => setStage("sweep"), 600);
-    const t2 = setTimeout(() => { setStage("quiet"); setDirection("Quiet luxury · muted"); }, 1500);
-    const t3 = setTimeout(() => setStage("done"), 2600);
+    const t1 = setTimeout(() => setStage("sweep"), 700);
+    const t2 = setTimeout(() => { setStage("quiet"); setDirection("Quiet luxury · muted"); }, 1750);
+    const t3 = setTimeout(() => setStage("done"), 3150);
     return () => { [t1, t2, t3].forEach(clearTimeout); };
   }, [active]);
 
@@ -605,8 +605,6 @@ function SceneRefine({ active }: { active: boolean }) {
       useNativeDriver: true
     }).start();
   }, [stage, wandX]);
-
-  const palette = stage === "orig" ? KOI_PALETTE : KOI_PALETTE_QUIET;
 
   return (
     <View style={{ position: "relative", width: 280 }}>
@@ -626,10 +624,17 @@ function SceneRefine({ active }: { active: boolean }) {
           <Text style={s.refineDirection}>{direction}</Text>
         </View>
 
-        <View style={s.swatchRowTall}>
-          {palette.map((c, i) => (
-            <RefineSwatch key={i} color={c} />
-          ))}
+        <View style={s.swatchStack}>
+          <View style={[s.swatchRowTall, { opacity: stage === "orig" || stage === "sweep" ? 1 : 0 }]}>
+            {KOI_PALETTE.map((c, i) => (
+              <RefineSwatch key={`orig-${i}`} color={c} />
+            ))}
+          </View>
+          <View style={[s.swatchRowTall, s.swatchRowTallOverlay, { opacity: stage === "quiet" || stage === "done" ? 1 : 0 }]}>
+            {KOI_PALETTE_QUIET.map((c, i) => (
+              <RefineSwatch key={`quiet-${i}`} color={c} />
+            ))}
+          </View>
         </View>
       </View>
 
@@ -1089,6 +1094,15 @@ const s = StyleSheet.create({
     paddingHorizontal: 4,
     paddingBottom: 6
   },
+  swatchStack: {
+    position: "relative"
+  },
+  swatchRowTallOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0
+  },
   swatchTall: {
     flex: 1,
     height: 28,
@@ -1115,7 +1129,7 @@ const s = StyleSheet.create({
 
   /* Share */
   shareCard: {
-    width: 220,
+    width: 228,
     padding: 8,
     paddingBottom: 10,
     backgroundColor: theme.palette.paper,
@@ -1152,17 +1166,17 @@ const s = StyleSheet.create({
   deliveredRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    paddingRight: 4,
-    paddingTop: 6
+    paddingRight: 2,
+    paddingTop: 8
   },
   replyWrap: {
     position: "absolute",
-    left: 0,
-    bottom: 0,
+    left: 8,
+    bottom: 2,
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 8,
-    maxWidth: 200
+    maxWidth: 210
   },
   avatar: {
     width: 26,
