@@ -41,8 +41,8 @@ import { Pill } from "./Pill";
 
 const KOI_SOURCE: ImageSourcePropType = require("../../assets/demo/koi-street-reference.png");
 const GARDEN_SOURCE: ImageSourcePropType = require("../../assets/demo/garden-objects-reference.png");
-const STUDIO_SOURCE: ImageSourcePropType = require("../../assets/onboarding/capture-studio.png");
-const ARCHITECTURE_SOURCE: ImageSourcePropType = require("../../assets/onboarding/capture-architecture.png");
+const MOSAIC_SOURCE: ImageSourcePropType = require("../../assets/onboarding/library-mosaic.png");
+const FISH_SIGN_SOURCE: ImageSourcePropType = require("../../assets/onboarding/library-fish-sign.png");
 
 const KOI_PALETTE = ["#D14B2D", "#1F1B19", "#C9B591", "#5A6E64", "#EFE7D7"];
 const KOI_PALETTE_QUIET = ["#9B5742", "#2F2A24", "#C4AD8B", "#6A7268", "#E5DCC6"];
@@ -696,7 +696,7 @@ function SceneShare({ active }: { active: boolean }) {
   }, [phase, cardScale, cardX]);
 
   return (
-    <View style={{ position: "relative", width: 280, height: 352 }}>
+    <View style={{ position: "relative", width: 280, height: 330 }}>
       {/* Card holder, anchored top-right */}
       <View style={{ position: "absolute", right: 0, top: 0 }}>
         <Animated.View
@@ -705,7 +705,7 @@ function SceneShare({ active }: { active: boolean }) {
             {
               transform: [
                 { translateX: cardX },
-                { translateY: phase === "idle" ? 38 : 0 },
+                { translateY: phase === "idle" ? 34 : 0 },
                 { scale: cardScale }
               ]
             }
@@ -769,8 +769,8 @@ function SceneLibrary({ active }: { active: boolean }) {
   const TILES = [
     { src: KOI_SOURCE,            pal: KOI_PALETTE_QUIET,      title: "Wet Pavement" },
     { src: GARDEN_SOURCE,         pal: GARDEN_PALETTE_QUIET,   title: "Tools, Earth" },
-    { src: STUDIO_SOURCE,         pal: STUDIO_PALETTE,         title: "Studio Notes" },
-    { src: ARCHITECTURE_SOURCE,   pal: ARCHITECTURE_PALETTE,   title: "Architecture Study" }
+    { src: MOSAIC_SOURCE,         pal: STUDIO_PALETTE,         title: "Mosaic Mask" },
+    { src: FISH_SIGN_SOURCE,      pal: ARCHITECTURE_PALETTE,   title: "Fish Sign" }
   ];
 
   return (
@@ -1134,7 +1134,7 @@ const s = StyleSheet.create({
 
   /* Share */
   shareCard: {
-    width: 228,
+    width: 220,
     padding: 8,
     paddingBottom: 10,
     backgroundColor: theme.palette.paper,
@@ -1176,8 +1176,8 @@ const s = StyleSheet.create({
   },
   replyWrap: {
     position: "absolute",
-    left: 8,
-    bottom: 2,
+    left: 0,
+    top: 246,
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 8,
