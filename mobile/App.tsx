@@ -14,6 +14,7 @@ import {
 import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useFonts } from "expo-font";
+import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { useEffect, useState } from "react";
@@ -63,6 +64,9 @@ import {
 } from "./src/services/revenueCat";
 import { theme } from "./src/theme";
 
+// Keep native splash visible until we manually dismiss it
+ExpoSplashScreen.preventAutoHideAsync().catch(() => {});
+
 export type RootStackParamList = {
   Auth: undefined;
   Capture: undefined;
@@ -111,6 +115,7 @@ export default function App() {
     JetBrainsMono_400Regular,
     JetBrainsMono_500Medium
   });
+  const [minSplashDone, setMinSplashDone] = useState(false);
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isOnboardingReady, setIsOnboardingReady] = useState(false);
   const [isProjectContextReady, setIsProjectContextReady] = useState(false);
@@ -133,6 +138,23 @@ export default function App() {
   const isPalletoProActive = Boolean(
     firebaseUser && revenueCatUserId === firebaseUser.uid && hasPalletoPro(customerInfo)
   );
+
+  useEffect(() => {
+    // Fade out native splash once RN has rendered (they look identical, so it's seamless)
+    const nativeHideTimer = setTimeout(() => {
+      ExpoSplashScreen.hideAsync().catch(() => {});
+    }, 200);
+
+    // Minimum splash display time so the dot animation plays
+    const minTimer = setTimeout(() => {
+      setMinSplashDone(true);
+    }, 2200);
+
+    return () => {
+      clearTimeout(nativeHideTimer);
+      clearTimeout(minTimer);
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
@@ -511,7 +533,8 @@ export default function App() {
     !fontsLoaded ||
     !isAuthReady ||
     !isOnboardingReady ||
-    !isProjectContextReady;
+    !isProjectContextReady ||
+    !minSplashDone;
 
   const splashDetail = !fontsLoaded
     ? "Loading app shell..."
@@ -523,7 +546,7 @@ export default function App() {
           ? firebaseUser
             ? "Loading project context..."
             : "Preparing app..."
-          : "Loading Palleto...";
+          : undefined;
 
   useEffect(() => {
     if (!isLoading) {
@@ -588,7 +611,7 @@ export default function App() {
         }}
       >
         {isLoading ? (
-          <Stack.Screen name="Splash" options={{ headerShown: false }}>
+          <Stack.Screen name="Splash" options={{ headerShown: false, animation: "fade", animationDuration: 500 }}>
             {() => <SplashScreen detail={splashDetail} warning={startupWarning} />}
           </Stack.Screen>
         ) : authRequestedFromLanding && !firebaseUser ? (

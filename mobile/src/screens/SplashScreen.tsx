@@ -1,29 +1,24 @@
-/**
- * SplashScreen — drop-in replacement.
- * Big serif wordmark + animated palette dot.
- *
- * Requires: react-native-svg, react-native-reanimated (both Expo defaults
- * in SDK 52). If you don't have react-native-svg yet:
- *   npx expo install react-native-svg react-native-reanimated
- */
 import React, { useEffect } from "react";
-import { View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import Animated, {
-  useAnimatedProps,
+  interpolateColor,
+  useAnimatedStyle,
   useSharedValue,
   withRepeat,
-  withTiming,
-  interpolateColor
+  withTiming
 } from "react-native-reanimated";
-import Svg, { Circle, Text as SvgText } from "react-native-svg";
 
 import { theme } from "../theme";
-import { Body, Meta } from "../ui";
+import { Body } from "../ui";
 
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-
-// Palette dot cycles through these (mirrors the loader in the prototype)
 const PALETTE = ["#C5683E", "#7C0F1F", "#CA8B2E", "#385E76", "#3F6C4A"];
+
+// Dot overlay over the static dot baked into the 1024×1024 PNG at imageWidth=360.
+// Adjust these until the animated dot perfectly covers the static one.
+const IMAGE_SIZE = 360;
+const DOT_CX = 297;  // horizontal center, px-in-image × (360/1024)
+const DOT_CY = 193;  // vertical center — tune this first if dot is too high/low
+const DOT_R = 9;     // radius — tune this if dot looks too big/small
 
 type Props = {
   detail?: string;
@@ -32,47 +27,33 @@ type Props = {
 
 export function SplashScreen({ detail, warning }: Props) {
   const t = useSharedValue(0);
+  const opacity = useSharedValue(0);
 
   useEffect(() => {
+    opacity.value = withTiming(1, { duration: 350 });
     t.value = withRepeat(withTiming(1, { duration: 3000 }), -1, false);
-  }, [t]);
+  }, [t, opacity]);
 
-  const animatedProps = useAnimatedProps(() => {
-    const fill = interpolateColor(
+  const containerStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  const dotStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
       t.value,
       [0, 0.2, 0.4, 0.6, 0.8, 1],
       [...PALETTE, PALETTE[0]]
-    );
-    // Subtle scale via radius: 8 → 9 → 8
-    const r = 8 + Math.sin(t.value * Math.PI * 2) * 0.6;
-    return { fill, r };
-  });
+    )
+  }));
 
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 26,
-        backgroundColor: theme.palette.bone
-      }}
-    >
-      <Svg width={280} height={120} viewBox="0 0 280 120">
-        <SvgText
-          x="0"
-          y="92"
-          fontFamily={theme.font.display}
-          fontSize="110"
-          fill={theme.ink[1]}
-          letterSpacing={0}
-        >
-          palleto
-        </SvgText>
-        <AnimatedCircle cx={258} cy={88} animatedProps={animatedProps} />
-      </Svg>
-
-      <Meta>A FIELD GUIDE FOR THE EYE</Meta>
+    <Animated.View style={[styles.container, containerStyle]}>
+      <View style={styles.imageWrapper}>
+        <Image
+          source={require("../../assets/brand/palleto-native-splash.png")}
+          style={styles.image}
+        />
+        {/* Animated dot overlays the static dot in the PNG */}
+        <Animated.View style={[styles.dot, dotStyle]} />
+      </View>
 
       {detail ? (
         <Body
@@ -104,6 +85,31 @@ export function SplashScreen({ detail, warning }: Props) {
           {warning}
         </Body>
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.palette.bone
+  },
+  imageWrapper: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE
+  },
+  image: {
+    width: IMAGE_SIZE,
+    height: IMAGE_SIZE
+  },
+  dot: {
+    position: "absolute",
+    left: DOT_CX - DOT_R,
+    top: DOT_CY - DOT_R,
+    width: DOT_R * 2,
+    height: DOT_R * 2,
+    borderRadius: DOT_R
+  }
+});
