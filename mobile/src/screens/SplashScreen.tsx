@@ -14,11 +14,12 @@ import { Body } from "../ui";
 const PALETTE = ["#C5683E", "#7C0F1F", "#CA8B2E", "#385E76", "#3F6C4A"];
 
 // Dot overlay over the static dot baked into the 1024×1024 PNG at imageWidth=360.
-// Adjust these until the animated dot perfectly covers the static one.
+// Values derived from exact pixel centroid of the terracotta dot in the PNG:
+// center=(816.5, 567.5)px, radius=14.5px → scaled by 360/1024.
 const IMAGE_SIZE = 360;
-const DOT_CX = 297;  // horizontal center, px-in-image × (360/1024)
-const DOT_CY = 193;  // vertical center — tune this first if dot is too high/low
-const DOT_R = 9;     // radius — tune this if dot looks too big/small
+const DOT_CX = 287;
+const DOT_CY = 200;
+const DOT_R = 5;
 
 type Props = {
   detail?: string;
