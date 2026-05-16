@@ -5,7 +5,7 @@
 import { useFocusEffect } from "@react-navigation/native";
 import { User } from "firebase/auth";
 import { useCallback, useState } from "react";
-import { FlatList, View } from "react-native";
+import { FlatList, useWindowDimensions, View } from "react-native";
 
 import { InspirationCard, listCards } from "../services/api";
 import { theme } from "../theme";
@@ -18,8 +18,7 @@ import {
   Pill,
   ProjectChip,
   ScrollScreen,
-  Tile,
-  TopBar
+  Tile
 } from "../ui";
 
 type LibraryScreenProps = {
@@ -41,6 +40,10 @@ export function LibraryScreen({
   onSelectCard,
   projectContext
 }: LibraryScreenProps) {
+  const { width } = useWindowDimensions();
+  // 32 = 16pt horizontal padding on each side (from ScrollScreen), 12 = column gap
+  const cardWidth = (width - 32 - 12) / 2;
+
   const [cards, setCards] = useState<InspirationCard[]>([]);
   const [status, setStatus] = useState("Loading library…");
 
@@ -63,10 +66,7 @@ export function LibraryScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
-      <TopBar
-        left={<Pill icon="folder" onPress={onEditProject} />}
-      />
-      <ScrollScreen>
+      <ScrollScreen contentContainerStyle={{ paddingTop: 24 }}>
         {/* Headline */}
         <View
           style={{
@@ -132,8 +132,8 @@ export function LibraryScreen({
           scrollEnabled={false}
           columnWrapperStyle={{ gap: 12 }}
           contentContainerStyle={{ gap: 12 }}
-          renderItem={({ item, index }) => (
-            <View style={{ flex: 1, marginTop: index % 2 ? 24 : 0 }}>
+          renderItem={({ item }) => (
+            <View style={{ width: cardWidth }}>
               <Tile
                 card={{
                   id: item.id,
@@ -143,7 +143,6 @@ export function LibraryScreen({
                   meta: formatMeta(item)
                 }}
                 onPress={() => onSelectCard(item)}
-                tall={index % 3 === 1}
               />
             </View>
           )}
