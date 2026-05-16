@@ -770,12 +770,13 @@ export default function App() {
                     ) : null
                   }
                 </Stack.Screen>
-                <Stack.Screen name="Refine" options={{ title: "Refine with AI" }}>
-                  {() =>
+                <Stack.Screen name="Refine" options={{ headerShown: false }}>
+                  {({ navigation }) =>
                     selectedCard ? (
                       <RefineCardScreen
                         card={selectedCard}
                         firebaseUser={firebaseUser}
+                        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
                         onRefined={setSelectedCard}
                       />
                     ) : null

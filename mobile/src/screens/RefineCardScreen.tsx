@@ -1,16 +1,34 @@
+/**
+ * RefineCardScreen — chat interface for refining an inspiration card.
+ *
+ * Every message the user sends triggers a card refinement (the existing
+ * createCardRefinement API). The refinement history is rendered as a
+ * chat thread: user instruction on the right, AI response + mini card
+ * preview on the left. Feels like ChatGPT but every AI turn produces a
+ * tangible card output.
+ *
+ * Key behaviours:
+ *  - History loads on mount; existing refinements populate the thread
+ *  - Quick-action chips (prompt library) appear above the composer
+ *  - "Branching from" indicator shows which version the next prompt builds on
+ *  - Tap any AI card bubble to set it as the active preview
+ *  - Processing overlay appears during AI generation (Bone-styled)
+ */
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
+  Text as RNText,
   TextInput,
   View,
 } from "react-native";
@@ -24,41 +42,34 @@ import {
 } from "../services/api";
 import { trackEvent } from "../services/analytics";
 import { theme } from "../theme";
+import { Body, Display, DisplayItalic, Meta, Pill, Text } from "../ui";
 
-const promptGroups = [
-  {
-    title: "Tone",
-    prompts: [
-      "Make this feel more organic and less corporate",
-      "Find a sharper, more premium angle",
-    ],
-  },
-  {
-    title: "Project fit",
-    prompts: [
-      "Make the applications more specific to my project",
-      "Push this toward a luxury fashion direction",
-    ],
-  },
-  {
-    title: "Typography",
-    prompts: [
-      "Give me softer type and a more editorial read",
-      "Make the type direction more collectible and less generic",
-    ],
-  },
+/* ──────────────────────────────────────────────────────────────
+   Prompt suggestions shown as chips above the composer
+   ────────────────────────────────────────────────────────────── */
+const QUICK_PROMPTS = [
+  "Make this feel more organic and less corporate",
+  "Find a sharper, more premium angle",
+  "Make the applications more specific to my project",
+  "Push this toward a luxury fashion direction",
+  "Give me softer type and a more editorial read",
+  "Make the type direction more collectible and less generic",
 ];
 
-const processingStages = [
+const PROCESSING_STAGES = [
   "Re-reading the scan",
   "Shifting the creative angle",
   "Updating the card",
   "Saving this version",
 ];
 
-type RefineCardScreenProps = {
+/* ──────────────────────────────────────────────────────────────
+   Types
+   ────────────────────────────────────────────────────────────── */
+type Props = {
   card: InspirationCard;
   firebaseUser: User;
+  onBack?: () => void;
   onRefined: (card: InspirationCard) => void;
 };
 
@@ -74,61 +85,67 @@ type VersionItem = {
   summary: string | null;
 };
 
-export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardScreenProps) {
+type ChatMsg =
+  | { kind: "greeting" }
+  | { kind: "user"; text: string; key: string }
+  | { kind: "refinement"; version: VersionItem; key: string };
+
+/* ──────────────────────────────────────────────────────────────
+   Main component
+   ────────────────────────────────────────────────────────────── */
+export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Props) {
   const [baseCard] = useState(card);
   const [history, setHistory] = useState<CardRefinement[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [instruction, setInstruction] = useState("");
-  const [activeRefinementId, setActiveRefinementId] = useState<string | null>(null);
+  const [composer, setComposer] = useState("");
+  const [activeVersionId, setActiveVersionId] = useState<string | null>(null);
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null);
   const [processingStageIndex, setProcessingStageIndex] = useState(0);
   const [pendingInstruction, setPendingInstruction] = useState<string | null>(null);
+  const [cardExpanded, setCardExpanded] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
 
+  const canSend = !isSubmitting && composer.trim().length > 0;
+
+  /* ── Load history ── */
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadHistory() {
+    let mounted = true;
+    (async () => {
       try {
         const token = await firebaseUser.getIdToken();
-        const nextHistory = await listCardRefinements(token, baseCard.id);
-
-        if (isMounted) {
-          setHistory(nextHistory);
-          setActiveRefinementId(nextHistory.length ? nextHistory[nextHistory.length - 1].id : null);
+        const items = await listCardRefinements(token, baseCard.id);
+        if (mounted) {
+          setHistory(items);
+          if (items.length) setActiveVersionId(items[items.length - 1].id);
         }
       } catch {
-        if (isMounted) {
-          Alert.alert("Could not load refinements", "Try again in a moment.");
-        }
+        if (mounted) Alert.alert("Could not load history", "Try again in a moment.");
       } finally {
-        if (isMounted) {
-          setIsLoadingHistory(false);
-        }
+        if (mounted) setIsLoadingHistory(false);
       }
-    }
-
-    loadHistory();
-
-    return () => {
-      isMounted = false;
-    };
+    })();
+    return () => { mounted = false; };
   }, [baseCard.id, firebaseUser]);
 
+  /* ── Processing stage ticker ── */
   useEffect(() => {
-    if (!isSubmitting) {
-      setProcessingStageIndex(0);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setProcessingStageIndex((current) =>
-        Math.min(current + 1, processingStages.length - 1)
-      );
-    }, 720);
-
-    return () => clearInterval(interval);
+    if (!isSubmitting) { setProcessingStageIndex(0); return; }
+    const id = setInterval(
+      () => setProcessingStageIndex(i => Math.min(i + 1, PROCESSING_STAGES.length - 1)),
+      720
+    );
+    return () => clearInterval(id);
   }, [isSubmitting]);
 
+  /* ── Auto-scroll when thread grows ── */
+  useEffect(() => {
+    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    return () => clearTimeout(t);
+  }, [history, isSubmitting]);
+
+  /* ── Versions derived from history ── */
   const versions = useMemo<VersionItem[]>(() => {
     const original: VersionItem = {
       basedOnLabel: null,
@@ -139,61 +156,70 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
       isOriginal: true,
       label: "Original",
       refinedCard: baseCard,
-      summary: "The first card generated from the scan.",
+      summary: "The first card generated from this scan.",
     };
-
     return [
       original,
-      ...history.map((refinement) => ({
-        basedOnLabel: refinement.based_on_refinement_id
-          ? history.find((item) => item.id === refinement.based_on_refinement_id)?.label || "Original"
+      ...history.map(r => ({
+        basedOnLabel: r.based_on_refinement_id
+          ? history.find(h => h.id === r.based_on_refinement_id)?.label ?? "Original"
           : "Original",
-        changedSections: refinement.changed_sections,
-        createdAt: refinement.created_at,
-        id: refinement.id,
-        instruction: refinement.instruction,
+        changedSections: r.changed_sections,
+        createdAt: r.created_at,
+        id: r.id,
+        instruction: r.instruction,
         isOriginal: false,
-        label: refinement.label,
-        refinedCard: refinement.refined_card,
-        summary: refinement.summary,
+        label: r.label,
+        refinedCard: r.refined_card,
+        summary: r.summary,
       })),
     ];
   }, [baseCard, history]);
 
-  const activeVersion =
-    versions.find((version) => version.id === activeRefinementId) ?? versions[0];
-  const latestVersionId = versions[versions.length - 1]?.id ?? null;
-  const latestVersion =
-    versions.find((version) => version.id === latestVersionId) ?? versions[0];
+  const activeVersion = versions.find(v => v.id === activeVersionId) ?? versions[0];
+  const previewVersion = versions.find(v => v.id === previewVersionId) ?? activeVersion;
+  const latestVersion = versions[versions.length - 1];
 
-  async function submitRefinement(nextInstruction: string, presetLabel?: string) {
-    const trimmedInstruction = nextInstruction.trim();
-
-    if (!trimmedInstruction || isSubmitting) {
-      return;
+  /* ── Chat thread derived from history ── */
+  const messages = useMemo<ChatMsg[]>(() => {
+    const msgs: ChatMsg[] = [{ kind: "greeting" }];
+    for (const r of history) {
+      if (r.instruction) {
+        msgs.push({ kind: "user", text: r.instruction, key: `u-${r.id}` });
+      }
+      const v = versions.find(v => v.id === r.id);
+      if (v) {
+        msgs.push({ kind: "refinement", version: v, key: `r-${r.id}` });
+      }
     }
+    return msgs;
+  }, [history, versions]);
+
+  /* ── Submit refinement ── */
+  async function submit(instruction: string, presetLabel?: string) {
+    const trimmed = instruction.trim();
+    if (!trimmed || isSubmitting) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setComposer("");
+    setIsSubmitting(true);
+    setPendingInstruction(trimmed);
+    trackEvent("refinement_started", {
+      base: activeVersionId ? "version" : "original",
+      card_id: baseCard.id,
+      preset: presetLabel ?? "custom",
+    });
 
     try {
-      setIsSubmitting(true);
-      setPendingInstruction(trimmedInstruction);
-      trackEvent("refinement_started", {
-        base: activeRefinementId ? "version" : "original",
-        card_id: baseCard.id,
-        preset: presetLabel ?? "custom",
-      });
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
       const token = await firebaseUser.getIdToken();
       const refinement = await createCardRefinement(token, baseCard.id, {
-        instruction: trimmedInstruction,
+        instruction: trimmed,
         presetLabel: presetLabel ?? null,
-        baseRefinementId: activeRefinementId,
+        baseRefinementId: activeVersionId,
       });
-
-      const nextHistory = [...history, refinement];
-      setHistory(nextHistory);
-      setActiveRefinementId(refinement.id);
-      setInstruction("");
+      const next = [...history, refinement];
+      setHistory(next);
+      setActiveVersionId(refinement.id);
       onRefined(refinement.refined_card);
       trackEvent("refinement_completed", {
         card_id: baseCard.id,
@@ -202,10 +228,7 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
-      trackEvent("refinement_failed", {
-        card_id: baseCard.id,
-        preset: presetLabel ?? "custom",
-      });
+      trackEvent("refinement_failed", { card_id: baseCard.id });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Refinement failed", "Try again in a moment.");
     } finally {
@@ -214,254 +237,212 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
     }
   }
 
+  /* ── UI ── */
   return (
     <KeyboardAvoidingView
+      style={s.screen}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
-      style={styles.container}
+      keyboardVerticalOffset={0}
     >
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Refine with AI</Text>
-          <Text style={styles.title}>Turn one scan into a versioned creative thread.</Text>
-          <Text style={styles.body}>
-            Refine from the original card or branch from any saved version without losing the trail.
-          </Text>
-        </View>
+      {/* ── Header ── */}
+      <View style={s.header}>
+        {onBack ? <Pill icon="back" onPress={onBack} /> : <View style={{ width: 38 }} />}
+        <Text style={s.headerTitle} numberOfLines={1}>
+          {baseCard.title}
+        </Text>
+        <Pill tight onPress={() => { setPreviewVersionId(activeVersion.id); setShowPreview(v => !v); }}>
+          <RNText style={s.versionPillText}>
+            {showPreview ? "Hide card" : activeVersion.isOriginal ? "Original" : activeVersion.label}
+          </RNText>
+        </Pill>
+      </View>
 
-        <View style={styles.activePanel}>
-          <View style={styles.activePanelHeader}>
-            <View style={styles.activePanelTitleBlock}>
-              <Text style={styles.panelLabel}>Active version</Text>
-              <Text style={styles.activeVersionTitle}>{activeVersion.label}</Text>
-              <Text style={styles.activeVersionMeta}>
-                {activeVersion.isOriginal
-                  ? "This is the first card generated from the scan."
-                  : `Built from ${activeVersion.basedOnLabel || "Original"}`}
-              </Text>
-            </View>
-            <View style={styles.statusChip}>
-              <Text style={styles.statusChipText}>
-                {activeVersion.isOriginal ? "Base card" : `Based on ${activeVersion.basedOnLabel}`}
-              </Text>
-            </View>
+      {/* ── Card context pill ── */}
+      <Pressable
+        style={({ pressed }) => [s.contextCard, pressed && { opacity: 0.85 }]}
+        onPress={() => setCardExpanded(e => !e)}
+      >
+        <View style={s.contextCardInner}>
+          <View style={s.contextThumb}>
+            <Image source={{ uri: baseCard.image_url }} style={s.contextThumbImg} resizeMode="cover" />
           </View>
-          <Text style={styles.activeVersionSummary}>
-            {activeVersion.summary || "No summary yet."}
-          </Text>
-          <View style={styles.activeActions}>
-            {!activeVersion.isOriginal ? (
-              <Pressable
-                onPress={() => setActiveRefinementId(null)}
-                style={({ pressed }) => [styles.activeActionChip, pressed && styles.pressed]}
-              >
-                <Text style={styles.activeActionChipText}>Branch from Original</Text>
-              </Pressable>
-            ) : null}
-            {activeVersion.id !== latestVersion.id ? (
-              <Pressable
-                onPress={() => setActiveRefinementId(latestVersion.id)}
-                style={({ pressed }) => [styles.activeActionChip, pressed && styles.pressed]}
-              >
-                <Text style={styles.activeActionChipText}>Jump to Latest</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          {activeVersion.instruction ? (
-            <View style={styles.promptSummary}>
-              <Text style={styles.promptSummaryLabel}>Applied prompt</Text>
-              <Text style={styles.promptSummaryText}>{activeVersion.instruction}</Text>
-            </View>
-          ) : null}
-          {activeVersion.changedSections.length ? (
-            <View style={styles.changedSectionRow}>
-              {activeVersion.changedSections.map((section) => (
-                <View key={section} style={styles.changedSectionChip}>
-                  <Text style={styles.changedSectionChipText}>{labelForSection(section)}</Text>
-                </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Meta>CARD CONTEXT</Meta>
+            <Text style={s.contextTitle} numberOfLines={1}>{baseCard.title}</Text>
+            <View style={{ flexDirection: "row", gap: 3, marginTop: 2 }}>
+              {baseCard.palette.slice(0, 5).map(p => (
+                <View key={p.hex} style={[s.contextSwatch, { backgroundColor: p.hex }]} />
               ))}
             </View>
-          ) : null}
-        </View>
-
-        <View style={styles.panel}>
-          <Text style={styles.panelLabel}>Versions</Text>
-          <Text style={styles.meta}>
-            {history.length
-              ? `${history.length} saved refinements plus the original card.`
-              : "The original card stays pinned here as the base version."}
-          </Text>
-          {isLoadingHistory ? (
-            <Text style={styles.meta}>Loading saved refinements...</Text>
-          ) : (
-            <View style={styles.versionList}>
-              {versions.map((version) => {
-                const isActive = version.id === activeRefinementId || (version.isOriginal && activeRefinementId === null);
-
-                return (
-                  <Pressable
-                    key={version.id ?? "original"}
-                    onPress={() => setActiveRefinementId(version.id)}
-                    style={({ pressed }) => [
-                      styles.versionCard,
-                      isActive && styles.versionCardActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <View style={styles.versionCardHeader}>
-                      <View style={styles.versionTitleBlock}>
-                        <Text style={[styles.versionLabel, isActive && styles.versionLabelActive]}>
-                          {version.label}
-                        </Text>
-                        <Text style={[styles.versionMeta, isActive && styles.versionMetaActive]}>
-                          {version.isOriginal
-                            ? "Original scan"
-                            : version.basedOnLabel
-                              ? `From ${version.basedOnLabel}`
-                              : "Refinement"}
-                        </Text>
-                      </View>
-                      {version.id === latestVersionId ? (
-                        <View style={[styles.latestChip, isActive && styles.latestChipActive]}>
-                          <Text style={[styles.latestChipText, isActive && styles.latestChipTextActive]}>
-                            Latest
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-                    <Text
-                      numberOfLines={2}
-                      style={[styles.versionSummary, isActive && styles.versionSummaryActive]}
-                    >
-                      {version.summary || version.instruction || "Saved version"}
-                    </Text>
-                    {version.changedSections.length ? (
-                      <View style={styles.versionChangedRow}>
-                        {version.changedSections.slice(0, 3).map((section) => (
-                          <View
-                            key={`${version.id ?? "original"}-${section}`}
-                            style={[
-                              styles.versionChangedChip,
-                              isActive && styles.versionChangedChipActive,
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.versionChangedChipText,
-                                isActive && styles.versionChangedChipTextActive,
-                              ]}
-                            >
-                              {labelForSection(section)}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    ) : null}
-                    {version.instruction ? (
-                      <Text
-                        numberOfLines={2}
-                        style={[styles.versionInstruction, isActive && styles.versionInstructionActive]}
-                      >
-                        {version.instruction}
-                      </Text>
-                    ) : null}
-                  </Pressable>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.panel}>
-          <Text style={styles.panelLabel}>Prompt library</Text>
-          <Text style={styles.meta}>
-            New refinements branch from {activeVersion.label.toLowerCase()}.
-          </Text>
-          <View style={styles.promptGroups}>
-            {promptGroups.map((group) => (
-              <View key={group.title} style={styles.promptGroup}>
-                <Text style={styles.promptGroupTitle}>{group.title}</Text>
-                <View style={styles.promptGrid}>
-                  {group.prompts.map((prompt) => (
-                    <Pressable
-                      key={prompt}
-                      onPress={() => submitRefinement(prompt, prompt)}
-                      style={({ pressed }) => [styles.promptChip, pressed && styles.pressed]}
-                    >
-                      <Text style={styles.promptChipText}>{prompt}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            ))}
+          </View>
+          <View style={{ transform: [{ rotate: cardExpanded ? "270deg" : "90deg" }] }}>
+            <Text style={{ fontSize: 14, color: theme.ink[3] }}>›</Text>
           </View>
         </View>
+        {cardExpanded ? (
+          <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.palette.line }}>
+            <Meta style={{ marginBottom: 8 }}>BRANCHING FROM: {activeVersion.label.toUpperCase()}</Meta>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {versions.map(v => (
+                <Pressable
+                  key={v.id ?? "orig"}
+                  onPress={() => { setActiveVersionId(v.id); setCardExpanded(false); }}
+                  style={({ pressed }) => [
+                    s.branchPill,
+                    v.id === activeVersionId && s.branchPillActive,
+                    pressed && { opacity: 0.75 }
+                  ]}
+                >
+                  <RNText style={[s.branchPillText, v.id === activeVersionId && s.branchPillTextActive]}>
+                    {v.label}
+                  </RNText>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
+      </Pressable>
 
-        <View style={styles.panel}>
-          <Text style={styles.panelLabel}>Custom direction</Text>
-          <Text style={styles.meta}>
-            Ask for tighter type, stronger applications, a new tone, or a different angle.
-          </Text>
-          <TextInput
-            multiline
-            onChangeText={setInstruction}
-            placeholder="Push this toward a softer, hand-touched identity with stronger type options."
-            placeholderTextColor={theme.colors.textSecondary}
-            style={styles.input}
-            value={instruction}
-          />
-          <Pressable
-            disabled={!instruction.trim() || isSubmitting}
-            onPress={() => submitRefinement(instruction)}
-            style={({ pressed }) => [
-              styles.submitButton,
-              pressed && styles.pressed,
-              (!instruction.trim() || isSubmitting) && styles.disabled,
-            ]}
+      {/* ── Inline card preview ── */}
+      {showPreview ? (
+        <ScrollView style={s.previewScroll} contentContainerStyle={s.previewContent} showsVerticalScrollIndicator={false}>
+          <CardDetail card={previewVersion.refinedCard} />
+        </ScrollView>
+      ) : (
+        <>
+          {/* ── Chat thread ── */}
+          <ScrollView
+            ref={scrollRef}
+            style={{ flex: 1 }}
+            contentContainerStyle={s.thread}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.submitButtonText}>
-              {isSubmitting ? "Refining..." : `Refine from ${activeVersion.label}`}
-            </Text>
-          </Pressable>
-        </View>
+            {isLoadingHistory ? (
+              <View style={s.loadingRow}>
+                <ActivityIndicator color={theme.ink[3]} size="small" />
+                <Meta>Loading history…</Meta>
+              </View>
+            ) : (
+              messages.map((msg, i) => {
+                if (msg.kind === "greeting") {
+                  return (
+                    <AssistantBubble key="greeting">
+                      Here's your card. Tell me what direction you want to push it — tone,
+                      type, applications, palette — or describe a whole new angle.
+                    </AssistantBubble>
+                  );
+                }
+                if (msg.kind === "user") {
+                  return <UserBubble key={msg.key} content={msg.text} />;
+                }
+                return (
+                  <RefinementBubble
+                    key={msg.key}
+                    version={msg.version}
+                    isActive={msg.version.id === activeVersionId}
+                    onSetActive={() => {
+                      setActiveVersionId(msg.version.id);
+                      setPreviewVersionId(msg.version.id);
+                      setShowPreview(true);
+                    }}
+                  />
+                );
+              })
+            )}
 
-        <View style={styles.panel}>
-          <Text style={styles.panelLabel}>Preview</Text>
-          <Text style={styles.meta}>You are previewing {activeVersion.label.toLowerCase()}.</Text>
-        </View>
-        <CardDetail card={activeVersion.refinedCard} />
-      </ScrollView>
+            {isSubmitting ? <TypingIndicator /> : null}
+          </ScrollView>
 
+          {/* ── Quick-action chips ── */}
+          {!isSubmitting ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.chips}
+              style={s.chipBar}
+              keyboardShouldPersistTaps="handled"
+            >
+              {QUICK_PROMPTS.map(p => (
+                <Pressable
+                  key={p}
+                  onPress={() => void submit(p, p)}
+                  style={({ pressed }) => [s.chip, pressed && { opacity: 0.7 }]}
+                >
+                  <RNText style={s.chipText} numberOfLines={1}>{p}</RNText>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
+
+          {/* ── Branching label ── */}
+          <View style={s.branchLabel}>
+            <Meta>Branching from: </Meta>
+            <Pressable onPress={() => setCardExpanded(e => !e)}>
+              <Meta style={{ color: "#C5683E" }}>{activeVersion.label} ›</Meta>
+            </Pressable>
+          </View>
+
+          {/* ── Composer ── */}
+          <View style={s.composerBar}>
+            <TextInput
+              style={s.input}
+              value={composer}
+              onChangeText={setComposer}
+              placeholder="Push it somewhere specific…"
+              placeholderTextColor={theme.ink[4]}
+              multiline
+              returnKeyType="default"
+              blurOnSubmit={false}
+            />
+            <Pressable
+              onPress={() => void submit(composer)}
+              disabled={!canSend}
+              style={({ pressed }) => [
+                s.sendBtn,
+                canSend && s.sendBtnActive,
+                pressed && canSend && { opacity: 0.8 }
+              ]}
+            >
+              <Text style={[s.sendArrow, canSend && s.sendArrowActive]}>↑</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
+
+      {/* ── Processing overlay ── */}
       {isSubmitting ? (
-        <View style={styles.processingOverlay}>
-          <View style={styles.processingPanel}>
-            <View style={styles.processingImageFrame}>
+        <View style={s.overlay}>
+          <View style={s.overlayCard}>
+            <View style={s.overlayImageFrame}>
               <Image
                 source={{ uri: activeVersion.refinedCard.image_url }}
-                style={styles.processingImage}
+                style={{ width: "100%", height: "100%" }}
                 resizeMode="cover"
               />
             </View>
-            <Text style={styles.eyebrow}>Refining with AI</Text>
-            <Text style={styles.processingTitle}>{processingStages[processingStageIndex]}</Text>
-            <Text style={styles.processingBasedOn}>Branching from {activeVersion.label}</Text>
-            <Text style={styles.processingPrompt} numberOfLines={3}>
-              {pendingInstruction}
-            </Text>
-            <View style={styles.processingStageList}>
-              {processingStages.map((stage, index) => (
-                <Text
+            <Meta style={{ marginTop: 4 }}>REFINING WITH AI</Meta>
+            <Display size={26} style={{ lineHeight: 30, marginTop: 4 }}>
+              {PROCESSING_STAGES[processingStageIndex]}
+              <DisplayItalic size={26} color={theme.ink[3]} style={{ lineHeight: 30 }}>…</DisplayItalic>
+            </Display>
+            {pendingInstruction ? (
+              <Body style={{ color: theme.ink[3], fontSize: 13 }} numberOfLines={3}>
+                {pendingInstruction}
+              </Body>
+            ) : null}
+            <View style={{ gap: 6, marginTop: 4 }}>
+              {PROCESSING_STAGES.map((stage, i) => (
+                <RNText
                   key={stage}
-                  style={[
-                    styles.processingStageText,
-                    index <= processingStageIndex && styles.processingStageTextActive,
-                  ]}
+                  style={[s.stageText, i <= processingStageIndex && s.stageTextActive]}
                 >
+                  {i < processingStageIndex ? "✓  " : i === processingStageIndex ? "•  " : "·  "}
                   {stage}
-                </Text>
+                </RNText>
               ))}
             </View>
-            <ActivityIndicator color={theme.colors.textPrimary} />
           </View>
         </View>
       ) : null}
@@ -469,381 +450,470 @@ export function RefineCardScreen({ card, firebaseUser, onRefined }: RefineCardSc
   );
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Sub-components
+   ────────────────────────────────────────────────────────────── */
+
+function AssistantBubble({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={s.assistantRow}>
+      <View style={s.avatar}>
+        <Text style={s.avatarText}>P</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Meta style={{ marginBottom: 5 }}>Palleto</Meta>
+        <Body style={{ fontSize: 15, lineHeight: 22, color: theme.ink[1] }}>{children}</Body>
+      </View>
+    </View>
+  );
+}
+
+function UserBubble({ content }: { content: string }) {
+  return (
+    <View style={s.userRow}>
+      <View style={s.userBubble}>
+        <Text style={s.userText}>{content}</Text>
+      </View>
+    </View>
+  );
+}
+
+function RefinementBubble({
+  version,
+  isActive,
+  onSetActive,
+}: {
+  version: VersionItem;
+  isActive: boolean;
+  onSetActive: () => void;
+}) {
+  return (
+    <View style={s.assistantRow}>
+      <View style={s.avatar}>
+        <Text style={s.avatarText}>P</Text>
+      </View>
+      <View style={{ flex: 1, gap: 8 }}>
+        <Meta style={{ marginBottom: 2 }}>Palleto</Meta>
+        {version.summary ? (
+          <Body style={{ fontSize: 15, lineHeight: 22, color: theme.ink[1] }}>
+            {version.summary}
+          </Body>
+        ) : null}
+
+        {/* Mini card result */}
+        <Pressable
+          onPress={onSetActive}
+          style={({ pressed }) => [s.miniCard, isActive && s.miniCardActive, pressed && { opacity: 0.85 }]}
+        >
+          <View style={s.miniCardRow}>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Meta style={{ color: isActive ? "#C5683E" : theme.ink[3] }}>
+                {isActive ? "ACTIVE VERSION" : "NEW VERSION"}
+              </Meta>
+              <Text style={s.miniCardLabel}>{version.label}</Text>
+              <View style={{ flexDirection: "row", gap: 3, marginTop: 2 }}>
+                {version.refinedCard.palette.slice(0, 5).map(p => (
+                  <View key={p.hex} style={[s.miniSwatch, { backgroundColor: p.hex }]} />
+                ))}
+              </View>
+            </View>
+            {version.changedSections.length ? (
+              <View style={{ gap: 4, alignItems: "flex-end" }}>
+                {version.changedSections.slice(0, 3).map(sec => (
+                  <View key={sec} style={s.changedChip}>
+                    <RNText style={s.changedChipText}>{labelForSection(sec)}</RNText>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
+          <RNText style={s.miniCardCta}>{isActive ? "Viewing ›" : "View card ›"}</RNText>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <View style={s.assistantRow}>
+      <View style={s.avatar}>
+        <Text style={s.avatarText}>P</Text>
+      </View>
+      <View>
+        <Meta style={{ marginBottom: 8 }}>Palleto</Meta>
+        <TypingDots />
+      </View>
+    </View>
+  );
+}
+
+function TypingDots() {
+  const refs = [
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+  ];
+  useEffect(() => {
+    const anims = refs.map((dot, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 160),
+          Animated.timing(dot, { toValue: 1, duration: 280, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 280, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+          Animated.delay((3 - i) * 160),
+        ])
+      )
+    );
+    anims.forEach(a => a.start());
+    return () => anims.forEach(a => a.stop());
+  }, []);
+  return (
+    <View style={{ flexDirection: "row", gap: 5, paddingVertical: 4 }}>
+      {refs.map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 7, height: 7, borderRadius: 3.5,
+            backgroundColor: theme.ink[3],
+            opacity: dot.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
+            transform: [{ translateY: dot.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }],
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Helpers
+   ────────────────────────────────────────────────────────────── */
 function labelForSection(section: string) {
-  const labels: Record<string, string> = {
-    creative_direction: "Creative angle",
+  const map: Record<string, string> = {
+    creative_direction: "Direction",
     design_moves: "Moves",
-    one_line_read: "Core read",
+    one_line_read: "Read",
     palette: "Palette",
     project_lens: "Applications",
     related_links: "References",
-    search_language: "Search terms",
+    search_language: "Search",
     type_direction: "Type",
     visual_dna: "Visual DNA",
   };
-
-  return labels[section] || section;
+  return map[section] ?? section;
 }
 
-const styles = StyleSheet.create({
-  container: {
+/* ──────────────────────────────────────────────────────────────
+   Styles
+   ────────────────────────────────────────────────────────────── */
+const s = StyleSheet.create({
+  screen: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  content: {
-    gap: theme.spacing.lg,
-    padding: theme.spacing.lg,
-    paddingBottom: 56,
+    backgroundColor: theme.palette.bone,
   },
   header: {
-    gap: theme.spacing.sm,
-  },
-  eyebrow: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  title: {
-    color: theme.colors.textPrimary,
-    fontSize: 28,
-    fontWeight: "800",
-    lineHeight: 34,
-  },
-  body: {
-    color: theme.colors.textSecondary,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  panel: {
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.surface,
-  },
-  activePanel: {
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.small,
-    backgroundColor: "#0E0E0E",
-  },
-  activePanelHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: theme.spacing.md,
-  },
-  activePanelTitleBlock: {
-    gap: theme.spacing.xs,
-    flex: 1,
-  },
-  panelLabel: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  activeVersionTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 24,
-    fontWeight: "800",
-    lineHeight: 30,
-  },
-  activeVersionMeta: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  statusChip: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.small,
-  },
-  statusChipText: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  activeVersionSummary: {
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  activeActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm,
-  },
-  activeActionChip: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 8,
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  activeActionChipText: {
-    color: theme.colors.textPrimary,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  promptSummary: {
-    gap: 6,
-    padding: theme.spacing.sm,
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  promptSummaryLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  promptSummaryText: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  changedSectionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm,
-  },
-  changedSectionChip: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 8,
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  changedSectionChipText: {
-    color: theme.colors.textPrimary,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  versionList: {
-    gap: theme.spacing.sm,
-  },
-  versionCard: {
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.background,
-  },
-  versionCardActive: {
-    borderColor: theme.colors.textPrimary,
-    backgroundColor: "#101010",
-  },
-  versionCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    gap: theme.spacing.md,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 10,
+    gap: 10,
   },
-  versionTitleBlock: {
+  headerTitle: {
     flex: 1,
-    gap: 4,
-  },
-  versionLabel: {
-    color: theme.colors.textPrimary,
+    fontFamily: theme.font.sansMedium,
     fontSize: 15,
-    fontWeight: "800",
+    color: theme.ink[1],
+    textAlign: "center",
   },
-  versionLabelActive: {
-    color: theme.colors.textPrimary,
-  },
-  versionMeta: {
-    color: theme.colors.textSecondary,
+  versionPillText: {
+    fontFamily: theme.font.sansMedium,
     fontSize: 12,
-    fontWeight: "700",
+    color: theme.ink[1],
   },
-  versionMetaActive: {
-    color: theme.colors.textPrimary,
+
+  /* Context card */
+  contextCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 12,
+    backgroundColor: theme.palette.paper,
+    borderRadius: theme.radius.lg,
+    ...theme.shadow.quiet,
   },
-  versionSummary: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  versionSummaryActive: {
-    color: theme.colors.textPrimary,
-  },
-  latestChip: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  latestChipActive: {
-    borderColor: theme.colors.textPrimary,
-    backgroundColor: theme.colors.textPrimary,
-  },
-  latestChipText: {
-    color: theme.colors.textPrimary,
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  latestChipTextActive: {
-    color: theme.colors.background,
-  },
-  versionChangedRow: {
+  contextCardInner: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.xs,
-  },
-  versionChangedChip: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  versionChangedChipActive: {
-    borderColor: theme.colors.textPrimary,
-  },
-  versionChangedChipText: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  versionChangedChipTextActive: {
-    color: theme.colors.textPrimary,
-  },
-  versionInstruction: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  versionInstructionActive: {
-    color: theme.colors.textSecondary,
-  },
-  meta: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  promptGroups: {
-    gap: theme.spacing.md,
-  },
-  promptGroup: {
-    gap: theme.spacing.sm,
-  },
-  promptGroupTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  promptGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm,
-  },
-  promptChip: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.small,
-  },
-  promptChipText: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  input: {
-    minHeight: 108,
-    padding: theme.spacing.md,
-    color: theme.colors.textPrimary,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.small,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlignVertical: "top",
-  },
-  submitButton: {
     alignItems: "center",
-    justifyContent: "center",
-    minHeight: 50,
-    backgroundColor: theme.colors.textPrimary,
-    borderRadius: theme.radius.small,
+    gap: 10,
   },
-  submitButtonText: {
-    color: theme.colors.background,
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  processingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    padding: theme.spacing.lg,
-    backgroundColor: "rgba(0,0,0,0.88)",
-  },
-  processingPanel: {
-    gap: theme.spacing.md,
-    padding: theme.spacing.lg,
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  processingImageFrame: {
-    width: "100%",
-    aspectRatio: 0.75,
+  contextThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     overflow: "hidden",
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.palette.putty,
   },
-  processingImage: {
+  contextThumbImg: {
     width: "100%",
     height: "100%",
   },
-  processingTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 28,
-    fontWeight: "800",
-    lineHeight: 32,
+  contextTitle: {
+    fontFamily: theme.font.sansMedium,
+    fontSize: 13,
+    color: theme.ink[1],
   },
-  processingPrompt: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+  contextSwatch: {
+    flex: 1,
+    height: 6,
+    borderRadius: 2,
   },
-  processingBasedOn: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "700",
+  branchPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.palette.line,
+    backgroundColor: theme.palette.putty,
   },
-  processingStageList: {
-    gap: theme.spacing.sm,
+  branchPillActive: {
+    backgroundColor: theme.ink[1],
+    borderColor: theme.ink[1],
   },
-  processingStageText: {
-    color: "rgba(255,255,255,0.26)",
+  branchPillText: {
+    fontFamily: theme.font.sans,
+    fontSize: 12,
+    color: theme.ink[2],
+  },
+  branchPillTextActive: {
+    color: "#FAF7F0",
+  },
+
+  /* Preview */
+  previewScroll: {
+    flex: 1,
+  },
+  previewContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 48,
+  },
+
+  /* Thread */
+  thread: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 20,
+  },
+  loadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 20,
+  },
+  assistantRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    maxWidth: "94%",
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.ink[1],
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  avatarText: {
+    fontFamily: theme.font.display,
+    fontSize: 13,
+    color: "#FAF7F0",
+  },
+  userRow: {
+    alignItems: "flex-end",
+  },
+  userBubble: {
+    maxWidth: "82%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: theme.ink[1],
+    borderRadius: 20,
+    borderBottomRightRadius: 5,
+  },
+  userText: {
+    fontFamily: theme.font.sans,
     fontSize: 15,
-    fontWeight: "700",
+    lineHeight: 21,
+    color: "#FAF7F0",
   },
-  processingStageTextActive: {
-    color: theme.colors.textPrimary,
+
+  /* Mini refinement card */
+  miniCard: {
+    padding: 12,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.palette.paper,
+    borderWidth: 1,
+    borderColor: theme.palette.line,
+    gap: 8,
+    ...theme.shadow.quiet,
   },
-  pressed: {
-    opacity: 0.72,
+  miniCardActive: {
+    borderColor: "#C5683E",
+    backgroundColor: "#FFF9F5",
   },
-  disabled: {
-    opacity: 0.35,
+  miniCardRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  miniCardLabel: {
+    fontFamily: theme.font.sansMedium,
+    fontSize: 13,
+    color: theme.ink[1],
+  },
+  miniSwatch: {
+    flex: 1,
+    height: 6,
+    borderRadius: 2,
+  },
+  miniCardCta: {
+    fontFamily: theme.font.sansMedium,
+    fontSize: 12,
+    color: theme.ink[3],
+    textAlign: "right",
+  },
+  changedChip: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: theme.palette.putty,
+  },
+  changedChipText: {
+    fontFamily: theme.font.sans,
+    fontSize: 10,
+    color: theme.ink[3],
+  },
+
+  /* Chips */
+  chipBar: {
+    flexShrink: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.palette.line,
+  },
+  chips: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  chip: {
+    maxWidth: 220,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    backgroundColor: theme.palette.paper,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.palette.line,
+    ...theme.shadow.quiet,
+  },
+  chipText: {
+    fontFamily: theme.font.sans,
+    fontSize: 13,
+    lineHeight: 17,
+    color: theme.ink[1],
+  },
+
+  /* Branch label */
+  branchLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 4,
+  },
+
+  /* Composer */
+  composerBar: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 34,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.palette.line,
+    backgroundColor: theme.palette.bone,
+  },
+  input: {
+    flex: 1,
+    minHeight: 36,
+    maxHeight: 120,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: theme.palette.paper,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.palette.line,
+    fontFamily: theme.font.sans,
+    fontSize: 15,
+    lineHeight: 21,
+    color: theme.ink[1],
+    textAlignVertical: "top",
+  },
+  sendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(28,26,23,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 1,
+  },
+  sendBtnActive: {
+    backgroundColor: theme.ink[1],
+  },
+  sendArrow: {
+    fontSize: 16,
+    color: theme.ink[4],
+    lineHeight: 18,
+  },
+  sendArrowActive: {
+    color: "#FAF7F0",
+  },
+
+  /* Processing overlay */
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(242,238,228,0.94)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  overlayCard: {
+    gap: 12,
+    padding: 20,
+    backgroundColor: theme.palette.paper,
+    borderRadius: theme.radius.xl,
+    ...theme.shadow.floating,
+  },
+  overlayImageFrame: {
+    width: "100%",
+    aspectRatio: 4 / 3,
+    borderRadius: theme.radius.md,
+    overflow: "hidden",
+    backgroundColor: theme.palette.putty,
+  },
+  stageText: {
+    fontFamily: theme.font.sans,
+    fontSize: 13,
+    lineHeight: 17,
+    color: theme.ink[4],
+  },
+  stageTextActive: {
+    color: theme.ink[1],
+    fontFamily: theme.font.sansMedium,
   },
 });
