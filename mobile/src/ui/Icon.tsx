@@ -12,7 +12,8 @@ export type IconName =
   | "grid" | "rows" | "palette" | "calendar"
   | "search" | "plus" | "camera" | "image" | "share"
   | "sparkle" | "link" | "chevron" | "back" | "arrowup"
-  | "close" | "user" | "folder" | "check" | "aa" | "spool";
+  | "close" | "user" | "folder" | "check" | "aa" | "spool"
+  | "attach";
 
 const glyphs: Record<IconName, string> = {
   grid:    "▦",
@@ -34,7 +35,8 @@ const glyphs: Record<IconName, string> = {
   folder:  "▢",
   check:   "✓",
   aa:      "Aa",
-  spool:   "◰"
+  spool:   "◰",
+  attach:  "⊕"
 };
 
 export function Icon({

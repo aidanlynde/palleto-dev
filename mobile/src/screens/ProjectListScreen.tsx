@@ -165,15 +165,12 @@ function ProjectRow({
   const age = relativeTime(project.updatedAt);
 
   return (
-    <Pressable
-      onPress={onOpen}
-      onLongPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        onDelete();
-      }}
-      style={({ pressed }) => [s.row, pressed && { opacity: 0.85, transform: [{ scale: 0.99 }] }]}
-    >
-      <View style={{ flex: 1, gap: 4 }}>
+    <View style={s.row}>
+      {/* Tap anywhere on the content to open */}
+      <Pressable
+        onPress={onOpen}
+        style={({ pressed }) => [{ flex: 1, gap: 4 }, pressed && { opacity: 0.7 }]}
+      >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           {project.isActive ? <View style={s.activeDot} /> : null}
           <Text style={s.rowTitle} numberOfLines={1}>{title}</Text>
@@ -185,9 +182,17 @@ function ProjectRow({
             <Meta style={{ fontSize: 11 }}>{project.messageCount} messages</Meta>
           ) : null}
         </View>
-      </View>
-      <Icon name="chevron" size={14} color={theme.ink[4]} />
-    </Pressable>
+      </Pressable>
+
+      {/* Explicit delete button — always visible */}
+      <Pressable
+        onPress={onDelete}
+        hitSlop={10}
+        style={({ pressed }) => [s.deleteBtn, pressed && { opacity: 0.5 }]}
+      >
+        <Icon name="close" size={13} color={theme.ink[4]} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -278,6 +283,15 @@ const s = StyleSheet.create({
     backgroundColor: theme.palette.paper,
     borderRadius: theme.radius.lg,
     ...theme.shadow.quiet
+  },
+  deleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.palette.putty,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0
   },
   activeDot: {
     width: 6,

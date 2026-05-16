@@ -61,7 +61,6 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
   const [isSending, setIsSending] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [briefExpanded, setBriefExpanded] = useState(false);
-  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
@@ -74,43 +73,34 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
     void boot();
   }, []);
 
-  // Auto-send anything the user typed while the project was still booting
-  useEffect(() => {
-    if (!isBooting && project && pendingMessage) {
-      const msg = pendingMessage;
-      setPendingMessage(null);
-      void send(msg);
-    }
-  }, [isBooting, project]);
-
   useEffect(() => {
     const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
     return () => clearTimeout(t);
   }, [messages, isSending, suggestedReplies]);
 
   async function boot() {
-    setIsBooting(true);
     setError(null);
-    try {
-      const token = await getToken();
-      if (projectId) {
-        // Resume — just load the stored history, no extra AI call needed
+    if (projectId) {
+      // Resume existing conversation — load from backend
+      setIsBooting(true);
+      try {
+        const token = await getToken();
         const p = await getProject(token, projectId);
         setProject(p);
         setMessages(p.chatHistory as Message[]);
-        setIsReadyToSave(!p.description || !p.projectType || !p.desiredFeeling ? false : true);
-      } else {
-        // New conversation — create project + get AI's opening message
-        const result = await createProject(token);
-        setProject(result.project);
-        setMessages([{ role: "assistant", content: result.assistantMessage }]);
-        setSuggestedReplies(result.suggestedReplies);
-        setMissingFields(result.missingFields);
-        setIsReadyToSave(result.isReadyToSave);
+        setIsReadyToSave(Boolean(p.description && p.projectType && p.desiredFeeling));
+      } catch {
+        setError("Couldn't load the conversation. Check your connection and try again.");
+      } finally {
+        setIsBooting(false);
       }
-    } catch {
-      setError("Couldn't load the conversation. Check your connection and try again.");
-    } finally {
+    } else {
+      // New conversation — show a static greeting immediately, no backend call.
+      // The project is created lazily when the user sends their first message.
+      setMessages([{
+        role: "assistant",
+        content: "Tell me about what you're building. What's the project and what should it feel like when it's dialed in?"
+      }]);
       setIsBooting(false);
     }
   }
@@ -118,18 +108,6 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
   async function send(text: string, opts?: { referenceImages?: string[]; referenceLinks?: string[] }) {
     const trimmed = text.trim();
     if (!trimmed && !opts?.referenceImages?.length) return;
-
-    // Still booting — queue it and show it in the thread optimistically
-    if (isBooting || !project) {
-      if (trimmed) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        setComposer("");
-        setPendingMessage(trimmed);
-        setMessages(prev => [...prev, { role: "user", content: trimmed }]);
-      }
-      return;
-    }
-
     if (isSending) return;
 
     const userMsg = trimmed || "Use this reference image to sharpen the project world.";
@@ -142,7 +120,17 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
 
     try {
       const token = await getToken();
-      const result = await sendProjectChat(token, project.id, {
+      let currentProject = project;
+
+      // Lazy creation: first message on a new conversation creates the project
+      if (!currentProject) {
+        const created = await createProject(token);
+        currentProject = created.project;
+        setProject(currentProject);
+        // Don't show the bootstrap greeting — we already showed the static one
+      }
+
+      const result = await sendProjectChat(token, currentProject.id, {
         message: userMsg,
         referenceImages: opts?.referenceImages,
         referenceLinks: extractUrls(userMsg),
@@ -300,7 +288,7 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
           disabled={isSending}
           style={({ pressed }) => [s.attachBtn, isSending && { opacity: 0.4 }, pressed && { opacity: 0.6 }]}
         >
-          <Icon name="camera" size={15} color={theme.ink[2]} />
+          <Icon name="attach" size={15} color={theme.ink[2]} />
         </Pressable>
 
         <TextInput
