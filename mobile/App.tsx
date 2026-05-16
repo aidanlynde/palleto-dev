@@ -24,7 +24,7 @@ import { CustomerInfo } from "react-native-purchases";
 import { AuthScreen } from "./src/screens/AuthScreen";
 import { CaptureScreen } from "./src/screens/CaptureScreen";
 import { CardDetailScreen, CardResultScreen } from "./src/screens/CardResultScreen";
-import { LockedFeatureScreen } from "./src/screens/LockedFeatureScreen";
+import { PaywallScreen } from "./src/screens/PaywallScreen";
 import { MainScreen } from "./src/screens/MainScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProcessingScreen } from "./src/screens/ProcessingScreen";
@@ -57,7 +57,6 @@ import {
   configureRevenueCat,
   hasPalletoPro,
   identifyRevenueCatUser,
-  presentPalletoProPaywall,
   presentRevenueCatCustomerCenter,
   restoreRevenueCatPurchases,
   subscribeToCustomerInfo
@@ -128,7 +127,6 @@ export default function App() {
   const [guestScanStarted, setGuestScanStarted] = useState(false);
   const [lockedFeatureIntent, setLockedFeatureIntent] = useState<LockedFeatureIntent>("refine");
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
-  const [isPaywallLoading, setIsPaywallLoading] = useState(false);
   const [authRequestedFromLanding, setAuthRequestedFromLanding] = useState(false);
   const [pendingAuthDestination, setPendingAuthDestination] = useState<PendingAuthDestination | null>(null);
   const [revenueCatUserId, setRevenueCatUserId] = useState<string | null>(null);
@@ -223,7 +221,7 @@ export default function App() {
     }
 
     const nextPaywallUserKey = `${firebaseUser.uid}:${pendingAuthDestination}`;
-    if (pendingPaywallUserKey === nextPaywallUserKey || isPaywallLoading) {
+    if (pendingPaywallUserKey === nextPaywallUserKey) {
       return;
     }
 
@@ -233,7 +231,6 @@ export default function App() {
     customerInfo,
     firebaseUser,
     isPalletoProActive,
-    isPaywallLoading,
     pendingAuthDestination,
     pendingPaywallUserKey,
     revenueCatUserId
@@ -366,10 +363,6 @@ export default function App() {
   }
 
   async function handleLockedFeatureContinue(navigate: (screen: keyof RootStackParamList) => void) {
-    if (isPaywallLoading) {
-      return;
-    }
-
     if (!firebaseUser) {
       setPendingAuthDestination(lockedFeatureIntent);
       setAuthRequestedFromLanding(true);
@@ -381,82 +374,36 @@ export default function App() {
       return;
     }
 
-    try {
-      setIsPaywallLoading(true);
-      trackEvent("paywall_opened", {
-        card_id: selectedCard?.id,
-        feature: lockedFeatureIntent
-      });
-
-      const outcome = await presentPalletoProPaywall(lockedFeatureIntent);
-      if (outcome.customerInfo) {
-        setCustomerInfo(outcome.customerInfo);
-      }
-
-      trackEvent("paywall_result", {
-        feature: lockedFeatureIntent,
-        result: outcome.result,
-        unlocked: outcome.unlocked
-      });
-
-      if (!outcome.unlocked) {
-        return;
-      }
-
-      if (!selectedCard) {
-        navigate("Home");
-        return;
-      }
-
-      if (selectedCard.id.startsWith("preview-")) {
-        navigate("Onboarding");
-        return;
-      }
-
-      if (lockedFeatureIntent === "refine") {
-        navigate("Refine");
-        return;
-      }
-
-      navigate("Home");
-    } catch (error) {
-      console.warn("RevenueCat paywall failed", error);
-      trackEvent("paywall_failed", { feature: lockedFeatureIntent });
-      Alert.alert("Purchase unavailable", "We could not open the paywall. Try again in a moment.");
-    } finally {
-      setIsPaywallLoading(false);
+    // Called after a successful purchase inside PaywallScreen.
+    // If we arrived here via a post-auth flow, delegate to the pending destination handler
+    // (which handles "landing" onboarding completion and other cleanup).
+    if (pendingAuthDestination) {
+      completePendingAuthDestination(pendingAuthDestination);
+      return;
     }
+
+    if (!selectedCard) {
+      navigate("Home");
+      return;
+    }
+
+    if (selectedCard.id.startsWith("preview-")) {
+      navigate("Onboarding");
+      return;
+    }
+
+    if (lockedFeatureIntent === "refine") {
+      navigate("Refine");
+      return;
+    }
+
+    navigate("Home");
   }
 
-  async function openPaywallAfterAuth(destination: PendingAuthDestination) {
-    try {
-      setIsPaywallLoading(true);
-      trackEvent("paywall_opened", {
-        feature: destination
-      });
-
-      const paywallFeature = destination === "landing" ? "save" : destination;
-      const outcome = await presentPalletoProPaywall(paywallFeature);
-      if (outcome.customerInfo) {
-        setCustomerInfo(outcome.customerInfo);
-      }
-
-      trackEvent("paywall_result", {
-        feature: destination,
-        result: outcome.result,
-        unlocked: outcome.unlocked
-      });
-
-      if (outcome.unlocked) {
-        completePendingAuthDestination(destination);
-      }
-    } catch (error) {
-      console.warn("RevenueCat post-auth paywall failed", error);
-      trackEvent("paywall_failed", { feature: destination });
-      Alert.alert("Purchase unavailable", "We could not open the paywall. Try again in a moment.");
-    } finally {
-      setIsPaywallLoading(false);
-    }
+  function openPaywallAfterAuth(destination: PendingAuthDestination) {
+    const paywallFeature: LockedFeatureIntent = destination === "landing" ? "save" : destination;
+    setLockedFeatureIntent(paywallFeature);
+    navigationRef.navigate("LockedFeature");
   }
 
   async function completePendingAuthDestination(destination: PendingAuthDestination) {
@@ -835,16 +782,13 @@ export default function App() {
             ) : null}
             <Stack.Screen
               name="LockedFeature"
-              options={{
-                title: lockedFeatureIntent === "refine" ? "Refine with AI" : "Unlock Palleto"
-              }}
+              options={{ headerShown: false }}
             >
               {({ navigation }) => (
-                <LockedFeatureScreen
-                  buttonLabel={isPalletoProActive ? "Continue" : firebaseUser ? "Unlock Palleto Pro" : "Sign in to continue"}
+                <PaywallScreen
                   feature={lockedFeatureIntent}
-                  isLoading={isPaywallLoading}
                   onContinue={() => handleLockedFeatureContinue(navigation.navigate)}
+                  onClose={() => navigation.goBack()}
                 />
               )}
             </Stack.Screen>
