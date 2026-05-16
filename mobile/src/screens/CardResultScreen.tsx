@@ -13,7 +13,7 @@
 import * as FileSystem from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { Alert, Image, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, View } from "react-native";
 import RNShare from "react-native-share";
 
@@ -34,6 +34,55 @@ import {
   SectionCard,
   Text,
 } from "../ui";
+
+function CollapsibleSectionCard({
+  eyebrow,
+  title,
+  children,
+  defaultOpen = false,
+  padding = 18
+}: {
+  eyebrow?: string;
+  title?: string;
+  children: ReactNode;
+  defaultOpen?: boolean;
+  padding?: number;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <View style={cs.card}>
+      <Pressable
+        onPress={() => setOpen(o => !o)}
+        style={({ pressed }) => [cs.header, pressed && { opacity: 0.7 }]}
+      >
+        <View style={{ flex: 1 }}>
+          {eyebrow ? <Meta style={{ marginBottom: title ? 4 : 0 }}>{eyebrow}</Meta> : null}
+          {title ? <Display size={22} style={{ marginTop: 4 }}>{title}</Display> : null}
+        </View>
+        <View style={{ transform: [{ rotate: open ? "270deg" : "90deg" }] }}>
+          <Icon name="chevron" size={16} color={theme.ink[3]} />
+        </View>
+      </Pressable>
+      {open ? <View style={{ paddingHorizontal: padding, paddingBottom: padding }}>{children}</View> : null}
+    </View>
+  );
+}
+
+const cs = StyleSheet.create({
+  card: {
+    backgroundColor: theme.palette.paper,
+    borderRadius: theme.radius.lg,
+    ...theme.shadow.quiet,
+    overflow: "hidden"
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 18,
+    paddingBottom: 16
+  }
+});
 
 type RelatedLink = InspirationCard["related_links"][number];
 
@@ -145,18 +194,18 @@ export function CardDetail({ card }: { card: InspirationCard }) {
         </DisplayItalic>
       </View>
 
-      {/* Palette */}
-      <SectionCard eyebrow="PALETTE · TAP TO COPY">
+      {/* Palette — open by default */}
+      <CollapsibleSectionCard eyebrow="PALETTE · TAP TO COPY" defaultOpen>
         <PaletteHero colors={card.palette} />
-      </SectionCard>
+      </CollapsibleSectionCard>
 
-      {/* Creative direction */}
-      <SectionCard eyebrow="CREATIVE DIRECTION" title="What to steal">
+      {/* Creative direction — open by default */}
+      <CollapsibleSectionCard eyebrow="CREATIVE DIRECTION" title="What to steal" defaultOpen>
         <Body style={{ marginBottom: 4 }}>{card.creative_direction}</Body>
-      </SectionCard>
+      </CollapsibleSectionCard>
 
       {/* Visual DNA */}
-      <SectionCard eyebrow="VISUAL DNA">
+      <CollapsibleSectionCard eyebrow="VISUAL DNA">
         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
           {Object.entries(card.visual_dna).map(([k, v]) => (
             <View key={k} style={{ width: "50%", paddingVertical: 8, paddingRight: 12 }}>
@@ -165,10 +214,10 @@ export function CardDetail({ card }: { card: InspirationCard }) {
             </View>
           ))}
         </View>
-      </SectionCard>
+      </CollapsibleSectionCard>
 
       {/* Type direction */}
-      <SectionCard eyebrow="TYPE DIRECTION">
+      <CollapsibleSectionCard eyebrow="TYPE DIRECTION">
         <View style={{ gap: 10 }}>
           {card.type_direction.map((t) => (
             <View key={t.style} style={s.typeCard}>
@@ -185,11 +234,11 @@ export function CardDetail({ card }: { card: InspirationCard }) {
             </View>
           ))}
         </View>
-      </SectionCard>
+      </CollapsibleSectionCard>
 
       {/* Related */}
       {card.related_links && card.related_links.length ? (
-        <SectionCard eyebrow="RELATED INSPIRATION">
+        <CollapsibleSectionCard eyebrow="RELATED INSPIRATION">
           <View>
             {card.related_links.map((link, i) => (
               <Pressable
@@ -218,18 +267,18 @@ export function CardDetail({ card }: { card: InspirationCard }) {
               </Pressable>
             ))}
           </View>
-        </SectionCard>
+        </CollapsibleSectionCard>
       ) : null}
 
       {/* Search language */}
       {card.search_language && card.search_language.length ? (
-        <SectionCard eyebrow="LANGUAGE FOR MORE OF THIS">
+        <CollapsibleSectionCard eyebrow="LANGUAGE FOR MORE OF THIS">
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {card.search_language.map((tag) => (
               <Chip key={tag}>{tag}</Chip>
             ))}
           </View>
-        </SectionCard>
+        </CollapsibleSectionCard>
       ) : null}
     </View>
   );

@@ -6,6 +6,7 @@
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
+import ImageColors from "react-native-image-colors";
 import {
   Animated,
   Easing,
@@ -48,15 +49,7 @@ const STAGES = [
   "Writing your card"
 ];
 
-// Stand-in palette that resolves as scan progresses. The real palette
-// replaces it on completion (via onCardCreated → CardResultScreen).
-const PROGRESS_PALETTE = [
-  "#3D2A2E",
-  "#7C0F1F",
-  "#CA8B2E",
-  "#385E76",
-  "#E9DFC9"
-];
+const FALLBACK_PALETTE = ["#3D2A2E", "#7C0F1F", "#CA8B2E", "#385E76", "#E9DFC9"];
 
 const SCAN_BAND_HEIGHT = 58;
 
@@ -75,6 +68,7 @@ export function ProcessingScreen({
   const [imageFrameHeight, setImageFrameHeight] = useState(360);
   const [stageIndex, setStageIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [progressPalette, setProgressPalette] = useState<string[]>(FALLBACK_PALETTE);
   const isVeryShort = height < 620;
   const isShort = height < 700;
   const isNarrow = width < 370;
@@ -84,6 +78,29 @@ export function ProcessingScreen({
   );
   const displaySize = isVeryShort ? 23 : isShort ? 25 : 28;
   const displayLineHeight = displaySize + 9;
+
+  // Extract dominant colors from the image to drive the swatch animation
+  useEffect(() => {
+    ImageColors.getColors(imageUri, { fallback: FALLBACK_PALETTE[0], cache: true, key: imageUri })
+      .then((result) => {
+        let colors: string[];
+        if (result.platform === "ios") {
+          colors = [result.primary, result.secondary, result.detail, result.background, result.primary];
+        } else if (result.platform === "android") {
+          colors = [
+            result.vibrant ?? result.dominant ?? FALLBACK_PALETTE[0],
+            result.darkVibrant ?? result.muted ?? FALLBACK_PALETTE[1],
+            result.dominant ?? result.average ?? FALLBACK_PALETTE[2],
+            result.lightVibrant ?? result.lightMuted ?? FALLBACK_PALETTE[3],
+            result.muted ?? result.average ?? FALLBACK_PALETTE[4]
+          ];
+        } else {
+          colors = FALLBACK_PALETTE;
+        }
+        setProgressPalette(colors.filter(Boolean).slice(0, 5) as string[]);
+      })
+      .catch(() => {/* keep FALLBACK_PALETTE */});
+  }, [imageUri]);
 
   // Stage cycle
   useEffect(() => {
@@ -199,9 +216,9 @@ export function ProcessingScreen({
         </View>
       </View>
 
-      {/* Emerging palette */}
+      {/* Emerging palette — colors extracted from the scanned image */}
       <View style={s.palette}>
-        {PROGRESS_PALETTE.map((c, i) => (
+        {progressPalette.map((c, i) => (
           <View
             key={i}
             style={[

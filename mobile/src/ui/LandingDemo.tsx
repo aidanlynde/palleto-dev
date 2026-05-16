@@ -950,7 +950,7 @@ const s = StyleSheet.create({
     height: 360
   },
   stageShare: {
-    height: 410
+    height: 360
   },
   stageLibrary: {
     height: 430
@@ -962,7 +962,7 @@ const s = StyleSheet.create({
     position: "relative"
   },
   captionScan: {
-    marginTop: -2
+    marginTop: 12
   },
   captionShare: {
     marginTop: 0
@@ -1291,7 +1291,8 @@ const s = StyleSheet.create({
   /* Share */
   shareThread: {
     width: 280,
-    height: 292,
+    alignSelf: "flex-end",
+    marginRight: 16,
     justifyContent: "flex-start",
     paddingTop: 10,
     gap: 10
@@ -1310,7 +1311,7 @@ const s = StyleSheet.create({
   },
   shareCardPhoto: {
     width: "100%",
-    aspectRatio: 4 / 5,
+    aspectRatio: 1,
     borderRadius: 12,
     overflow: "hidden",
     backgroundColor: theme.palette.putty
@@ -1339,7 +1340,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     paddingRight: 2,
-    paddingTop: 6
+    paddingTop: 3
   },
   replySlot: {
     minHeight: 58,

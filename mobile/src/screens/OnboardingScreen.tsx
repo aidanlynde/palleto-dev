@@ -406,11 +406,18 @@ function FooterButton({
 }
 
 function PreviewScanCard({ card }: { card: InspirationCard }) {
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(
+    () => new Set(["palette", "translation"])
+  );
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
 
   function toggleSection(section: string) {
-    setExpandedSection((current) => (current === section ? null : section));
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
   }
 
   async function copyHex(hex: string) {
@@ -434,7 +441,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
         </Text>
 
         <CollapsibleSection
-          expanded={expandedSection === "palette"}
+          expanded={expandedSections.has("palette")}
           icon="◐"
           onPress={() => toggleSection("palette")}
           subtitle={`${card.palette.length} colors with copyable hex`}
@@ -469,7 +476,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
         </CollapsibleSection>
 
         <CollapsibleSection
-          expanded={expandedSection === "links"}
+          expanded={expandedSections.has("links")}
           icon="↗"
           onPress={() => toggleSection("links")}
           subtitle="Real references with previews"
@@ -500,7 +507,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
         </CollapsibleSection>
 
         <CollapsibleSection
-          expanded={expandedSection === "translation"}
+          expanded={expandedSections.has("translation")}
           icon="✦"
           onPress={() => toggleSection("translation")}
           subtitle="What to steal and how to use it"
@@ -539,7 +546,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
         </CollapsibleSection>
 
         <CollapsibleSection
-          expanded={expandedSection === "type"}
+          expanded={expandedSections.has("type")}
           icon="Aa"
           onPress={() => toggleSection("type")}
           subtitle="Typography direction from the same scan"
@@ -559,7 +566,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
         </CollapsibleSection>
 
         <CollapsibleSection
-          expanded={expandedSection === "share"}
+          expanded={expandedSections.has("share")}
           icon="⤴"
           onPress={() => toggleSection("share")}
           subtitle="A share card that turns into a public web link"
@@ -590,7 +597,7 @@ function PreviewScanCard({ card }: { card: InspirationCard }) {
         </CollapsibleSection>
 
         <CollapsibleSection
-          expanded={expandedSection === "refine"}
+          expanded={expandedSections.has("refine")}
           icon="◎"
           onPress={() => toggleSection("refine")}
           subtitle="A paid layer for deeper creative work"
