@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, ForeignKey, JSON, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, String, Text, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -32,6 +32,11 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
         uselist=False,
+    )
+    projects: Mapped[list["Project"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        order_by="Project.updated_at.desc()",
     )
     taste_profile: Mapped["TasteProfile | None"] = relationship(
         back_populates="user",
@@ -74,6 +79,44 @@ class ActiveProject(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="active_project")
+
+
+class Project(Base):
+    """Multi-project context conversations. Each row is one named project/brief."""
+    __tablename__ = "projects"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+        nullable=False,
+    )
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    project_type: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    audience: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    desired_feeling: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avoid: Mapped[str | None] = mapped_column(Text, nullable=True)
+    direction_tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    priorities: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    reference_links: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    reference_images: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    chat_history: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    brief_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    user: Mapped[User] = relationship(back_populates="projects")
 
 
 class TasteProfile(Base):

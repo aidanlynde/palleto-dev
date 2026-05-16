@@ -1,860 +1,630 @@
+/**
+ * ProjectIntakeScreen — AI chat interface for building a project brief.
+ *
+ * Can operate in two modes:
+ *   projectId  — loads an existing project from the backend and resumes the chat
+ *   (none)     — creates a new project on mount then enters the chat
+ *
+ * Feels like a real AI chat (ChatGPT / Claude style):
+ *   - Assistant messages: left-aligned plain text, small "Palleto" label
+ *   - User messages: right-aligned dark pill bubbles
+ *   - Typing indicator: three-dot pulse while AI responds
+ *   - Suggested replies: horizontal chips above the composer
+ *   - Composer: full-width input + send arrow + image-attach icon
+ *   - Brief card: collapsible summary pinned above the thread
+ */
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { User } from "firebase/auth";
+import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   View
 } from "react-native";
-import { User } from "firebase/auth";
 
 import {
-  ProjectBriefDraft,
-  ProjectChatMessage,
-  respondProjectChat,
+  activateProject,
+  createProject,
+  getProject,
+  ProjectDetail,
+  sendProjectChat,
   uploadProjectReferenceImage
 } from "../services/api";
 import { firebaseAuth } from "../services/firebase";
-import { ProjectContext, ProjectContextInput } from "../services/projectContext";
 import { theme } from "../theme";
+import { Body, Display, Meta, Pill, Text } from "../ui";
 
-type ProjectIntakeScreenProps = {
-  initialProject?: ProjectContext | null;
-  initialValues?: Partial<ProjectContextInput>;
-  onCancel?: () => void;
-  onComplete: (project: ProjectContext) => void;
-  onSave: (project: ProjectContextInput) => Promise<ProjectContext>;
+type Props = {
+  projectId?: string | null;
+  onBack: () => void;
+  onActivated?: () => void;
 };
 
-export function ProjectIntakeScreen({
-  initialProject,
-  initialValues,
-  onCancel,
-  onComplete,
-  onSave
-}: ProjectIntakeScreenProps) {
-  const seedDraft = useMemo(
-    () => buildDraftFromSeed(initialProject ?? initialValues),
-    [initialProject, initialValues]
-  );
-  const seedSignature = JSON.stringify(seedDraft);
-  const [draft, setDraft] = useState<ProjectBriefDraft>(seedDraft);
-  const [messages, setMessages] = useState<ProjectChatMessage[]>([]);
-  const [composer, setComposer] = useState("");
-  const [briefSummary, setBriefSummary] = useState("Loading your project brief...");
+type Message = { role: "user" | "assistant"; content: string };
+
+export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
+  const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [suggestedReplies, setSuggestedReplies] = useState<string[]>([]);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [isReadyToSave, setIsReadyToSave] = useState(false);
+  const [composer, setComposer] = useState("");
   const [isBooting, setIsBooting] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [isUploadingReference, setIsUploadingReference] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
+  const [briefExpanded, setBriefExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isBriefExpanded, setIsBriefExpanded] = useState(false);
-  const scrollRef = useRef<ScrollView | null>(null);
-  const isEditing = Boolean(initialProject);
+  const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
 
-  const referenceCount = draft.referenceLinks.length + draft.referenceImages.length;
-  const disableSend = isBooting || isSending || isUploadingReference || !composer.trim().length;
-  const canSave =
-    isReadyToSave ||
-    Boolean(
-      (draft.name?.trim() || draft.projectType?.trim()) &&
-        (draft.description?.trim() || draft.desiredFeeling?.trim()) &&
-        (draft.priorities.length ||
-          draft.directionTags.length ||
-          draft.referenceLinks.length ||
-          draft.referenceImages.length)
-    );
+  const canSend = !isSending && !isBooting && composer.trim().length > 0;
+  const title = project?.name || project?.projectType || "New project";
 
   useEffect(() => {
-    setDraft(seedDraft);
-    setMessages([]);
-    setComposer("");
-    setIsBriefExpanded(false);
-    setIsReadyToSave(false);
-    setSuggestedReplies([]);
-    setMissingFields([]);
-    void bootstrapConversation(seedDraft);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seedSignature]);
+    void boot();
+  }, []);
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      scrollRef.current?.scrollToEnd({ animated: true });
-    }, 60);
-
-    return () => clearTimeout(timeout);
+    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    return () => clearTimeout(t);
   }, [messages, isSending, suggestedReplies]);
 
-  const saveLabel = useMemo(() => {
-    if (isSaving) {
-      return "Saving";
-    }
-
-    if (isEditing) {
-      return "Update project context";
-    }
-
-    return "Save project context";
-  }, [isEditing, isSaving]);
-
-  async function bootstrapConversation(nextDraft: ProjectBriefDraft) {
+  async function boot() {
     setIsBooting(true);
     setError(null);
-
     try {
-      const token = await getIdToken();
-      const response = await respondProjectChat(token, {
-        draft: nextDraft,
-        history: [],
-        message: null
-      });
-
-      setDraft(response.draft);
-      setBriefSummary(response.briefSummary);
-      setSuggestedReplies(response.suggestedReplies);
-      setMissingFields(response.missingFields);
-      setIsReadyToSave(response.isReadyToSave);
-      setMessages([{ role: "assistant", content: response.assistantMessage }]);
-    } catch (caughtError) {
-      setError("Could not load the project brief conversation.");
+      const token = await getToken();
+      let result;
+      if (projectId) {
+        // Resume existing conversation
+        const p = await getProject(token, projectId);
+        setProject(p);
+        setMessages(p.chatHistory as Message[]);
+        // Re-bootstrap to get fresh suggested replies without adding to history
+        result = await sendProjectChat(token, p.id, { message: null });
+        setSuggestedReplies(result.suggestedReplies);
+        setMissingFields(result.missingFields);
+        setIsReadyToSave(result.isReadyToSave);
+      } else {
+        // New conversation
+        result = await createProject(token);
+        setProject(result.project);
+        setMessages([{ role: "assistant", content: result.assistantMessage }]);
+        setSuggestedReplies(result.suggestedReplies);
+        setMissingFields(result.missingFields);
+        setIsReadyToSave(result.isReadyToSave);
+      }
+    } catch {
+      setError("Couldn't load the conversation. Check your connection and try again.");
     } finally {
       setIsBooting(false);
     }
   }
 
-  async function sendMessage(
-    message: string,
-    input?: { referenceImages?: string[]; referenceLinks?: string[] }
-  ) {
-    const trimmed = message.trim();
-    if (
-      (!trimmed && !(input?.referenceImages?.length ?? 0) && !(input?.referenceLinks?.length ?? 0)) ||
-      isSending
-    ) {
-      return;
-    }
+  async function send(text: string, opts?: { referenceImages?: string[]; referenceLinks?: string[] }) {
+    const trimmed = text.trim();
+    if ((!trimmed && !opts?.referenceImages?.length) || isSending || !project) return;
 
-    const userMessage = trimmed || "Use this reference image to sharpen the project world.";
-    const nextHistory = [...messages, { role: "user" as const, content: userMessage }];
-
+    const userMsg = trimmed || "Use this reference image to sharpen the project world.";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setComposer("");
-    setError(null);
-    setMessages(nextHistory);
+    setMessages(prev => [...prev, { role: "user", content: userMsg }]);
     setIsSending(true);
+    setSuggestedReplies([]);
+    setError(null);
 
     try {
-      const token = await getIdToken();
-      const response = await respondProjectChat(token, {
-        draft,
-        history: nextHistory,
-        message: userMessage,
-        referenceImages: input?.referenceImages ?? [],
-        referenceLinks: input?.referenceLinks ?? extractUrlsFromMessage(userMessage)
+      const token = await getToken();
+      const result = await sendProjectChat(token, project.id, {
+        message: userMsg,
+        referenceImages: opts?.referenceImages,
+        referenceLinks: extractUrls(userMsg),
       });
-
-      setDraft(response.draft);
-      setBriefSummary(response.briefSummary);
-      setSuggestedReplies(response.suggestedReplies);
-      setMissingFields(response.missingFields);
-      setIsReadyToSave(response.isReadyToSave);
-      setMessages([...nextHistory, { role: "assistant", content: response.assistantMessage }]);
-    } catch (caughtError) {
-      setError("Could not update the project brief.");
+      setProject(result.project);
+      setMessages(prev => [...prev, { role: "assistant", content: result.assistantMessage }]);
+      setSuggestedReplies(result.suggestedReplies);
+      setMissingFields(result.missingFields);
+      setIsReadyToSave(result.isReadyToSave);
+    } catch {
+      setError("Couldn't send your message. Try again.");
+      setMessages(prev => prev.slice(0, -1));
     } finally {
       setIsSending(false);
     }
   }
 
-  async function handlePickReferenceImage() {
-    if (isSending || isBooting) {
-      return;
-    }
-
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      return;
-    }
-
+  async function handlePickImage() {
+    if (isSending || isBooting || !project) return;
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: false,
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       quality: 1
     });
-
-    if (result.canceled || !result.assets.length) {
-      return;
-    }
-
-    const asset = result.assets[0];
-    setError(null);
-
+    if (result.canceled || !result.assets.length) return;
     try {
-      setIsUploadingReference(true);
-      const token = await getIdToken();
-      const imageUrl = await uploadProjectReferenceImage(token, {
-        imageUri: asset.uri,
-        mimeType: asset.mimeType
+      const token = await getToken();
+      const url = await uploadProjectReferenceImage(token, {
+        imageUri: result.assets[0].uri,
+        mimeType: result.assets[0].mimeType
       });
-      await sendMessage("Use this reference image to sharpen the project world.", {
-        referenceImages: [imageUrl]
-      });
-    } catch (caughtError) {
-      setError("Could not upload that reference image.");
-    } finally {
-      setIsUploadingReference(false);
+      await send("Use this reference image to sharpen the project world.", { referenceImages: [url] });
+    } catch {
+      setError("Couldn't upload the image.");
     }
   }
 
-  async function handleSave() {
-    if (!canSave || isSaving) {
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-
+  async function handleActivate() {
+    if (!project || isActivating) return;
+    setIsActivating(true);
     try {
-      const project = await onSave({
-        avoid: draft.avoid,
-        audience: draft.audience,
-        description: draft.description?.trim() ?? "",
-        desiredFeeling: draft.desiredFeeling,
-        directionTags: draft.directionTags,
-        name: inferProjectName(draft),
-        priorities: draft.priorities,
-        projectType: draft.projectType?.trim() ?? "",
-        referenceImages: draft.referenceImages,
-        referenceLinks: draft.referenceLinks
-      });
-
+      const token = await getToken();
+      const updated = await activateProject(token, project.id);
+      setProject(updated);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      onComplete(project);
-    } catch (caughtError) {
-      setError("Could not save the project context.");
+      onActivated?.();
+    } catch {
+      setError("Couldn't activate this project.");
     } finally {
-      setIsSaving(false);
+      setIsActivating(false);
     }
   }
 
   return (
     <KeyboardAvoidingView
+      style={s.screen}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 24 : 0}
-      style={styles.container}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.content}
-        contentInsetAdjustmentBehavior="always"
-        keyboardDismissMode="interactive"
-        keyboardShouldPersistTaps="handled"
-        style={styles.scroll}
-      >
-        <View style={styles.topBar}>
-          {onCancel ? (
-            <Pressable
-              onPress={onCancel}
-              style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.backButtonText}>Back</Text>
-            </Pressable>
-          ) : (
-            <View />
-          )}
-          <Text style={styles.topBarTitle}>Project context</Text>
-          <View style={styles.topBarSpacer} />
-        </View>
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <Pill icon="back" onPress={onBack} />
+        <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
+        {project?.isActive ? (
+          <Pill tight style={s.activePill}>
+            <Text style={s.activePillText}>Active</Text>
+          </Pill>
+        ) : isReadyToSave ? (
+          <Pill tight onPress={handleActivate}>
+            <Text style={{ fontFamily: theme.font.sansMedium, fontSize: 12, color: theme.ink[1] }}>
+              {isActivating ? "Saving…" : "Use for scans"}
+            </Text>
+          </Pill>
+        ) : (
+          <View style={{ width: 38 }} />
+        )}
+      </View>
 
-        <View style={styles.hero}>
-          <Text style={styles.heroEyebrow}>Active project</Text>
-          <Text style={styles.heroTitle}>
-            {isEditing
-              ? "Refine the brief behind every scan."
-              : "Start a conversation about what you are building."}
-          </Text>
-          <Text style={styles.heroBody}>
-            Reply naturally, paste links, or attach reference images. Palleto will keep updating
-            the brief as the conversation sharpens.
-          </Text>
-        </View>
-
+      {/* ── Brief card (pinned) ── */}
+      {project?.briefSummary ? (
         <Pressable
-          onPress={() => setIsBriefExpanded((current) => !current)}
-          style={({ pressed }) => [styles.summaryCard, pressed && styles.pressed]}
+          onPress={() => setBriefExpanded(e => !e)}
+          style={({ pressed }) => [s.briefCard, pressed && { opacity: 0.85 }]}
         >
-          <View style={styles.summaryHeader}>
-            <View style={styles.summaryHeaderText}>
-              <Text style={styles.cardLabel}>Live brief</Text>
-              <Text numberOfLines={isBriefExpanded ? undefined : 2} style={styles.summaryText}>
-                {briefSummary}
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Meta style={{ marginBottom: 4 }}>LIVE BRIEF</Meta>
+              <Text style={s.briefText} numberOfLines={briefExpanded ? undefined : 2}>
+                {project.briefSummary}
               </Text>
             </View>
-            <Text style={styles.summaryToggle}>{isBriefExpanded ? "Hide" : "Open"}</Text>
+            <View style={{ transform: [{ rotate: briefExpanded ? "270deg" : "90deg" }] }}>
+              <Text style={{ fontSize: 14, color: theme.ink[3] }}>›</Text>
+            </View>
           </View>
-          <View style={styles.metaRow}>
-            <MetaPill label={draft.projectType || "Project type pending"} />
-            <MetaPill label={referenceCount ? `${referenceCount} references` : "No references yet"} />
-            <MetaPill label={missingFields.length ? `${missingFields.length} open points` : "Ready to save"} />
-          </View>
-          {isBriefExpanded ? <BriefGrid draft={draft} /> : null}
+          {briefExpanded && project ? <BriefDetails project={project} missingFields={missingFields} /> : null}
         </Pressable>
+      ) : null}
 
-        <View style={styles.thread}>
-          {messages.map((message, index) =>
-            message.role === "assistant" ? (
-              <AssistantMessage key={`${message.role}-${index}`} message={message.content} />
-            ) : (
-              <UserMessage key={`${message.role}-${index}`} message={message.content} />
-            )
-          )}
-
-          {isSending ? (
-            <View style={styles.assistantMessage}>
-              <Text style={styles.messageEyebrow}>Palleto</Text>
-              <Text style={styles.typingText}>Working on it...</Text>
-              <ActivityIndicator color={theme.colors.textPrimary} />
-            </View>
-          ) : null}
-        </View>
-
-        {suggestedReplies.length ? (
-          <View style={styles.suggestionsBlock}>
-            <Text style={styles.blockTitle}>Try one of these</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.suggestions}>
-                {suggestedReplies.map((reply) => (
-                  <Pressable
-                    key={reply}
-                    onPress={() =>
-                      isSaveSuggestion(reply) && canSave ? void handleSave() : void sendMessage(reply)
-                    }
-                    style={({ pressed }) => [styles.suggestionChip, pressed && styles.pressed]}
-                  >
-                    <Text style={styles.suggestionText}>{reply}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
+      {/* ── Message thread ── */}
+      <ScrollView
+        ref={scrollRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={s.thread}
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {isBooting ? (
+          <View style={s.bootWrap}>
+            <TypingDots />
           </View>
         ) : null}
 
-        {draft.referenceImages.length ? (
-          <View style={styles.referencesBlock}>
-            <Text style={styles.blockTitle}>Reference images</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.referenceImageRow}>
-                {draft.referenceImages.map((imageUrl) => (
-                  <Image key={imageUrl} source={{ uri: imageUrl }} style={styles.referenceImage} />
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-        ) : null}
+        {messages.map((msg, i) =>
+          msg.role === "assistant" ? (
+            <AssistantBubble key={i} content={msg.content} />
+          ) : (
+            <UserBubble key={i} content={msg.content} />
+          )
+        )}
 
-        {draft.referenceLinks.length ? (
-          <View style={styles.referencesBlock}>
-            <Text style={styles.blockTitle}>Reference links</Text>
-            <View style={styles.referenceLinkList}>
-              {draft.referenceLinks.map((link) => (
-                <View key={link} style={styles.referenceLink}>
-                  <Text numberOfLines={1} style={styles.referenceLinkText}>
-                    {link}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
+        {isSending ? <TypingIndicator /> : null}
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={s.errorText}>{error}</Text> : null}
       </ScrollView>
 
-      <View style={styles.composerShell}>
-        <View style={styles.composerActions}>
-          <Pressable
-            onPress={() => void handlePickReferenceImage()}
-            disabled={isSending || isBooting || isUploadingReference}
-            style={({ pressed }) => [
-              styles.attachButton,
-              pressed && styles.pressed,
-              (isSending || isBooting || isUploadingReference) && styles.disabled
-            ]}
-          >
-            <Text style={styles.attachButtonText}>
-              {isUploadingReference ? "Uploading..." : "Add image"}
-            </Text>
-          </Pressable>
-          <Text style={styles.helperText}>Paste links or answer naturally.</Text>
-        </View>
+      {/* ── Suggested replies ── */}
+      {suggestedReplies.length > 0 && !isSending ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.chips}
+          style={s.chipBar}
+          keyboardShouldPersistTaps="handled"
+        >
+          {suggestedReplies.map(reply => (
+            <Pressable
+              key={reply}
+              onPress={() => void send(reply)}
+              style={({ pressed }) => [s.chip, pressed && { opacity: 0.75 }]}
+            >
+              <Text style={s.chipText}>{reply}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
 
-        <View style={styles.composerRow}>
-          <TextInput
-            multiline
-            onChangeText={setComposer}
-            placeholder="What are you building, what should it feel like, or what should it avoid?"
-            placeholderTextColor={theme.colors.textSecondary}
-            style={styles.composerInput}
-            value={composer}
-          />
-          <Pressable
-            disabled={disableSend}
-            onPress={() => void sendMessage(composer)}
-            style={({ pressed }) => [
-              styles.sendButton,
-              pressed && styles.pressed,
-              disableSend && styles.disabled
-            ]}
-          >
-            <Text style={styles.sendButtonText}>Send</Text>
-          </Pressable>
-        </View>
+      {/* ── Composer ── */}
+      <View style={s.composerBar}>
+        <Pressable
+          onPress={handlePickImage}
+          disabled={isBooting || isSending}
+          style={({ pressed }) => [s.attachBtn, (isBooting || isSending) && { opacity: 0.4 }, pressed && { opacity: 0.6 }]}
+        >
+          <Text style={s.attachGlyph}>▢</Text>
+        </Pressable>
+
+        <TextInput
+          ref={inputRef}
+          style={s.input}
+          value={composer}
+          onChangeText={setComposer}
+          placeholder="Message Palleto…"
+          placeholderTextColor={theme.ink[4]}
+          multiline
+          returnKeyType="default"
+          blurOnSubmit={false}
+          editable={!isBooting}
+        />
 
         <Pressable
-          disabled={!canSave || isSaving}
-          onPress={() => void handleSave()}
+          onPress={() => void send(composer)}
+          disabled={!canSend}
           style={({ pressed }) => [
-            styles.saveButton,
-            pressed && styles.pressed,
-            (!canSave || isSaving) && styles.disabled
+            s.sendBtn,
+            canSend && s.sendBtnActive,
+            pressed && canSend && { opacity: 0.8 }
           ]}
         >
-          <Text style={styles.saveButtonText}>{saveLabel}</Text>
+          <Text style={[s.sendArrow, canSend && s.sendArrowActive]}>↑</Text>
         </Pressable>
-        {!canSave ? (
-          <Text style={styles.footerHint}>
-            {missingFields.length
-              ? `Still open: ${missingFields.join(", ")}`
-              : "Keep going until the brief feels specific enough to save."}
-          </Text>
-        ) : null}
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-function AssistantMessage({ message }: { message: string }) {
+/* ── Sub-components ─────────────────────────────────────────── */
+
+function AssistantBubble({ content }: { content: string }) {
   return (
-    <View style={styles.assistantMessage}>
-      <Text style={styles.messageEyebrow}>Palleto</Text>
-      <Text style={styles.assistantText}>{message}</Text>
+    <View style={s.assistantRow}>
+      <View style={s.assistantAvatar}>
+        <Text style={s.assistantAvatarText}>P</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Meta style={{ marginBottom: 5 }}>Palleto</Meta>
+        <Body style={s.assistantText}>{content}</Body>
+      </View>
     </View>
   );
 }
 
-function UserMessage({ message }: { message: string }) {
+function UserBubble({ content }: { content: string }) {
   return (
-    <View style={styles.userMessage}>
-      <Text style={styles.userText}>{message}</Text>
+    <View style={s.userRow}>
+      <View style={s.userBubble}>
+        <Text style={s.userText}>{content}</Text>
+      </View>
     </View>
   );
 }
 
-function MetaPill({ label }: { label: string }) {
+function TypingIndicator() {
   return (
-    <View style={styles.metaPill}>
-      <Text style={styles.metaPillText}>{label}</Text>
+    <View style={s.assistantRow}>
+      <View style={s.assistantAvatar}>
+        <Text style={s.assistantAvatarText}>P</Text>
+      </View>
+      <View>
+        <Meta style={{ marginBottom: 8 }}>Palleto</Meta>
+        <TypingDots />
+      </View>
     </View>
   );
 }
 
-function BriefGrid({ draft }: { draft: ProjectBriefDraft }) {
-  const rows = [
-    ["Project", draft.projectType || draft.name || "Still defining the project"],
-    ["Use it for", draft.description || "Describe what you are actually building."],
-    ["Desired feel", draft.desiredFeeling || "Add the emotional or creative target."],
-    ["Avoid", draft.avoid || "No guardrails yet."],
-    [
-      "What to pull",
-      draft.priorities.length ? draft.priorities.join(", ") : "Let the AI infer what matters."
-    ]
+function TypingDots() {
+  const dots = [
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
   ];
 
+  useEffect(() => {
+    const animations = dots.map((dot, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 160),
+          Animated.timing(dot, { toValue: 1, duration: 280, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 280, easing: Easing.inOut(Easing.cubic), useNativeDriver: true }),
+          Animated.delay((3 - i) * 160)
+        ])
+      )
+    );
+    animations.forEach(a => a.start());
+    return () => animations.forEach(a => a.stop());
+  }, []);
+
   return (
-    <View style={styles.briefGrid}>
-      {rows.map(([label, value]) => (
-        <View key={label} style={styles.briefRow}>
-          <Text style={styles.briefLabel}>{label}</Text>
-          <Text style={styles.briefValue}>{value}</Text>
-        </View>
+    <View style={{ flexDirection: "row", gap: 5, paddingVertical: 4 }}>
+      {dots.map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: 3.5,
+            backgroundColor: theme.ink[3],
+            opacity: dot.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
+            transform: [{ translateY: dot.interpolate({ inputRange: [0, 1], outputRange: [0, -3] }) }]
+          }}
+        />
       ))}
     </View>
   );
 }
 
-function buildDraftFromSeed(
-  seed: ProjectContext | Partial<ProjectContextInput> | null | undefined
-): ProjectBriefDraft {
-  return {
-    audience: seed?.audience ?? null,
-    avoid: seed?.avoid ?? null,
-    description: seed?.description ?? null,
-    desiredFeeling: seed?.desiredFeeling ?? null,
-    directionTags: seed?.directionTags ?? [],
-    name: seed?.name ?? null,
-    priorities: seed?.priorities ?? [],
-    projectType: seed?.projectType ?? null,
-    referenceImages: seed?.referenceImages ?? [],
-    referenceLinks: seed?.referenceLinks ?? []
-  };
+function BriefDetails({ project, missingFields }: { project: ProjectDetail; missingFields: string[] }) {
+  const rows = [
+    ["Type", project.projectType],
+    ["Description", project.description],
+    ["Should feel", project.desiredFeeling],
+    ["Avoid", project.avoid],
+  ].filter(([, v]) => v) as [string, string][];
+
+  return (
+    <View style={s.briefDetails}>
+      {rows.map(([label, value]) => (
+        <View key={label} style={{ marginBottom: 8 }}>
+          <Meta style={{ marginBottom: 2 }}>{label.toUpperCase()}</Meta>
+          <Body style={{ fontSize: 13, lineHeight: 18, color: theme.ink[2] }}>{value}</Body>
+        </View>
+      ))}
+      {missingFields.length > 0 ? (
+        <Meta style={{ marginTop: 4, color: "#C5683E" }}>{missingFields.length} OPEN POINT{missingFields.length > 1 ? "S" : ""}</Meta>
+      ) : (
+        <Meta style={{ marginTop: 4, color: "#5A6E64" }}>BRIEF COMPLETE</Meta>
+      )}
+    </View>
+  );
 }
 
-function inferProjectName(draft: ProjectBriefDraft) {
-  if (draft.name?.trim()) {
-    return draft.name.trim();
-  }
+/* ── Helpers ─────────────────────────────────────────────────── */
 
-  if (draft.description?.trim()) {
-    const firstSentence = draft.description.split(/[.!?]/)[0]?.trim();
-    if (firstSentence && firstSentence.length <= 42) {
-      return firstSentence;
-    }
-  }
-
-  return draft.projectType?.trim() || "Active project";
-}
-
-async function getIdToken() {
+async function getToken(): Promise<string> {
   const user = firebaseAuth.currentUser as User | null;
-
-  if (!user) {
-    throw new Error("User must be signed in.");
-  }
-
+  if (!user) throw new Error("Not signed in.");
   return user.getIdToken();
 }
 
-function extractUrlsFromMessage(message: string) {
-  const matches = message.match(/https?:\/\/[^\s]+/g);
-  return matches ?? [];
+function extractUrls(text: string): string[] {
+  return text.match(/https?:\/\/[^\s]+/g) ?? [];
 }
 
-function isSaveSuggestion(reply: string) {
-  const normalized = reply.trim().toLowerCase();
-  return normalized.includes("save") && normalized.includes("project");
-}
+/* ── Styles ──────────────────────────────────────────────────── */
 
-const styles = StyleSheet.create({
-  container: {
+const s = StyleSheet.create({
+  screen: {
     flex: 1,
-    backgroundColor: theme.colors.background
+    backgroundColor: theme.palette.bone
   },
-  scroll: {
-    flex: 1
-  },
-  content: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: 32,
-    paddingBottom: theme.spacing.xl,
-    gap: theme.spacing.md
-  },
-  topBar: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between"
-  },
-  topBarTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "800"
-  },
-  topBarSpacer: {
-    width: 40
-  },
-  backButton: {
-    minWidth: 40,
-    paddingVertical: theme.spacing.xs
-  },
-  backButtonText: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    fontWeight: "800"
-  },
-  hero: {
-    gap: theme.spacing.sm
-  },
-  heroEyebrow: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  heroTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 24,
-    fontWeight: "800",
-    lineHeight: 29
-  },
-  heroBody: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  summaryCard: {
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    borderColor: theme.colors.border
-  },
-  summaryHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: theme.spacing.md
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 12,
+    gap: 10
   },
-  summaryHeaderText: {
+  headerTitle: {
     flex: 1,
-    gap: theme.spacing.sm
-  },
-  summaryToggle: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    fontWeight: "800"
-  },
-  cardLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  summaryText: {
-    color: theme.colors.textPrimary,
+    fontFamily: theme.font.sansMedium,
     fontSize: 15,
-    fontWeight: "700",
-    lineHeight: 22
+    color: theme.ink[1],
+    textAlign: "center"
   },
-  metaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm
+  activePill: {
+    backgroundColor: "#EEF4F1",
+    borderColor: "#5A6E64"
   },
-  metaPill: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 6,
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.background,
-    borderWidth: 1,
-    borderColor: theme.colors.border
-  },
-  metaPillText: {
-    color: theme.colors.textPrimary,
+  activePillText: {
+    fontFamily: theme.font.sansMedium,
     fontSize: 12,
-    fontWeight: "700"
+    color: "#5A6E64"
   },
-  briefGrid: {
-    gap: theme.spacing.sm
+  briefCard: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    padding: 14,
+    backgroundColor: theme.palette.paper,
+    borderRadius: theme.radius.lg,
+    ...theme.shadow.quiet
   },
-  briefRow: {
-    gap: 6
+  briefText: {
+    fontFamily: theme.font.sans,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: theme.ink[2]
   },
-  briefLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  briefValue: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 20
+  briefDetails: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.palette.line
   },
   thread: {
-    gap: theme.spacing.md,
-    paddingTop: theme.spacing.xs
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    gap: 20
   },
-  assistantMessage: {
-    alignSelf: "flex-start",
-    maxWidth: "88%",
-    gap: theme.spacing.sm,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    borderColor: theme.colors.border
+  bootWrap: {
+    paddingTop: 12
   },
-  messageEyebrow: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
+  assistantRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    maxWidth: "92%"
+  },
+  assistantAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.ink[1],
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    marginTop: 1
+  },
+  assistantAvatarText: {
+    fontFamily: theme.font.display,
+    fontSize: 13,
+    color: "#FAF7F0"
   },
   assistantText: {
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "600",
-    lineHeight: 23
+    fontSize: 15,
+    lineHeight: 22,
+    color: theme.ink[1]
   },
-  userMessage: {
-    alignSelf: "flex-end",
-    maxWidth: "86%",
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.textPrimary,
-    borderRadius: theme.radius.small
+  userRow: {
+    alignItems: "flex-end"
+  },
+  userBubble: {
+    maxWidth: "82%",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: theme.ink[1],
+    borderRadius: 20,
+    borderBottomRightRadius: 5
   },
   userText: {
-    color: theme.colors.background,
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20
-  },
-  typingText: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "700"
-  },
-  suggestionsBlock: {
-    gap: theme.spacing.sm
-  },
-  suggestions: {
-    flexDirection: "row",
-    gap: theme.spacing.sm
-  },
-  suggestionChip: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.surface
-  },
-  suggestionText: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "700"
-  },
-  referencesBlock: {
-    gap: theme.spacing.sm
-  },
-  blockTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "800"
-  },
-  referenceImageRow: {
-    flexDirection: "row",
-    gap: theme.spacing.sm
-  },
-  referenceImage: {
-    width: 108,
-    height: 108,
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.surface
-  },
-  referenceLinkList: {
-    gap: theme.spacing.sm
-  },
-  referenceLink: {
-    padding: theme.spacing.md,
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface
-  },
-  referenceLinkText: {
-    color: theme.colors.textPrimary,
-    fontSize: 14
-  },
-  errorText: {
-    color: theme.colors.error,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  composerShell: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
-    paddingBottom: 34,
-    gap: theme.spacing.sm,
-    backgroundColor: theme.colors.background,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border
-  },
-  composerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm
-  },
-  attachButton: {
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: 10,
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    borderColor: theme.colors.border
-  },
-  attachButtonText: {
-    color: theme.colors.textPrimary,
-    fontSize: 13,
-    fontWeight: "700"
-  },
-  helperText: {
-    flex: 1,
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 17
-  },
-  composerRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: theme.spacing.sm
-  },
-  composerInput: {
-    flex: 1,
-    minHeight: 54,
-    maxHeight: 120,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    color: theme.colors.textPrimary,
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.small,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    fontFamily: theme.font.sans,
     fontSize: 15,
     lineHeight: 21,
+    color: "#FAF7F0"
+  },
+  errorText: {
+    fontFamily: theme.font.sans,
+    fontSize: 13,
+    color: theme.colors.error,
+    textAlign: "center",
+    paddingHorizontal: 16
+  },
+  chipBar: {
+    flexShrink: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.palette.line
+  },
+  chips: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: theme.palette.paper,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.palette.line,
+    ...theme.shadow.quiet
+  },
+  chipText: {
+    fontFamily: theme.font.sans,
+    fontSize: 13,
+    color: theme.ink[1]
+  },
+  composerBar: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 34,
+    backgroundColor: theme.palette.bone,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.palette.line
+  },
+  attachBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.palette.paper,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 1,
+    ...theme.shadow.quiet
+  },
+  attachGlyph: {
+    fontSize: 16,
+    color: theme.ink[2]
+  },
+  input: {
+    flex: 1,
+    minHeight: 36,
+    maxHeight: 120,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: theme.palette.paper,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: theme.palette.line,
+    fontFamily: theme.font.sans,
+    fontSize: 15,
+    lineHeight: 21,
+    color: theme.ink[1],
     textAlignVertical: "top"
   },
-  sendButton: {
-    minHeight: 54,
-    justifyContent: "center",
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.textPrimary
-  },
-  sendButtonText: {
-    color: theme.colors.background,
-    fontSize: 14,
-    fontWeight: "800"
-  },
-  saveButton: {
-    minHeight: 52,
-    justifyContent: "center",
+  sendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(28,26,23,0.12)",
     alignItems: "center",
-    borderRadius: theme.radius.small,
-    backgroundColor: theme.colors.textPrimary
+    justifyContent: "center",
+    marginBottom: 1
   },
-  saveButtonText: {
-    color: theme.colors.background,
-    fontSize: 15,
-    fontWeight: "800"
+  sendBtnActive: {
+    backgroundColor: theme.ink[1]
   },
-  footerHint: {
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17
+  sendArrow: {
+    fontSize: 16,
+    color: theme.ink[4],
+    lineHeight: 18
   },
-  disabled: {
-    opacity: 0.4
-  },
-  pressed: {
-    opacity: 0.8
+  sendArrowActive: {
+    color: "#FAF7F0"
   }
 });

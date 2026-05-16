@@ -29,6 +29,7 @@ import { MainScreen } from "./src/screens/MainScreen";
 import { OnboardingScreen } from "./src/screens/OnboardingScreen";
 import { ProcessingScreen } from "./src/screens/ProcessingScreen";
 import { ProjectIntakeScreen } from "./src/screens/ProjectIntakeScreen";
+import { ProjectListScreen } from "./src/screens/ProjectListScreen";
 import { QuickAccessScreen } from "./src/screens/QuickAccessScreen";
 import { RefineCardScreen } from "./src/screens/RefineCardScreen";
 import { SplashScreen } from "./src/screens/SplashScreen";
@@ -74,7 +75,8 @@ export type RootStackParamList = {
   LockedFeature: undefined;
   Onboarding: undefined;
   Processing: undefined;
-  ProjectIntake: undefined;
+  ProjectList: undefined;
+  ProjectIntake: { projectId?: string } | undefined;
   QuickAccess: undefined;
   Refine: undefined;
   Result: undefined;
@@ -118,6 +120,7 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [isOnboardingReady, setIsOnboardingReady] = useState(false);
   const [isProjectContextReady, setIsProjectContextReady] = useState(false);
+  const [projectContextRefreshKey, setProjectContextRefreshKey] = useState(0);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [onboardingAnswers, setOnboardingAnswers] = useState<OnboardingSurveyAnswers | null>(null);
@@ -300,7 +303,7 @@ export default function App() {
     }
 
     loadProjectContext();
-  }, [firebaseUser]);
+  }, [firebaseUser, projectContextRefreshKey]);
 
   useEffect(() => {
     if (isAuthReady && !firebaseUser) {
@@ -605,7 +608,7 @@ export default function App() {
                 customerInfo={customerInfo}
                 firebaseUser={firebaseUser}
                 isPalletoProActive={isPalletoProActive}
-                onEditProject={() => navigation.navigate("ProjectIntake")}
+                onEditProject={() => navigation.navigate("ProjectList")}
                 onOpenCustomerCenter={handleOpenCustomerCenter}
                 onRestorePurchases={handleRestorePurchases}
                 onScan={() => {
@@ -795,25 +798,26 @@ export default function App() {
           </>
         ) : null}
         {firebaseUser ? (
-          <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
+          <Stack.Screen name="ProjectList" options={{ headerShown: false }}>
             {({ navigation }) => (
+              <ProjectListScreen
+                onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+                onNewConversation={() => navigation.navigate("ProjectIntake", {})}
+                onOpenConversation={(projectId) => navigation.navigate("ProjectIntake", { projectId })}
+              />
+            )}
+          </Stack.Screen>
+        ) : null}
+        {firebaseUser ? (
+          <Stack.Screen name="ProjectIntake" options={{ headerShown: false }}>
+            {({ navigation, route }) => (
               <ProjectIntakeScreen
-                initialProject={projectContext}
-                initialValues={
-                  projectContext ? undefined : buildInitialProjectFromOnboarding(onboardingAnswers)
-                }
-                onCancel={navigation.canGoBack() ? () => navigation.goBack() : undefined}
-                onComplete={(project) => {
-                  setProjectContext(project);
-
-                  if (navigation.canGoBack()) {
-                    navigation.goBack();
-                    return;
-                  }
-
+                projectId={route.params?.projectId ?? null}
+                onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.replace("Home")}
+                onActivated={() => {
+                  setProjectContextRefreshKey(k => k + 1);
                   navigation.replace("Home");
                 }}
-                onSave={handleSaveProject}
               />
             )}
           </Stack.Screen>

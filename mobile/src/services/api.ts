@@ -48,6 +48,48 @@ export type ProjectChatMessage = {
   content: string;
 };
 
+// ── Multi-project types ────────────────────────────────────────
+
+export type ProjectSummary = {
+  id: string;
+  name: string | null;
+  projectType: string | null;
+  briefSummary: string | null;
+  isActive: boolean;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectDetail = {
+  id: string;
+  name: string | null;
+  projectType: string | null;
+  description: string | null;
+  audience: string | null;
+  desiredFeeling: string | null;
+  avoid: string | null;
+  directionTags: string[];
+  priorities: string[];
+  referenceLinks: string[];
+  referenceImages: string[];
+  chatHistory: ProjectChatMessage[];
+  briefSummary: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectWithChatResponse = {
+  project: ProjectDetail;
+  assistantMessage: string;
+  suggestedReplies: string[];
+  missingFields: string[];
+  isReadyToSave: boolean;
+};
+
+// ── Legacy draft type (used by old stateless endpoint) ─────────
+
 export type ProjectBriefDraft = {
   name: string | null;
   description: string | null;
@@ -349,6 +391,115 @@ export async function uploadProjectReferenceImage(
   const payload = (await response.json()) as { image_url: string };
   return payload.image_url;
 }
+
+// ── Multi-project API ──────────────────────────────────────────
+
+function mapProjectSummary(p: any): ProjectSummary {
+  return {
+    id: p.id,
+    name: p.name ?? null,
+    projectType: p.project_type ?? null,
+    briefSummary: p.brief_summary ?? null,
+    isActive: p.is_active ?? false,
+    messageCount: p.message_count ?? 0,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+  };
+}
+
+function mapProjectDetail(p: any): ProjectDetail {
+  return {
+    id: p.id,
+    name: p.name ?? null,
+    projectType: p.project_type ?? null,
+    description: p.description ?? null,
+    audience: p.audience ?? null,
+    desiredFeeling: p.desired_feeling ?? null,
+    avoid: p.avoid ?? null,
+    directionTags: p.direction_tags ?? [],
+    priorities: p.priorities ?? [],
+    referenceLinks: p.reference_links ?? [],
+    referenceImages: p.reference_images ?? [],
+    chatHistory: (p.chat_history ?? []).map((m: any) => ({ role: m.role, content: m.content })),
+    briefSummary: p.brief_summary ?? null,
+    isActive: p.is_active ?? false,
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+  };
+}
+
+function mapProjectWithChat(payload: any): ProjectWithChatResponse {
+  return {
+    project: mapProjectDetail(payload.project),
+    assistantMessage: payload.assistant_message,
+    suggestedReplies: payload.suggested_replies ?? [],
+    missingFields: payload.missing_fields ?? [],
+    isReadyToSave: payload.is_ready_to_save ?? false,
+  };
+}
+
+export async function listProjects(idToken: string): Promise<ProjectSummary[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!response.ok) throw new Error(`Failed to list projects: ${response.status}`);
+  const payload = await response.json();
+  return (payload as any[]).map(mapProjectSummary);
+}
+
+export async function createProject(idToken: string): Promise<ProjectWithChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!response.ok) throw new Error(`Failed to create project: ${response.status}`);
+  return mapProjectWithChat(await response.json());
+}
+
+export async function getProject(idToken: string, projectId: string): Promise<ProjectDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!response.ok) throw new Error(`Failed to get project: ${response.status}`);
+  return mapProjectDetail(await response.json());
+}
+
+export async function deleteProject(idToken: string, projectId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!response.ok) throw new Error(`Failed to delete project: ${response.status}`);
+}
+
+export async function activateProject(idToken: string, projectId: string): Promise<ProjectDetail> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/activate`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!response.ok) throw new Error(`Failed to activate project: ${response.status}`);
+  return mapProjectDetail(await response.json());
+}
+
+export async function sendProjectChat(
+  idToken: string,
+  projectId: string,
+  input: { message?: string | null; referenceImages?: string[]; referenceLinks?: string[] }
+): Promise<ProjectWithChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/chat`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${idToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: input.message ?? null,
+      reference_images: input.referenceImages ?? [],
+      reference_links: input.referenceLinks ?? [],
+    }),
+  });
+  if (!response.ok) throw new Error(`Failed to send project chat: ${response.status}`);
+  return mapProjectWithChat(await response.json());
+}
+
+// ── Cards ──────────────────────────────────────────────────────
 
 export async function deleteCard(idToken: string, cardId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/v1/cards/${cardId}`, {
