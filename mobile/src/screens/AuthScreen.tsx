@@ -4,18 +4,11 @@ import * as Crypto from "expo-crypto";
 import * as WebBrowser from "expo-web-browser";
 import { GoogleAuthProvider, OAuthProvider, signInWithCredential } from "firebase/auth";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View
-} from "react-native";
-import Svg, { Circle, Text as SvgText } from "react-native-svg";
+import { Platform, StyleSheet, View } from "react-native";
 
 import { firebaseAuth } from "../services/firebase";
 import { theme } from "../theme";
+import { Body, Button, Display, DisplayItalic, Meta, Pill, Text } from "../ui";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -47,22 +40,17 @@ export function AuthScreen({ onBack }: AuthScreenProps) {
 
   useEffect(() => {
     async function finishGoogleSignIn() {
-      if (!googleResponse) {
-        return;
-      }
-
+      if (!googleResponse) return;
       if (googleResponse.type !== "success") {
         setActiveProvider(null);
         return;
       }
-
       const idToken = googleResponse.params.id_token;
       if (!idToken) {
         setError("Google did not return an ID token.");
         setActiveProvider(null);
         return;
       }
-
       try {
         const credential = GoogleAuthProvider.credential(idToken);
         await signInWithCredential(firebaseAuth, credential);
@@ -72,14 +60,12 @@ export function AuthScreen({ onBack }: AuthScreenProps) {
         setActiveProvider(null);
       }
     }
-
     finishGoogleSignIn();
   }, [googleResponse]);
 
   async function signInWithGoogle() {
     setError(null);
     setActiveProvider("google");
-
     try {
       await promptGoogleAsync();
     } catch {
@@ -91,7 +77,6 @@ export function AuthScreen({ onBack }: AuthScreenProps) {
   async function signInWithApple() {
     setError(null);
     setActiveProvider("apple");
-
     try {
       const rawNonce = Crypto.randomUUID();
       const hashedNonce = await Crypto.digestStringAsync(
@@ -105,17 +90,14 @@ export function AuthScreen({ onBack }: AuthScreenProps) {
         ],
         nonce: hashedNonce
       });
-
       if (!appleCredential.identityToken) {
         throw new Error("Apple did not return an identity token.");
       }
-
       const provider = new OAuthProvider("apple.com");
       const firebaseCredential = provider.credential({
         idToken: appleCredential.identityToken,
         rawNonce
       });
-
       await signInWithCredential(firebaseAuth, firebaseCredential);
     } catch {
       setError("Apple sign-in failed or was cancelled.");
@@ -126,161 +108,148 @@ export function AuthScreen({ onBack }: AuthScreenProps) {
 
   const isSubmitting = activeProvider !== null;
   const isGoogleConfigured = Boolean(googleWebClientId);
+  const showApple = Platform.OS === "ios" && isAppleAvailable;
 
   return (
-    <View style={styles.container}>
+    <View style={s.screen}>
+      {/* Back pill — floating top-left */}
       {onBack ? (
-        <Pressable
-          onPress={onBack}
-          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.backButtonText}>Back</Text>
-        </Pressable>
+        <View style={s.backWrap}>
+          <Pill icon="back" onPress={onBack} />
+        </View>
       ) : null}
 
-      <View>
-        <Svg width={240} height={96} viewBox="0 0 280 120" style={styles.wordmark}>
-          <SvgText
-            x="0"
-            y="92"
-            fontFamily={theme.font.display}
-            fontSize="110"
-            fill={theme.ink[1]}
-            letterSpacing={0}
+      {/* Main content — centered vertically */}
+      <View style={s.content}>
+
+        {/* Wordmark */}
+        <View style={s.wordmarkRow}>
+          <Display size={44} style={{ lineHeight: 46 }}>palleto</Display>
+          <View style={s.wordmarkDot} />
+        </View>
+
+        {/* Eyebrow */}
+        <Meta style={{ marginTop: 28, color: theme.ink[3] }}>
+          A FIELD GUIDE FOR THE EYE
+        </Meta>
+
+        {/* Headline */}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8 }}>
+          <Display size={30} style={s.headlineLine}>Keep your palette </Display>
+          <DisplayItalic size={30} color={theme.ink[2]} style={s.headlineLine}>
+            close.
+          </DisplayItalic>
+        </View>
+
+        {/* Body */}
+        <Body style={s.body}>
+          Save scans, build your library, and pick up where you left off on any device.
+        </Body>
+
+        {/* Auth buttons */}
+        <View style={s.buttons}>
+          {error ? (
+            <Text style={s.error}>{error}</Text>
+          ) : null}
+
+          {showApple ? (
+            <Button
+              onPress={signInWithApple}
+              disabled={isSubmitting}
+              style={s.btn}
+            >
+              {activeProvider === "apple" ? "Signing in…" : "Continue with Apple"}
+            </Button>
+          ) : null}
+
+          <Button
+            variant={showApple ? "secondary" : "primary"}
+            onPress={signInWithGoogle}
+            disabled={isSubmitting || !googleRequest || !isGoogleConfigured}
+            style={s.btn}
           >
-            palleto
-          </SvgText>
-          <Circle cx={258} cy={88} r={8} fill="#C5683E" />
-        </Svg>
-        <Text style={styles.eyebrow}>A field guide for the eye</Text>
-        <Text style={styles.title}>Sign in to keep your palette close.</Text>
-        <Text style={styles.body}>
-          Continue with your account to save references, project context, and inspiration cards.
+            {activeProvider === "google" ? "Signing in…" : "Continue with Google"}
+          </Button>
+
+          {!isGoogleConfigured ? (
+            <Text style={s.helper}>Add Google client IDs to mobile/.env to enable Google sign-in.</Text>
+          ) : null}
+        </View>
+
+        {/* Fine print */}
+        <Text style={s.finePrint}>
+          By continuing you agree to Palleto's Terms and Privacy Policy.
         </Text>
-      </View>
 
-      <View style={styles.form}>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Pressable
-          disabled={isSubmitting || !googleRequest || !isGoogleConfigured}
-          onPress={signInWithGoogle}
-          style={({ pressed }) => [
-            styles.providerButton,
-            (pressed || activeProvider === "google") && styles.pressed,
-            (!googleRequest || !isGoogleConfigured) && styles.disabled
-          ]}
-        >
-          {activeProvider === "google" ? (
-            <ActivityIndicator color={theme.colors.textPrimary} />
-          ) : (
-            <Text style={styles.providerButtonText}>Continue with Google</Text>
-          )}
-        </Pressable>
-
-        {Platform.OS === "ios" && isAppleAvailable ? (
-          <Pressable
-            disabled={isSubmitting}
-            onPress={signInWithApple}
-            style={({ pressed }) => [
-              styles.providerButton,
-              (pressed || activeProvider === "apple") && styles.pressed
-            ]}
-          >
-            {activeProvider === "apple" ? (
-              <ActivityIndicator color={theme.colors.textPrimary} />
-            ) : (
-              <Text style={styles.providerButtonText}>Continue with Apple</Text>
-            )}
-          </Pressable>
-        ) : null}
-
-        {!isGoogleConfigured ? (
-          <Text style={styles.helperText}>Add Google client IDs to mobile/.env.</Text>
-        ) : null}
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
+const s = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: theme.palette.bone
+  },
+  backWrap: {
+    position: "absolute",
+    top: 60,
+    left: 24,
+    zIndex: 10
+  },
+  content: {
     flex: 1,
     justifyContent: "center",
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.background
+    paddingHorizontal: 28,
+    paddingBottom: 24
   },
-  backButton: {
-    position: "absolute",
-    top: 58,
-    left: theme.spacing.lg,
-    zIndex: 2,
-    minHeight: 44,
-    justifyContent: "center",
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    backgroundColor: theme.palette.glass,
-    ...theme.shadow.pill
+  wordmarkRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 3
   },
-  backButtonText: {
-    color: theme.colors.textPrimary,
-    fontSize: 15,
-    fontWeight: "700"
+  wordmarkDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#C5683E",
+    marginBottom: -2
   },
-  wordmark: {
-    marginBottom: theme.spacing.lg
-  },
-  eyebrow: {
-    marginBottom: theme.spacing.sm,
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: "700",
-    textTransform: "uppercase"
-  },
-  title: {
-    color: theme.colors.textPrimary,
-    fontSize: 32,
-    fontWeight: "800",
+  headlineLine: {
     lineHeight: 38
   },
   body: {
-    marginTop: theme.spacing.md,
-    color: theme.colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 24
+    marginTop: 12,
+    fontSize: 15,
+    lineHeight: 22,
+    color: theme.ink[3],
+    maxWidth: 320
   },
-  form: {
-    marginTop: theme.spacing.xl,
-    gap: theme.spacing.md
+  buttons: {
+    marginTop: 36,
+    gap: 10
+  },
+  btn: {
+    alignSelf: "stretch"
   },
   error: {
-    color: theme.colors.error,
-    fontSize: 14,
-    lineHeight: 20
+    fontFamily: theme.font.sans,
+    fontSize: 13,
+    lineHeight: 18,
+    color: theme.colors.error
   },
-  providerButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 52,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.small,
-    borderWidth: 1
+  helper: {
+    fontFamily: theme.font.sans,
+    fontSize: 12,
+    lineHeight: 17,
+    color: theme.ink[4]
   },
-  providerButtonText: {
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "700"
-  },
-  pressed: {
-    opacity: 0.72
-  },
-  disabled: {
-    opacity: 0.45
-  },
-  helperText: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20
+  finePrint: {
+    fontFamily: theme.font.sans,
+    fontSize: 11,
+    lineHeight: 16,
+    color: theme.ink[4],
+    marginTop: 20,
+    maxWidth: 280
   }
 });
