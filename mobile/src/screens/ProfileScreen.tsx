@@ -1,12 +1,24 @@
 import { signOut, User } from "firebase/auth";
 import { useEffect, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { CustomerInfo } from "react-native-purchases";
 
 import { getMe, UserProfile } from "../services/api";
 import { firebaseAuth } from "../services/firebase";
 import { ProjectContext } from "../services/projectContext";
 import { theme } from "../theme";
+import {
+  Body,
+  Button,
+  Chip,
+  Display,
+  DisplayItalic,
+  Headline,
+  Meta,
+  Pill,
+  ScrollScreen,
+  SectionCard
+} from "../ui";
 
 type ProfileScreenProps = {
   customerInfo: CustomerInfo | null;
@@ -28,7 +40,7 @@ export function ProfileScreen({
   projectContext
 }: ProfileScreenProps) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [statusText, setStatusText] = useState("Syncing your profile...");
+  const [statusText, setStatusText] = useState("Syncing…");
 
   useEffect(() => {
     let isMounted = true;
@@ -37,229 +49,113 @@ export function ProfileScreen({
       try {
         const token = await firebaseUser.getIdToken();
         const syncedProfile = await getMe(token);
-
         if (isMounted) {
           setProfile(syncedProfile);
-          setStatusText("Profile synced.");
+          setStatusText("Synced");
         }
       } catch {
-        if (isMounted) {
-          setStatusText("Profile sync failed. Check backend and Firebase configuration.");
-        }
+        if (isMounted) setStatusText("Sync failed");
       }
     }
 
     syncProfile();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, [firebaseUser]);
 
+  const tags = projectContext
+    ? [projectContext.projectType, ...projectContext.directionTags].filter(Boolean)
+    : [];
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Image
-        source={require("../../assets/brand/palleto-logo-transparent.png")}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-      <Text style={styles.eyebrow}>Profile</Text>
-      <Text style={styles.title}>Your creative context.</Text>
-      <Text style={styles.body}>
-        Palleto uses your active project to make scans more specific to what you are building.
-      </Text>
+    <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
+      <ScrollScreen contentContainerStyle={{ paddingTop: 24 }}>
 
-      {projectContext ? (
-        <View style={styles.panel}>
-          <Text style={styles.panelLabel}>Active project</Text>
-          <Text style={styles.projectTitle}>{projectContext.name}</Text>
-          <Text style={styles.projectDescription}>{projectContext.description}</Text>
-          {projectContext.desiredFeeling ? (
-            <Text style={styles.projectMeta}>Target feel: {projectContext.desiredFeeling}</Text>
-          ) : null}
-          {projectContext.audience ? (
-            <Text style={styles.projectMeta}>Audience: {projectContext.audience}</Text>
-          ) : null}
-          <View style={styles.tagRow}>
-            {[projectContext.projectType, ...projectContext.directionTags].map((tag) => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
+        {/* ── Header ───────────────────────────────────── */}
+        <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 24 }}>
+          <View style={{ flex: 1 }}>
+            <Meta style={{ marginBottom: 6 }}>ACCOUNT · PROFILE</Meta>
+            <Display size={56}>Profile</Display>
           </View>
-          {projectContext.referenceLinks.length ? (
-            <Text style={styles.projectMeta}>
-              References linked: {projectContext.referenceLinks.length}
-            </Text>
-          ) : null}
-          <Pressable style={styles.inlineButton} onPress={onEditProject}>
-            <Text style={styles.inlineButtonText}>Edit project context</Text>
-          </Pressable>
+          <DisplayItalic size={22} color={theme.ink[3]} style={{ paddingBottom: 8 }}>
+            no.2
+          </DisplayItalic>
         </View>
-      ) : (
-        <View style={styles.panel}>
-          <Text style={styles.panelLabel}>Active project</Text>
-          <Text style={styles.projectTitle}>No project context yet</Text>
-          <Text style={styles.projectDescription}>
-            Your first scan works without this. Add project context when you want future outputs to
-            feel more specific to what you are building.
-          </Text>
-          <Pressable style={styles.inlineButton} onPress={onEditProject}>
-            <Text style={styles.inlineButtonText}>Add project context</Text>
-          </Pressable>
-        </View>
-      )}
 
-      <View style={styles.panel}>
-        <Text style={styles.panelLabel}>Palleto Pro</Text>
-        <Text style={styles.projectTitle}>{isPalletoProActive ? "Unlocked" : "Not unlocked yet"}</Text>
-        <Text style={styles.projectDescription}>
-          {isPalletoProActive
-            ? "Your account has the Palleto Pro entitlement."
-            : "Unlock Palleto Pro with the lifetime purchase to use paid actions."}
-        </Text>
-        <Text style={styles.projectMeta}>
-          RevenueCat user: {customerInfo?.originalAppUserId ?? "Loading..."}
-        </Text>
-        <View style={styles.inlineButtonRow}>
-          <Pressable style={styles.inlineButton} onPress={onRestorePurchases}>
-            <Text style={styles.inlineButtonText}>Restore purchases</Text>
-          </Pressable>
-          <Pressable style={styles.inlineButton} onPress={onOpenCustomerCenter}>
-            <Text style={styles.inlineButtonText}>Manage purchases</Text>
-          </Pressable>
-        </View>
-      </View>
+        {/* ── Active project ────────────────────────────── */}
+        <SectionCard eyebrow="ACTIVE PROJECT" style={{ marginBottom: 12 }}>
+          <Display size={22} style={{ marginTop: 4, marginBottom: 8 }}>
+            {projectContext?.name ?? "No project yet"}
+          </Display>
 
-      <View style={styles.panel}>
-        <Text style={styles.panelLabel}>Signed in as</Text>
-        <Text style={styles.panelValue}>{profile?.email ?? firebaseUser.email ?? "Unknown user"}</Text>
-        <Text style={styles.status}>{statusText}</Text>
-      </View>
+          {projectContext ? (
+            <>
+              {projectContext.description ? (
+                <Body style={{ marginBottom: 10 }}>{projectContext.description}</Body>
+              ) : null}
 
-      <Pressable style={styles.secondaryButton} onPress={() => signOut(firebaseAuth)}>
-        <Text style={styles.secondaryButtonText}>Sign out</Text>
-      </Pressable>
-    </ScrollView>
+              {projectContext.desiredFeeling ? (
+                <Body color={theme.ink[3]} style={{ marginBottom: 4 }}>
+                  Feel: {projectContext.desiredFeeling}
+                </Body>
+              ) : null}
+
+              {projectContext.audience ? (
+                <Body color={theme.ink[3]} style={{ marginBottom: 12 }}>
+                  Audience: {projectContext.audience}
+                </Body>
+              ) : (
+                <View style={{ marginBottom: 12 }} />
+              )}
+
+              {tags.length ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                  {tags.map((tag) => <Chip key={tag}>{tag}</Chip>)}
+                </View>
+              ) : null}
+            </>
+          ) : (
+            <Body color={theme.ink[3]} style={{ marginBottom: 16 }}>
+              Add a project to make future scans more specific to what you're building.
+            </Body>
+          )}
+
+          <Pill onPress={onEditProject}>
+            {projectContext ? "Edit project" : "Add project context"}
+          </Pill>
+        </SectionCard>
+
+        {/* ── Palleto Pro ───────────────────────────────── */}
+        <SectionCard eyebrow="PALLETO PRO" style={{ marginBottom: 12 }}>
+          <Display size={22} style={{ marginTop: 4, marginBottom: 8 }}>
+            {isPalletoProActive ? "Unlocked" : "Not unlocked"}
+          </Display>
+
+          <Body color={theme.ink[3]} style={{ marginBottom: 16 }}>
+            {isPalletoProActive
+              ? "You have full access to all Palleto Pro features."
+              : "Unlock Palleto Pro to use refine, save, and share."}
+          </Body>
+
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Pill onPress={onRestorePurchases}>Restore purchases</Pill>
+            <Pill onPress={onOpenCustomerCenter}>Manage</Pill>
+          </View>
+        </SectionCard>
+
+        {/* ── Account ───────────────────────────────────── */}
+        <SectionCard eyebrow="SIGNED IN AS" style={{ marginBottom: 32 }}>
+          <Headline style={{ marginTop: 4, marginBottom: 6 }}>
+            {profile?.email ?? firebaseUser.email ?? "—"}
+          </Headline>
+          <Meta>{statusText}</Meta>
+        </SectionCard>
+
+        {/* ── Sign out ──────────────────────────────────── */}
+        <Button variant="destructive" onPress={() => signOut(firebaseAuth)}>
+          Sign out
+        </Button>
+
+      </ScrollScreen>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background
-  },
-  content: {
-    flexGrow: 1,
-    justifyContent: "center",
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.background
-  },
-  logo: {
-    width: 64,
-    height: 64,
-    marginBottom: theme.spacing.lg
-  },
-  eyebrow: {
-    marginBottom: theme.spacing.sm,
-    color: theme.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase"
-  },
-  title: {
-    color: theme.colors.textPrimary,
-    fontSize: 32,
-    fontWeight: "800",
-    lineHeight: 38
-  },
-  body: {
-    marginTop: theme.spacing.md,
-    color: theme.colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 24
-  },
-  panel: {
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.xl,
-    padding: theme.spacing.md,
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.medium
-  },
-  panelLabel: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "uppercase"
-  },
-  panelValue: {
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "700"
-  },
-  projectTitle: {
-    color: theme.colors.textPrimary,
-    fontSize: 22,
-    fontWeight: "800",
-    lineHeight: 28
-  },
-  projectDescription: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  projectMeta: {
-    color: theme.colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18
-  },
-  tagRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing.sm
-  },
-  tag: {
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: 7,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    borderRadius: theme.radius.small
-  },
-  tagText: {
-    color: theme.colors.textPrimary,
-    fontSize: 12,
-    fontWeight: "800"
-  },
-  inlineButton: {
-    alignSelf: "flex-start",
-    marginTop: theme.spacing.xs
-  },
-  inlineButtonRow: {
-    gap: theme.spacing.sm
-  },
-  inlineButtonText: {
-    color: theme.colors.textPrimary,
-    fontSize: 14,
-    fontWeight: "800"
-  },
-  status: {
-    color: theme.colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20
-  },
-  secondaryButton: {
-    alignItems: "center",
-    marginTop: theme.spacing.lg,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.primary,
-    borderRadius: theme.radius.small
-  },
-  secondaryButtonText: {
-    color: theme.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: "700"
-  }
-});
