@@ -67,8 +67,12 @@ def generate_card_payload_for_image(
 
     try:
         return _generate_with_openai(image_url=image_url, project_context=project_context)
-    except Exception:
-        logger.exception("OpenAI card generation failed; using image-aware fallback generator")
+    except Exception as exc:
+        logger.exception(
+            "OpenAI card generation failed (%s: %s); using image-aware fallback generator",
+            type(exc).__name__,
+            str(exc)[:200],
+        )
         return _fallback_payload(image_url=image_url, project_context=project_context)
 
 
@@ -89,8 +93,12 @@ def refine_card_payload(
             instruction=instruction,
             project_context=project_context,
         )
-    except Exception:
-        logger.exception("OpenAI card refinement failed; using placeholder refinement")
+    except Exception as exc:
+        logger.exception(
+            "OpenAI card refinement failed (%s: %s); using placeholder refinement",
+            type(exc).__name__,
+            str(exc)[:200],
+        )
         return _fallback_refinement(base_card, instruction)
 
 
@@ -104,23 +112,20 @@ def _generate_with_openai(
         project_context.model_dump_json(exclude_none=True) if project_context else "{}"
     )
 
-    response = client.responses.parse(
+    # Use the stable Chat Completions structured-output path (beta.chat.completions.parse),
+    # which supports vision + Pydantic response_format on all current models.
+    response = client.beta.chat.completions.parse(
         model=settings.openai_model,
-        input=[
+        messages=[
             {
                 "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": _system_prompt(),
-                    }
-                ],
+                "content": _system_prompt(),
             },
             {
                 "role": "user",
                 "content": [
                     {
-                        "type": "input_text",
+                        "type": "text",
                         "text": (
                             "Analyze this real-world inspiration image and generate a premium "
                             "Palleto inspiration card. Use this project context JSON: "
@@ -128,17 +133,22 @@ def _generate_with_openai(
                         ),
                     },
                     {
-                        "type": "input_image",
-                        "image_url": image_url,
-                        "detail": "high",
+                        "type": "image_url",
+                        "image_url": {
+                            "url": image_url,
+                            "detail": "high",
+                        },
                     },
                 ],
             },
         ],
-        text_format=GeneratedCardPayload,
+        response_format=GeneratedCardPayload,
     )
 
-    parsed = response.output_parsed
+    parsed = response.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("Model returned no structured output — possible refusal")
+
     payload = parsed.model_dump()
     payload["related_links"] = enrich_related_links(
         _normalize_related_links(payload["related_links"]),
@@ -163,23 +173,18 @@ def _refine_with_openai(
         project_context.model_dump_json(exclude_none=True) if project_context else "{}"
     )
 
-    response = client.responses.parse(
+    response = client.beta.chat.completions.parse(
         model=settings.openai_model,
-        input=[
+        messages=[
             {
                 "role": "system",
-                "content": [
-                    {
-                        "type": "input_text",
-                        "text": _refinement_system_prompt(),
-                    }
-                ],
+                "content": _refinement_system_prompt(),
             },
             {
                 "role": "user",
                 "content": [
                     {
-                        "type": "input_text",
+                        "type": "text",
                         "text": (
                             "Refine this existing Palleto card for the same image. "
                             f"Project context JSON: {project_context_json}\n\n"
@@ -188,17 +193,22 @@ def _refine_with_openai(
                         ),
                     },
                     {
-                        "type": "input_image",
-                        "image_url": image_url,
-                        "detail": "high",
+                        "type": "image_url",
+                        "image_url": {
+                            "url": image_url,
+                            "detail": "high",
+                        },
                     },
                 ],
             },
         ],
-        text_format=GeneratedCardPayload,
+        response_format=GeneratedCardPayload,
     )
 
-    parsed = response.output_parsed
+    parsed = response.choices[0].message.parsed
+    if parsed is None:
+        raise ValueError("Model returned no structured output — possible refusal")
+
     payload = parsed.model_dump()
     if _instruction_requests_new_links(instruction) and _same_related_links(
         base_card.get("related_links", []),
@@ -276,7 +286,13 @@ You are Palleto, a tasteful visual research assistant for creatives.
 Your job is to transform one real-world image into a useful creative-direction card.
 Write for designers, founders, art directors, stylists, and creative operators building real projects.
 
-Rules:
+TITLE RULES — most important field:
+- The `title` must be 3–6 words that name what is VISUALLY PRESENT in THIS specific image.
+- Good examples: "Weathered concrete and rust", "Evening market warm glow", "Dense foliage soft shadows", "Exposed brick terracotta arch", "Rain-slicked pavement blue cast"
+- Bad examples (NEVER use): "Captured Visual Signal", "Creative Visual Signal", "Visual Reference", "Inspiration Card", "Design Reference", any generic phrase that could apply to any image.
+- The title is the first thing the user reads — it must be unmistakably about what they photographed.
+
+GENERAL RULES:
 - Be specific to visible evidence in the image.
 - Make the output usable, not merely descriptive.
 - Connect observations to creative applications.
@@ -296,13 +312,14 @@ Rules:
 - If the project context contains both positive and negative cues, resolve the output toward the positive cues while explicitly steering away from the negative ones.
 - Type direction must respect the requested feeling and avoid list. If the context suggests organic, soft, handmade, editorial, or luxurious qualities, do not default to blocky utilitarian type unless the image evidence strongly demands that tension.
 - Design moves must be short action lines that can support the translation, but avoid repeating project_lens.applications.
-- Related links should be specific public webpages that are likely to unfurl with real link preview images: design articles, museum/archive pages, type foundries, brand case studies, editorial references, Are.na channels, Pinterest boards, or other stable inspiration pages.
-- Avoid generic search-result URLs unless no specific page is credible.
-- Do not invent thumbnail URLs. Use thumbnail_url null unless it is a real direct image URL from the source.
-- Search language entries must be human-readable 2-5 word phrases. Never use symbols, wildcards, or single-character queries like *.
-- Keep every text field concise enough for a mobile card.
 
-Return only the structured card.
+RELATED LINKS RULES:
+- Each link must be a specific, real, publicly accessible page likely to return a useful link preview: design articles, museum/archive pages, type foundries, brand case studies, editorial references, Are.na channels, Pinterest boards, or stable inspiration pages.
+- Never return a URL where the query parameter q=* or q=%2a or any single-character wildcard.
+- Never invent thumbnail URLs — set thumbnail_url to null unless it is a direct image URL from the source.
+- Search language entries must be human-readable 2–5 word phrases. Never use symbols, wildcards, or single-character queries.
+
+Keep every text field concise enough for a mobile card. Return only the structured card.
 """.strip()
 
 
@@ -319,6 +336,7 @@ Rules:
 - Tighten project translation, type direction, and applications first when the user asks for a stylistic change.
 - Do not bloat the amount of text. Make the refinement feel sharper, not longer.
 - Keep related links credible and likely to unfurl with real preview images.
+- Never return related link URLs with q=* or wildcard query strings.
 - If the user asks for more, new, or better inspiration links/references, replace the related_links set with fresh links that fit the instruction and the project context.
 
 Return only the structured refined card.
@@ -329,9 +347,15 @@ def _normalize_related_links(links: list[dict]) -> list[dict]:
     normalized_links = []
 
     for link in links[:4]:
+        url = link.get("url") or ""
+
+        # Drop wildcard search URLs — they produce useless results
+        if "q=*" in url.lower() or "q=%2a" in url.lower() or url.strip() in {"", "*"}:
+            continue
+
         title = link.get("title") or "Related inspiration"
         provider = link.get("provider") or "placeholder"
-        url = link.get("url") or _search_url(title)
+        resolved_url = url or _search_url(title)
 
         normalized_links.append(
             {
@@ -339,7 +363,7 @@ def _normalize_related_links(links: list[dict]) -> list[dict]:
                 "reason": link.get("reason"),
                 "thumbnail_url": link.get("thumbnail_url"),
                 "title": title,
-                "url": url,
+                "url": resolved_url,
             }
         )
 

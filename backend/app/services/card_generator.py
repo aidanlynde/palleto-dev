@@ -35,7 +35,7 @@ def generate_image_aware_card_payload(
 
     color_names = ", ".join(color["label"].lower() for color in palette[:3])
     return {
-        "title": "Captured Visual Signal",
+        "title": _image_derived_title(orientation, tone, color_names),
         "one_line_read": (
             f"A real-world reference translated from its {orientation} crop, "
             f"{tone} color temperature, and {color_names} palette."
@@ -116,7 +116,7 @@ def generate_card_payload(project_context: ProjectContextPayload | None) -> dict
     )
 
     return {
-        "title": "Captured Visual Signal",
+        "title": "Reference scan",
         "one_line_read": (
             "A real-world reference translated into palette, texture, composition, "
             "and practical creative direction."
@@ -324,41 +324,64 @@ def _project_summary(
     )
 
 
+def _image_derived_title(orientation: str, tone: str, color_names: str) -> str:
+    first_color = color_names.split(",")[0].strip() if color_names else "muted"
+    orientation_label = {"wide": "wide-format", "vertical": "vertical", "balanced": "square"}.get(
+        orientation, orientation
+    )
+    return f"{tone.capitalize()} {orientation_label} reference — {first_color}"
+
+
 def _applications_for_project(
     project_type: str,
     *,
     desired_feeling: str | None,
     avoid: str | None,
 ) -> list[str]:
-    applications_by_project = {
+    applications_by_project: dict[str, list[str]] = {
         "Clothing brand": [
-            "Use the koi as a recurring drop symbol instead of a full logo.",
-            "Pull the orange into stitching, hang tags, and limited-run packaging.",
-            "Keep pavement texture as campaign backdrop and pair it with strict type.",
+            "Pull the dominant color into stitching details, hang tags, and limited-run packaging.",
+            "Use the texture or surface quality as a recurring campaign backdrop.",
+            "Extract one recognizable motif or crop as a drop graphic or label seal.",
         ],
         "Brand identity": [
-            "Build a mascot-adjacent mark system with one aggressive accent color.",
-            "Use rough pavement crops for launch graphics, stickers, and hang tags.",
-            "Keep the symbol handmade while making typography severe and structured.",
+            "Build a compact color system anchored by the two strongest tones in the reference.",
+            "Use the surface texture or material quality to define the brand's tactile language.",
+            "Translate the composition logic into a repeatable layout grid or mark proportion.",
         ],
         "Packaging": [
-            "Translate the koi into stamped seals, box tape, and label closures.",
-            "Use matte concrete-gray substrates with black illustration and white utility type.",
-            "Make the orange accent feel like a limited-run recognition system.",
+            "Use the primary palette as substrate color — matte or gloss to match the surface feel.",
+            "Pull one accent color for closures, seals, or label details that unify the range.",
+            "Apply the texture reference to dielines or emboss patterns for tactile consistency.",
         ],
         "Campaign": [
-            "Use diagonal motion and high-contrast animal symbolism for hero art.",
-            "Let one color carry the entire visual charge across placements.",
-            "Treat pavement texture as a recurring campaign surface.",
+            "Use the dominant color as the single visual charge across all placements.",
+            "Build hero art from the image's most graphic crop or highest-contrast moment.",
+            "Repeat the composition rule — horizon line, center weight, or edge behavior — across formats.",
+        ],
+        "Interior concept": [
+            "Use the palette as a material specification: which tone goes on walls, trim, and accents.",
+            "Extract the texture family — rough, smooth, woven, glazed — as a finish selection guide.",
+            "Apply the composition's depth cues (layer, frame, foreground/background) to spatial hierarchy.",
+        ],
+        "Product design": [
+            "Use the accent color as the primary finish or CMF callout for the hero surface.",
+            "Extract the material quality — grain, matte, translucent — as a form language signal.",
+            "Apply the composition's figure-ground balance to the product's silhouette proportion.",
+        ],
+        "Editorial": [
+            "Use the dominant palette as the art direction brief for a photo series or layout system.",
+            "Pull the strongest crop as a grid-breaking hero image or opening spread.",
+            "Apply the tonal contrast as the text-on-image system: which fields are safe for type.",
         ],
     }
 
     applications = applications_by_project.get(
         project_type,
         [
-            "Use this as a compact visual system built from one motif, one accent, and one texture.",
-            "Make rough surface texture feel intentional instead of incidental.",
-            "Apply the reference to marks, layouts, packaging, or campaign openers.",
+            "Build a focused visual system from the two strongest color relationships in this reference.",
+            "Use the image's surface quality and texture as the tactile language for the project.",
+            "Apply the composition logic — crop, weight, depth — to primary layout or mark proportions.",
         ],
     )
 
