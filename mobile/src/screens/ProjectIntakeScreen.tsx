@@ -25,6 +25,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Text as RNText,
   TextInput,
   View
 } from "react-native";
@@ -39,7 +40,7 @@ import {
 } from "../services/api";
 import { firebaseAuth } from "../services/firebase";
 import { theme } from "../theme";
-import { Body, Display, Meta, Pill, Text } from "../ui";
+import { Body, Display, Icon, Meta, Pill, Text } from "../ui";
 
 type Props = {
   projectId?: string | null;
@@ -60,16 +61,27 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
   const [isSending, setIsSending] = useState(false);
   const [isActivating, setIsActivating] = useState(false);
   const [briefExpanded, setBriefExpanded] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
-  const canSend = !isSending && !isBooting && composer.trim().length > 0;
+  // Allow typing during boot — send is only blocked while an AI response is in-flight
+  const canSend = !isSending && composer.trim().length > 0;
   const title = project?.name || project?.projectType || "New project";
 
   useEffect(() => {
     void boot();
   }, []);
+
+  // Auto-send anything the user typed while the project was still booting
+  useEffect(() => {
+    if (!isBooting && project && pendingMessage) {
+      const msg = pendingMessage;
+      setPendingMessage(null);
+      void send(msg);
+    }
+  }, [isBooting, project]);
 
   useEffect(() => {
     const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
@@ -81,20 +93,15 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
     setError(null);
     try {
       const token = await getToken();
-      let result;
       if (projectId) {
-        // Resume existing conversation
+        // Resume — just load the stored history, no extra AI call needed
         const p = await getProject(token, projectId);
         setProject(p);
         setMessages(p.chatHistory as Message[]);
-        // Re-bootstrap to get fresh suggested replies without adding to history
-        result = await sendProjectChat(token, p.id, { message: null });
-        setSuggestedReplies(result.suggestedReplies);
-        setMissingFields(result.missingFields);
-        setIsReadyToSave(result.isReadyToSave);
+        setIsReadyToSave(!p.description || !p.projectType || !p.desiredFeeling ? false : true);
       } else {
-        // New conversation
-        result = await createProject(token);
+        // New conversation — create project + get AI's opening message
+        const result = await createProject(token);
         setProject(result.project);
         setMessages([{ role: "assistant", content: result.assistantMessage }]);
         setSuggestedReplies(result.suggestedReplies);
@@ -110,7 +117,20 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
 
   async function send(text: string, opts?: { referenceImages?: string[]; referenceLinks?: string[] }) {
     const trimmed = text.trim();
-    if ((!trimmed && !opts?.referenceImages?.length) || isSending || !project) return;
+    if (!trimmed && !opts?.referenceImages?.length) return;
+
+    // Still booting — queue it and show it in the thread optimistically
+    if (isBooting || !project) {
+      if (trimmed) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setComposer("");
+        setPendingMessage(trimmed);
+        setMessages(prev => [...prev, { role: "user", content: trimmed }]);
+      }
+      return;
+    }
+
+    if (isSending) return;
 
     const userMsg = trimmed || "Use this reference image to sharpen the project world.";
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -267,7 +287,7 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
               onPress={() => void send(reply)}
               style={({ pressed }) => [s.chip, pressed && { opacity: 0.75 }]}
             >
-              <Text style={s.chipText}>{reply}</Text>
+              <RNText style={s.chipText} numberOfLines={1}>{reply}</RNText>
             </Pressable>
           ))}
         </ScrollView>
@@ -277,10 +297,10 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
       <View style={s.composerBar}>
         <Pressable
           onPress={handlePickImage}
-          disabled={isBooting || isSending}
-          style={({ pressed }) => [s.attachBtn, (isBooting || isSending) && { opacity: 0.4 }, pressed && { opacity: 0.6 }]}
+          disabled={isSending}
+          style={({ pressed }) => [s.attachBtn, isSending && { opacity: 0.4 }, pressed && { opacity: 0.6 }]}
         >
-          <Text style={s.attachGlyph}>▢</Text>
+          <Icon name="camera" size={15} color={theme.ink[2]} />
         </Pressable>
 
         <TextInput
@@ -293,7 +313,6 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
           multiline
           returnKeyType="default"
           blurOnSubmit={false}
-          editable={!isBooting}
         />
 
         <Pressable
@@ -553,8 +572,9 @@ const s = StyleSheet.create({
     gap: 8
   },
   chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    maxWidth: 220,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
     backgroundColor: theme.palette.paper,
     borderRadius: theme.radius.pill,
     borderWidth: 1,
@@ -564,6 +584,7 @@ const s = StyleSheet.create({
   chipText: {
     fontFamily: theme.font.sans,
     fontSize: 13,
+    lineHeight: 17,
     color: theme.ink[1]
   },
   composerBar: {
