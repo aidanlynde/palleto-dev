@@ -502,29 +502,29 @@ const s = StyleSheet.create({
   scroll: {
     paddingTop: 108,
     paddingHorizontal: 24,
-    paddingBottom: 28
+    paddingBottom: 52
   },
   cardStackWrap: {
     width: "100%",
-    height: 174,
+    height: 160,
     alignItems: "center",
     justifyContent: "flex-start",
     position: "relative"
   },
   cardStackBack: {
     position: "absolute",
-    top: 12,
+    top: 10,
     left: "50%",
-    marginLeft: -58,
-    width: 116,
+    marginLeft: -46,
+    width: 92,
     zIndex: 1
   },
   cardStackFront: {
     position: "absolute",
     top: 0,
     left: "50%",
-    marginLeft: -66,
-    width: 132,
+    marginLeft: -52,
+    width: 104,
     zIndex: 2
   },
   miniCard: {
