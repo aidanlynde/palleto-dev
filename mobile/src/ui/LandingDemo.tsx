@@ -76,6 +76,7 @@ type Props = {
 
 export function LandingDemo({ onPrimary, onSecondary, onSignIn }: Props) {
   const [idx, setIdx] = useState(0);
+  const activeSceneId = SCENES[idx].id;
 
   useEffect(() => {
     const t = setTimeout(() => setIdx((i) => (i + 1) % SCENES.length), SCENES[idx].ms);
@@ -100,7 +101,7 @@ export function LandingDemo({ onPrimary, onSecondary, onSignIn }: Props) {
       </View>
 
       {/* Stage */}
-      <View style={s.stage}>
+      <View style={[s.stage, stageStyleFor(activeSceneId)]}>
         {SCENES.map((scene, i) => (
           <SceneWrap key={scene.id} active={i === idx}>
             <SceneByID id={scene.id} active={i === idx} />
@@ -109,7 +110,7 @@ export function LandingDemo({ onPrimary, onSecondary, onSignIn }: Props) {
       </View>
 
       {/* Captions */}
-      <View style={s.captionStage}>
+      <View style={[s.captionStage, captionStyleFor(activeSceneId)]}>
         {SCENES.map((scene, i) => (
           <CaptionWrap key={scene.id} active={i === idx}>
             <View style={{ alignItems: "center" }}>
@@ -151,6 +152,38 @@ export function LandingDemo({ onPrimary, onSecondary, onSignIn }: Props) {
       </View>
     </View>
   );
+}
+
+function stageStyleFor(scene: SceneId) {
+  if (scene === "share") {
+    return s.stageShare;
+  }
+
+  if (scene === "library") {
+    return s.stageLibrary;
+  }
+
+  if (scene === "scan") {
+    return s.stageScan;
+  }
+
+  return null;
+}
+
+function captionStyleFor(scene: SceneId) {
+  if (scene === "share") {
+    return s.captionShare;
+  }
+
+  if (scene === "library") {
+    return s.captionLibrary;
+  }
+
+  if (scene === "scan") {
+    return s.captionScan;
+  }
+
+  return null;
 }
 
 function SceneByID({ id, active }: { id: SceneId; active: boolean }) {
@@ -913,11 +946,29 @@ const s = StyleSheet.create({
     height: 330,
     position: "relative"
   },
+  stageScan: {
+    height: 360
+  },
+  stageShare: {
+    height: 410
+  },
+  stageLibrary: {
+    height: 430
+  },
   captionStage: {
     width: "100%",
     height: 96,
     marginTop: 4,
     position: "relative"
+  },
+  captionScan: {
+    marginTop: -2
+  },
+  captionShare: {
+    marginTop: 0
+  },
+  captionLibrary: {
+    marginTop: -6
   },
   ghost: {
     height: 44,
