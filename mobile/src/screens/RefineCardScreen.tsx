@@ -16,7 +16,7 @@
  */
 import * as Haptics from "expo-haptics";
 import { User } from "firebase/auth";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -250,10 +250,10 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
         <Text style={s.headerTitle} numberOfLines={1}>
           {baseCard.title}
         </Text>
-        <Pill tight onPress={() => { setPreviewVersionId(activeVersion.id); setShowPreview(v => !v); }}>
-          <RNText style={s.versionPillText}>
+        <Pill tight onPress={() => { if (!showPreview) setPreviewVersionId(activeVersion.id); setShowPreview(v => !v); }}>
+          <Text style={s.versionPillText}>
             {showPreview ? "Hide card" : activeVersion.isOriginal ? "Original" : activeVersion.label}
-          </RNText>
+          </Text>
         </Pill>
       </View>
 
@@ -266,10 +266,10 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
           <View style={s.contextThumb}>
             <Image source={{ uri: baseCard.image_url }} style={s.contextThumbImg} resizeMode="cover" />
           </View>
-          <View style={{ flex: 1, gap: 3 }}>
+          <View style={{ flex: 1, gap: 4 }}>
             <Meta>CARD CONTEXT</Meta>
             <Text style={s.contextTitle} numberOfLines={1}>{baseCard.title}</Text>
-            <View style={{ flexDirection: "row", gap: 3, marginTop: 2 }}>
+            <View style={{ flexDirection: "row", gap: 4, marginTop: 4 }}>
               {baseCard.palette.slice(0, 5).map(p => (
                 <View key={p.hex} style={[s.contextSwatch, { backgroundColor: p.hex }]} />
               ))}
@@ -282,7 +282,7 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
         {cardExpanded ? (
           <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.palette.line }}>
             <Meta style={{ marginBottom: 8 }}>BRANCHING FROM: {activeVersion.label.toUpperCase()}</Meta>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               {versions.map(v => (
                 <Pressable
                   key={v.id ?? "orig"}
@@ -293,9 +293,9 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
                     pressed && { opacity: 0.75 }
                   ]}
                 >
-                  <RNText style={[s.branchPillText, v.id === activeVersionId && s.branchPillTextActive]}>
+                  <Text style={[s.branchPillText, v.id === activeVersionId && s.branchPillTextActive]}>
                     {v.label}
-                  </RNText>
+                  </Text>
                 </Pressable>
               ))}
             </View>
@@ -432,15 +432,15 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
                 {pendingInstruction}
               </Body>
             ) : null}
-            <View style={{ gap: 6, marginTop: 4 }}>
+            <View style={{ gap: 8, marginTop: 4 }}>
               {PROCESSING_STAGES.map((stage, i) => (
-                <RNText
+                <Text
                   key={stage}
                   style={[s.stageText, i <= processingStageIndex && s.stageTextActive]}
                 >
                   {i < processingStageIndex ? "✓  " : i === processingStageIndex ? "•  " : "·  "}
                   {stage}
-                </RNText>
+                </Text>
               ))}
             </View>
           </View>
@@ -454,7 +454,7 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
    Sub-components
    ────────────────────────────────────────────────────────────── */
 
-function AssistantBubble({ children }: { children: React.ReactNode }) {
+function AssistantBubble({ children }: { children: ReactNode }) {
   return (
     <View style={s.assistantRow}>
       <View style={s.avatar}>
@@ -462,7 +462,7 @@ function AssistantBubble({ children }: { children: React.ReactNode }) {
       </View>
       <View style={{ flex: 1 }}>
         <Meta style={{ marginBottom: 5 }}>Palleto</Meta>
-        <Body style={{ fontSize: 15, lineHeight: 22, color: theme.ink[1] }}>{children}</Body>
+        <Body style={s.assistantText}>{children}</Body>
       </View>
     </View>
   );
@@ -495,7 +495,7 @@ function RefinementBubble({
       <View style={{ flex: 1, gap: 8 }}>
         <Meta style={{ marginBottom: 2 }}>Palleto</Meta>
         {version.summary ? (
-          <Body style={{ fontSize: 15, lineHeight: 22, color: theme.ink[1] }}>
+          <Body style={s.assistantText}>
             {version.summary}
           </Body>
         ) : null}
@@ -511,7 +511,7 @@ function RefinementBubble({
                 {isActive ? "ACTIVE VERSION" : "NEW VERSION"}
               </Meta>
               <Text style={s.miniCardLabel}>{version.label}</Text>
-              <View style={{ flexDirection: "row", gap: 3, marginTop: 2 }}>
+              <View style={{ flexDirection: "row", gap: 4, marginTop: 4 }}>
                 {version.refinedCard.palette.slice(0, 5).map(p => (
                   <View key={p.hex} style={[s.miniSwatch, { backgroundColor: p.hex }]} />
                 ))}
@@ -521,13 +521,13 @@ function RefinementBubble({
               <View style={{ gap: 4, alignItems: "flex-end" }}>
                 {version.changedSections.slice(0, 3).map(sec => (
                   <View key={sec} style={s.changedChip}>
-                    <RNText style={s.changedChipText}>{labelForSection(sec)}</RNText>
+                    <Text style={s.changedChipText}>{labelForSection(sec)}</Text>
                   </View>
                 ))}
               </View>
             ) : null}
           </View>
-          <RNText style={s.miniCardCta}>{isActive ? "Viewing ›" : "View card ›"}</RNText>
+          <Text style={s.miniCardCta}>{isActive ? "Viewing ›" : "View card ›"}</Text>
         </Pressable>
       </View>
     </View>
@@ -617,7 +617,7 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingTop: 60,
-    paddingBottom: 10,
+    paddingBottom: 12,
     gap: 10,
   },
   headerTitle: {
@@ -637,7 +637,7 @@ const s = StyleSheet.create({
   contextCard: {
     marginHorizontal: 16,
     marginBottom: 8,
-    padding: 12,
+    padding: 14,
     backgroundColor: theme.palette.paper,
     borderRadius: theme.radius.lg,
     ...theme.shadow.quiet,
@@ -650,7 +650,7 @@ const s = StyleSheet.create({
   contextThumb: {
     width: 44,
     height: 44,
-    borderRadius: 10,
+    borderRadius: theme.radius.sm,
     overflow: "hidden",
     backgroundColor: theme.palette.putty,
   },
@@ -686,7 +686,7 @@ const s = StyleSheet.create({
     color: theme.ink[2],
   },
   branchPillTextActive: {
-    color: "#FAF7F0",
+    color: theme.palette.linen,
   },
 
   /* Preview */
@@ -716,7 +716,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    maxWidth: "94%",
+    maxWidth: "92%",
   },
   avatar: {
     width: 28,
@@ -731,7 +731,12 @@ const s = StyleSheet.create({
   avatarText: {
     fontFamily: theme.font.display,
     fontSize: 13,
-    color: "#FAF7F0",
+    color: theme.palette.linen,
+  },
+  assistantText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: theme.ink[1],
   },
   userRow: {
     alignItems: "flex-end",
@@ -748,7 +753,7 @@ const s = StyleSheet.create({
     fontFamily: theme.font.sans,
     fontSize: 15,
     lineHeight: 21,
-    color: "#FAF7F0",
+    color: theme.palette.linen,
   },
 
   /* Mini refinement card */
@@ -832,7 +837,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 6,
+    paddingTop: 4,
     paddingBottom: 4,
   },
 
@@ -842,7 +847,7 @@ const s = StyleSheet.create({
     alignItems: "flex-end",
     gap: 8,
     paddingHorizontal: 12,
-    paddingTop: 8,
+    paddingTop: 10,
     paddingBottom: 34,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: theme.palette.line,
@@ -882,7 +887,7 @@ const s = StyleSheet.create({
     lineHeight: 18,
   },
   sendArrowActive: {
-    color: "#FAF7F0",
+    color: theme.palette.linen,
   },
 
   /* Processing overlay */
