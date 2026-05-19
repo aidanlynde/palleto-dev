@@ -36,6 +36,16 @@ class MetaParser(HTMLParser):
             self.title += data
 
 
+# Search platforms used for fallback links, cycled across available queries.
+# Index 0 gets the first (most image-specific) query, etc.
+_FALLBACK_PLATFORMS = [
+    ("Are.na",        "https://www.are.na/search?q={q}"),
+    ("Pinterest",     "https://www.pinterest.com/search/pins/?q={q}"),
+    ("Google Images", "https://www.google.com/search?tbm=isch&q={q}"),
+    ("Are.na",        "https://www.are.na/search?q={q}"),
+]
+
+
 def enrich_related_links(
     links: list[dict],
     *,
@@ -78,6 +88,32 @@ def _enrich_link(link: dict) -> dict | None:
     if not original_url:
         return None
 
+    url_lower = original_url.lower()
+
+    # Hard-reject wildcard search URLs — they always return "Results for '*'"
+    if "q=*" in url_lower or "q=%2a" in url_lower:
+        return None
+
+    # For known search page URLs (are.na/search, pinterest/search, google images):
+    # don't fetch — the page title is just "Results for '...'" and adds no value.
+    # Return the link using the query as the title so the user sees what they'll find.
+    if _is_search_url(original_url):
+        query = _search_query_from_url(original_url)
+        title = _clean_fallback_query(link.get("title")) or (
+            _clean_fallback_query(query) if query else None
+        )
+        if not title:
+            return None
+        return {
+            **link,
+            "provider": _clean_provider(link.get("provider"), original_url),
+            "reason": _clean_reason(link.get("reason")),
+            "url": original_url,
+            "thumbnail_url": None,
+            "title": title,
+        }
+
+    # Specific page URL — fetch OG data
     preview = _fetch_preview(original_url)
     if not preview:
         return None
@@ -94,6 +130,20 @@ def _enrich_link(link: dict) -> dict | None:
         "thumbnail_url": preview.get("image") or None,
         "title": title,
     }
+
+
+def _is_search_url(url: str) -> bool:
+    """True for search/query result pages that don't need individual fetching."""
+    parsed = urlparse(url)
+    host = parsed.netloc.lower()
+    path = parsed.path.lower()
+    query = parsed.query.lower()
+    return (
+        ("are.na" in host and "/search" in path)
+        or ("pinterest.com" in host and "/search" in path)
+        or ("google.com" in host and "tbm=isch" in query)
+        or ("behance.net" in host and "/search" in path)
+    )
 
 
 def _fetch_preview(url: str | None) -> dict[str, str] | None:
@@ -163,8 +213,17 @@ def _looks_invalid_page(url: str, title: str | None, snippet: str) -> bool:
 
 
 def _fallback_links(source_links: list[dict], fallback_queries: list[str]) -> list[dict]:
-    queries = []
+    """
+    Build search-lane fallback links spread across multiple platforms.
+
+    Query priority:
+      1. Explicit fallback_queries (search_language from the AI card)
+      2. Titles from source links that are usable search phrases
+      3. Query params extracted from source link URLs
+    """
+    queries: list[str] = []
     seen_queries: set[str] = set()
+
     for raw_query in [
         *fallback_queries,
         *[str(link.get("title") or "").strip() for link in source_links],
@@ -173,7 +232,6 @@ def _fallback_links(source_links: list[dict], fallback_queries: list[str]) -> li
         query = _clean_fallback_query(raw_query)
         if not query or query.lower() in seen_queries:
             continue
-
         seen_queries.add(query.lower())
         queries.append(query)
 
@@ -181,14 +239,15 @@ def _fallback_links(source_links: list[dict], fallback_queries: list[str]) -> li
         queries = ["design inspiration visual reference"]
 
     fallback_links: list[dict] = []
-    for query in queries[:4]:
+    for i, query in enumerate(queries[:4]):
+        platform_name, url_template = _FALLBACK_PLATFORMS[i % len(_FALLBACK_PLATFORMS)]
         fallback_links.append(
             {
-                "provider": "Are.na",
-                "reason": "Visual search lane based on this scan.",
+                "provider": platform_name,
+                "reason": None,
                 "thumbnail_url": None,
                 "title": query,
-                "url": f"https://www.are.na/search?q={quote(query)}",
+                "url": url_template.format(q=quote(query)),
             }
         )
 
@@ -201,15 +260,27 @@ def _clean_fallback_query(raw_query: object) -> str | None:
         return None
 
     lowered_query = query.lower()
+
+    # Strip known provider prefixes
     for prefix in ["are.na query:", "pinterest query:", "google images:", "search:"]:
         if lowered_query.startswith(prefix):
-            query = query[len(prefix) :].strip()
+            query = query[len(prefix):].strip()
             lowered_query = query.lower()
             break
 
+    # Reject wildcard search signatures
     if "q=*" in lowered_query or "q=%2a" in lowered_query:
         return None
 
+    # Reject "Results for '...'" page titles (these come from fetching search pages)
+    if lowered_query.startswith("results for"):
+        return None
+
+    # Reject strings that contain wildcard characters in quotes
+    if '"*"' in query or "'*'" in query or " * " in query:
+        return None
+
+    # Reject known junk values
     if lowered_query in {
         "*",
         "-",
@@ -218,6 +289,7 @@ def _clean_fallback_query(raw_query: object) -> str | None:
         "search this visual direction",
         "open reference",
         "placeholder",
+        "visual search lane based on this scan.",
     }:
         return None
 
