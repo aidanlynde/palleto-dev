@@ -232,7 +232,7 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
         </Pressable>
       ) : null}
 
-      {/* ── Message thread ── */}
+      {/* ── Message thread (chips live inside so they appear right after the last message) ── */}
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1 }}
@@ -258,28 +258,28 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
         {isSending ? <TypingIndicator /> : null}
 
         {error ? <Text style={s.errorText}>{error}</Text> : null}
-      </ScrollView>
 
-      {/* ── Suggested replies ── */}
-      {suggestedReplies.length > 0 && !isSending ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.chips}
-          style={s.chipBar}
-          keyboardShouldPersistTaps="handled"
-        >
-          {suggestedReplies.map(reply => (
-            <Pressable
-              key={reply}
-              onPress={() => void send(reply)}
-              style={({ pressed }) => [s.chip, pressed && { opacity: 0.75 }]}
-            >
-              <RNText style={s.chipText} numberOfLines={1}>{reply}</RNText>
-            </Pressable>
-          ))}
-        </ScrollView>
-      ) : null}
+        {/* Suggested replies inline — no gap above, always anchored to last message */}
+        {suggestedReplies.length > 0 && !isSending ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.chips}
+            style={s.chipBar}
+            keyboardShouldPersistTaps="handled"
+          >
+            {suggestedReplies.map(reply => (
+              <Pressable
+                key={reply}
+                onPress={() => void send(reply)}
+                style={({ pressed }) => [s.chip, pressed && { opacity: 0.75 }]}
+              >
+                <RNText style={s.chipText} numberOfLines={1}>{reply}</RNText>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+      </ScrollView>
 
       {/* ── Composer ── */}
       <View style={s.composerBar}>
@@ -549,16 +549,14 @@ const s = StyleSheet.create({
     paddingHorizontal: 16
   },
   chipBar: {
-    flexShrink: 0,
-    height: 52,                          // explicit height stops cross-axis stretch
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.palette.line
+    marginHorizontal: -16,               // bleed to screen edges since thread has 16px padding
+    marginTop: 4
   },
   chips: {
     flexDirection: "row",
-    alignItems: "center",                // keeps chips at intrinsic height, not stretched
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 4,
     gap: 8
   },
   chip: {
