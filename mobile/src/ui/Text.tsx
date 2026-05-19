@@ -42,7 +42,7 @@ export function Display(p: Props) {
       {...p}
       style={[
         s.display,
-        p.size ? { fontSize: p.size, lineHeight: p.size * 1 } : null,
+        p.size ? { fontSize: p.size, lineHeight: p.size * 1.2 } : null,
         p.color ? { color: p.color } : null,
         p.style as any
       ]}
