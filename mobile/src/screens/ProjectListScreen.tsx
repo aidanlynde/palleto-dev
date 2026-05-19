@@ -59,8 +59,21 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
     setRefreshing(false);
   }
 
-  async function doDelete(projectId: string) {
-    if (deletingId) return; // prevent double-tap
+  function doDelete(projectId: string) {
+    if (deletingId) return;
+    Alert.alert(
+      "Delete project?",
+      "This will permanently remove the project and its chat history.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete", style: "destructive", onPress: () => void confirmDelete(projectId)
+        }
+      ]
+    );
+  }
+
+  async function confirmDelete(projectId: string) {
     setDeletingId(projectId);
     setErrorId(null);
     try {
