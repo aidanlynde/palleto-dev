@@ -353,39 +353,36 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
             )}
 
             {isSubmitting ? <TypingIndicator /> : null}
-
-            {/* Quick-action chips — inside thread so they anchor to the last message */}
-            {!isSubmitting ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={s.chips}
-                style={s.chipBar}
-                keyboardShouldPersistTaps="handled"
-              >
-                {QUICK_PROMPTS.map(p => (
-                  <Pressable
-                    key={p}
-                    onPress={() => void submit(p, p)}
-                    style={({ pressed }) => [s.chip, pressed && { opacity: 0.7 }]}
-                  >
-                    <RNText style={s.chipText} numberOfLines={1}>{p}</RNText>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            ) : null}
           </ScrollView>
 
-          {/* ── Branching label ── */}
-          <View style={s.branchLabel}>
-            <Meta>Branching from: </Meta>
-            <Pressable onPress={() => setCardExpanded(e => !e)}>
+          {/* ── Quick-action chips — pinned above composer, rises with keyboard ── */}
+          {!isSubmitting ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.chips}
+              style={s.chipBar}
+              keyboardShouldPersistTaps="handled"
+            >
+              {QUICK_PROMPTS.map(p => (
+                <Pressable
+                  key={p}
+                  onPress={() => void submit(p, p)}
+                  style={({ pressed }) => [s.chip, pressed && { opacity: 0.7 }]}
+                >
+                  <RNText style={s.chipText} numberOfLines={1}>{p}</RNText>
+                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
+
+          {/* ── Composer (branch label lives here so there's no gap) ── */}
+          <View style={s.composerBar}>
+            <Pressable style={s.branchLabel} onPress={() => setCardExpanded(e => !e)}>
+              <Meta>Branching from: </Meta>
               <Meta style={{ color: "#C5683E" }}>{activeVersion.label} ›</Meta>
             </Pressable>
-          </View>
-
-          {/* ── Composer ── */}
-          <View style={s.composerBar}>
+            <View style={s.inputRow}>
             <TextInput
               style={s.input}
               value={composer}
@@ -407,6 +404,7 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
             >
               <Text style={[s.sendArrow, canSend && s.sendArrowActive]}>↑</Text>
             </Pressable>
+            </View>
           </View>
         </>
       )}
@@ -805,14 +803,15 @@ const s = StyleSheet.create({
 
   /* Chips */
   chipBar: {
-    marginHorizontal: -16,   // bleed to screen edges since thread has 16px padding
-    marginTop: 4,
+    height: 38,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: theme.palette.line,
+    backgroundColor: theme.palette.bone,
   },
   chips: {
     flexDirection: "row",
-    alignItems: "center",    // prevents chips from stretching to container height
+    alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 4,
     gap: 8,
   },
   chip: {
@@ -832,26 +831,27 @@ const s = StyleSheet.create({
     color: theme.ink[1],
   },
 
-  /* Branch label */
+  /* Branch label — now lives inside composerBar */
   branchLabel: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 4,
+    paddingHorizontal: 4,
+    paddingBottom: 6,
   },
 
   /* Composer */
   composerBar: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
     paddingHorizontal: 12,
-    paddingTop: 10,
+    paddingTop: 8,
     paddingBottom: 34,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: theme.palette.line,
     backgroundColor: theme.palette.bone,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
   },
   input: {
     flex: 1,
