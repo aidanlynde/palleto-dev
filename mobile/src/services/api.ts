@@ -481,6 +481,14 @@ export async function activateProject(idToken: string, projectId: string): Promi
   return mapProjectDetail(await response.json());
 }
 
+export async function deactivateProject(idToken: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/projects/active`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!response.ok) throw new Error(`Failed to deactivate project: ${response.status}`);
+}
+
 export async function sendProjectChat(
   idToken: string,
   projectId: string,

@@ -805,6 +805,7 @@ export default function App() {
                 onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
                 onNewConversation={() => navigation.navigate("ProjectIntake", {})}
                 onOpenConversation={(projectId) => navigation.navigate("ProjectIntake", { projectId })}
+                onProjectActivated={() => setProjectContextRefreshKey(k => k + 1)}
               />
             )}
           </Stack.Screen>
@@ -814,10 +815,11 @@ export default function App() {
             {({ navigation, route }) => (
               <ProjectIntakeScreen
                 projectId={route.params?.projectId ?? null}
-                onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.replace("Home")}
+                onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate("Home")}
                 onActivated={() => {
+                  // Refresh the active project context but stay in the chat —
+                  // the user navigates back naturally via the back pill.
                   setProjectContextRefreshKey(k => k + 1);
-                  navigation.replace("Home");
                 }}
               />
             )}

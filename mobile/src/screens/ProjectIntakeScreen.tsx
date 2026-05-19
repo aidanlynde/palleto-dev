@@ -33,6 +33,7 @@ import {
 import {
   activateProject,
   createProject,
+  deactivateProject,
   getProject,
   ProjectDetail,
   sendProjectChat,
@@ -186,6 +187,22 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
     }
   }
 
+  async function handleDeactivate() {
+    if (!project || isActivating) return;
+    setIsActivating(true);
+    try {
+      const token = await getToken();
+      await deactivateProject(token);
+      setProject(prev => prev ? { ...prev, isActive: false } : prev);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onActivated?.();
+    } catch {
+      setError("Couldn't deactivate this project.");
+    } finally {
+      setIsActivating(false);
+    }
+  }
+
   return (
     <KeyboardAvoidingView
       style={s.screen}
@@ -197,8 +214,8 @@ export function ProjectIntakeScreen({ projectId, onBack, onActivated }: Props) {
         <Pill icon="back" onPress={onBack} />
         <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
         {project?.isActive ? (
-          <Pill tight style={s.activePill}>
-            <Text style={s.activePillText}>Active</Text>
+          <Pill tight onPress={handleDeactivate} style={s.activePill}>
+            <Text style={s.activePillText}>{isActivating ? "Saving…" : "Active ×"}</Text>
           </Pill>
         ) : isReadyToSave ? (
           <Pill tight onPress={handleActivate}>

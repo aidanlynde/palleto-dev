@@ -17,7 +17,7 @@ import {
   View,
 } from "react-native";
 
-import { deleteProject, listProjects, ProjectSummary } from "../services/api";
+import { activateProject, deactivateProject, deleteProject, listProjects, ProjectSummary } from "../services/api";
 import { firebaseAuth } from "../services/firebase";
 import { theme } from "../theme";
 import { Body, Display, DisplayItalic, Icon, Meta, Pill, Text } from "../ui";
@@ -26,13 +26,15 @@ type Props = {
   onNewConversation: () => void;
   onOpenConversation: (projectId: string) => void;
   onBack?: () => void;
+  onProjectActivated?: () => void;
 };
 
-export function ProjectListScreen({ onNewConversation, onOpenConversation, onBack }: Props) {
+export function ProjectListScreen({ onNewConversation, onOpenConversation, onBack, onProjectActivated }: Props) {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [activatingId, setActivatingId] = useState<string | null>(null);
   const [errorId, setErrorId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +73,34 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function doActivate(projectId: string) {
+    if (activatingId) return;
+    setActivatingId(projectId);
+    try {
+      const token = await getToken();
+      await activateProject(token, projectId);
+      setProjects(prev => prev.map(p => ({ ...p, isActive: p.id === projectId })));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onProjectActivated?.();
+    } catch {
+      Alert.alert("Couldn't activate", "Try again in a moment.");
+    } finally {
+      setActivatingId(null);
+    }
+  }
+
+  async function doDeactivate() {
+    try {
+      const token = await getToken();
+      await deactivateProject(token);
+      setProjects(prev => prev.map(p => ({ ...p, isActive: false })));
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      onProjectActivated?.();
+    } catch {
+      Alert.alert("Couldn't deactivate", "Try again in a moment.");
     }
   }
 
@@ -150,9 +180,11 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
                 <ProjectRow
                   project={activeProject}
                   isDeleting={deletingId === activeProject.id}
+                  isActivating={activatingId === activeProject.id}
                   hasError={errorId === activeProject.id}
                   onOpen={() => onOpenConversation(activeProject.id)}
                   onDelete={() => void doDelete(activeProject.id)}
+                  onDeactivate={() => void doDeactivate()}
                 />
               </View>
             ) : null}
@@ -166,9 +198,11 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
                     key={p.id}
                     project={p}
                     isDeleting={deletingId === p.id}
+                    isActivating={activatingId === p.id}
                     hasError={errorId === p.id}
                     onOpen={() => onOpenConversation(p.id)}
                     onDelete={() => void doDelete(p.id)}
+                    onActivate={() => void doActivate(p.id)}
                   />
                 ))}
               </View>
@@ -183,15 +217,21 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
 function ProjectRow({
   project,
   isDeleting,
+  isActivating,
   hasError,
   onOpen,
-  onDelete
+  onDelete,
+  onActivate,
+  onDeactivate,
 }: {
   project: ProjectSummary;
   isDeleting: boolean;
+  isActivating: boolean;
   hasError: boolean;
   onOpen: () => void;
   onDelete: () => void;
+  onActivate?: () => void;
+  onDeactivate?: () => void;
 }) {
   const title = project.name || project.projectType || "New conversation";
   const summary = project.briefSummary || "Start describing what you're building.";
@@ -204,10 +244,7 @@ function ProjectRow({
         disabled={isDeleting}
         style={({ pressed }) => [{ flex: 1, gap: 4 }, pressed && { opacity: 0.7 }]}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          {project.isActive ? <View style={s.activeDot} /> : null}
-          <Text style={s.rowTitle} numberOfLines={1}>{title}</Text>
-        </View>
+        <Text style={s.rowTitle} numberOfLines={1}>{title}</Text>
         <Text style={s.rowSummary} numberOfLines={2}>{summary}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 2 }}>
           <Meta style={{ fontSize: 11 }}>{age}</Meta>
@@ -219,6 +256,33 @@ function ProjectRow({
           ) : null}
         </View>
       </Pressable>
+
+      {/* Activate / deactivate toggle */}
+      {project.isActive ? (
+        <Pressable
+          onPress={onDeactivate}
+          disabled={isDeleting}
+          hitSlop={8}
+          style={({ pressed }) => [s.activeTag, pressed && { opacity: 0.7 }]}
+        >
+          {isActivating
+            ? <ActivityIndicator size="small" color="#5A6E64" />
+            : <Text style={s.activeTagText}>Active</Text>
+          }
+        </Pressable>
+      ) : (
+        <Pressable
+          onPress={onActivate}
+          disabled={isDeleting || isActivating}
+          hitSlop={8}
+          style={({ pressed }) => [s.activateBtn, isActivating && { opacity: 0.5 }, pressed && { opacity: 0.6 }]}
+        >
+          {isActivating
+            ? <ActivityIndicator size="small" color={theme.ink[3]} />
+            : <Icon name="check" size={13} color={theme.ink[3]} />
+          }
+        </Pressable>
+      )}
 
       <Pressable
         onPress={onDelete}
@@ -358,6 +422,31 @@ const s = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: "#C5683E"
+  },
+  activeTag: {
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: "#EEF4F1",
+    borderWidth: 1,
+    borderColor: "#5A6E64",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0
+  },
+  activeTagText: {
+    fontFamily: theme.font.sansMedium,
+    fontSize: 12,
+    color: "#5A6E64"
+  },
+  activateBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.palette.putty,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0
   },
   rowTitle: {
     fontFamily: theme.font.sansMedium,

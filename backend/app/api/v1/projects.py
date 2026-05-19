@@ -141,6 +141,8 @@ def delete_active_project(
     db: DbSession,
     firebase_user: FirebaseUser = Depends(get_current_firebase_user),
 ) -> Response:
+    """Deactivate the current active project. Clears the legacy active_projects row
+    and sets is_active=False on all projects for this user."""
     create_db_and_tables()
 
     user = get_or_create_user(db, firebase_user)
@@ -148,9 +150,10 @@ def delete_active_project(
 
     if project is not None:
         db.delete(project)
-        db.commit()
-    else:
-        db.commit()
+
+    # Clear is_active on all projects so none is marked active
+    db.query(Project).filter(Project.user_id == user.id).update({"is_active": False})
+    db.commit()
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
