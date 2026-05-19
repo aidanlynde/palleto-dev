@@ -156,6 +156,8 @@ def render_public_share_page(share_token: str) -> HTMLResponse:
     <meta property="og:title" content="{escape(card.title)}" />
     <meta property="og:description" content="{escape(card.one_line_read)}" />
     <meta property="og:image" content="{escape(share_preview_image_url)}" />
+    <meta property="og:image:width" content="1080" />
+    <meta property="og:image:height" content="1350" />
     <meta property="og:image:alt" content="{escape(card.title)}" />
     <meta property="og:url" content="{escape(share_url)}" />
     <meta name="twitter:card" content="summary_large_image" />
@@ -422,61 +424,106 @@ def _enforce_preview_rate_limit(request: Request) -> None:
 
 @router.get("/og/share/{share_token}.png")
 def render_public_share_preview_image(share_token: str) -> Response:
+    """Portrait card image — matches the library Tile exactly.
+    1080×1350 displays cleanly in iMessage and most social previews."""
     share = _get_share(share_token)
     card = share.card
-    image = Image.new("RGB", (1200, 630), "#F2EEE4")
-    draw = ImageDraw.Draw(image)
 
-    canvas_width = 1200
-    canvas_height = 630
-    image_x = 42
-    image_y = 42
-    image_width = 500
-    image_height = 546
-    body_x = 590
+    # ── Layout ────────────────────────────────────────────────────────
+    canvas_w, canvas_h = 1080, 1350
+    margin = 40
+    card_x, card_y = margin, 44
+    card_w = canvas_w - 2 * margin          # 1000 px
+    card_r = 32
+    image_h = int(card_w / 1.16)           # ≈ 862 px — matches Tile aspectRatio
 
-    draw.rounded_rectangle((24, 24, canvas_width - 24, canvas_height - 24), radius=34, fill="#FFFFFF")
-    _paste_card_image(image, card.image_url, image_x, image_y, image_width, image_height, radius=28)
-    draw.rounded_rectangle((24, 24, canvas_width - 24, canvas_height - 24), radius=34, outline="#E8E1D5", width=2)
+    body_px = 26    # horizontal padding inside body
+    body_py = 22    # vertical padding inside body
 
-    brand_font = _font(20, bold=True)
-    title_font = _font(54, bold=True)
-    body_font = _font(25, bold=False)
-    code_font = _font(18, bold=False)
-
-    draw.text((body_x, 74), "PALLETO SHARE", fill="#8B847A", font=brand_font)
+    title_font    = _serif_font(56)
+    meta_font     = _font(21, bold=False)
+    brand_font    = _font(17, bold=True)
+    title_line_h  = 62
+    palette_bar_h = 16
 
     title_lines = _wrap_text(
         text=card.title,
         font=title_font,
-        max_width=canvas_width - body_x - 58,
+        max_width=card_w - 2 * body_px,
         max_lines=2,
     )
-    title_y = 112
-    for line in title_lines:
-        draw.text((body_x, title_y), line, fill="#1C1A17", font=title_font)
-        title_y += 60
 
-    read_lines = _wrap_text(
-        text=card.one_line_read,
-        font=body_font,
-        max_width=canvas_width - body_x - 70,
-        max_lines=3,
+    body_h = (
+        body_py
+        + 22                                    # meta line
+        + 12                                    # gap
+        + len(title_lines) * title_line_h       # title
+        + 20                                    # gap
+        + palette_bar_h
+        + body_py
     )
-    read_y = title_y + 18
-    for line in read_lines:
-        draw.text((body_x, read_y), line, fill="#4A4640", font=body_font)
-        read_y += 33
+    card_h = image_h + body_h
 
-    swatch_y = canvas_height - 112
-    for index, color in enumerate(card.palette[:5]):
-        swatch_x = body_x + (index * 92)
-        draw.rounded_rectangle(
-            (swatch_x, swatch_y, swatch_x + 72, swatch_y + 58),
-            radius=16,
-            fill=_safe_color(color["hex"]),
-        )
-        draw.text((swatch_x, swatch_y + 70), color["hex"].upper(), fill="#8B847A", font=code_font)
+    # ── Canvas ────────────────────────────────────────────────────────
+    image = Image.new("RGB", (canvas_w, canvas_h), "#F2EEE4")
+    draw  = ImageDraw.Draw(image)
+
+    # Card white background
+    draw.rounded_rectangle(
+        (card_x, card_y, card_x + card_w, card_y + card_h),
+        radius=card_r, fill="#FFFFFF",
+    )
+
+    # Photo — fills top of card, rounded at the top corners only
+    _paste_card_image_top_rounded(
+        image, card.image_url,
+        card_x, card_y, card_w, image_h, radius=card_r,
+    )
+
+    # Card border
+    draw.rounded_rectangle(
+        (card_x, card_y, card_x + card_w, card_y + card_h),
+        radius=card_r, outline="#E8E1D5", width=2,
+    )
+
+    # ── Body ──────────────────────────────────────────────────────────
+    bx = card_x + body_px
+    by = card_y + image_h + body_py
+
+    # Meta date — "05.12 · 14:39"
+    draw.text(
+        (bx, by),
+        _format_card_date(card.created_at).upper(),
+        fill="#8B847A", font=meta_font,
+    )
+    by += 22 + 12
+
+    # Title in Instrument Serif
+    for line in title_lines:
+        draw.text((bx, by), line, fill="#1C1A17", font=title_font)
+        by += title_line_h
+
+    by += 20
+
+    # Palette swatches
+    n = min(len(card.palette), 5)
+    if n:
+        gap = 8
+        sw = (card_w - 2 * body_px - (n - 1) * gap) // n
+        for i, color in enumerate(card.palette[:n]):
+            sx = bx + i * (sw + gap)
+            draw.rounded_rectangle(
+                (sx, by, sx + sw, by + palette_bar_h),
+                radius=palette_bar_h // 2,
+                fill=_safe_color(color["hex"]),
+            )
+
+    # Palleto brand mark centred at bottom of canvas
+    draw.text(
+        (canvas_w // 2, canvas_h - 28),
+        "PALLETO",
+        fill="#8B847A", font=brand_font, anchor="mm",
+    )
 
     png = BytesIO()
     image.save(png, format="PNG")
@@ -588,6 +635,52 @@ def _paste_card_image(
     mask = Image.new("L", (width, height), 0)
     mask_draw = ImageDraw.Draw(mask)
     mask_draw.rounded_rectangle((0, 0, width, height), radius=radius, fill=255)
+    canvas.paste(fitted, (x, y), mask)
+
+
+def _serif_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    try:
+        return ImageFont.truetype(str(FONT_DIR / "InstrumentSerif_400Regular.ttf"), size=size)
+    except OSError:
+        return _font(size, bold=False)
+
+
+def _format_card_date(created_at: object) -> str:
+    try:
+        d = created_at if hasattr(created_at, "day") else datetime.fromisoformat(str(created_at))
+        return f"{d.day:02d}.{d.month:02d} · {d.hour:02d}:{d.minute:02d}"
+    except Exception:
+        return ""
+
+
+def _paste_card_image_top_rounded(
+    canvas: Image.Image,
+    image_url: str,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    radius: int,
+) -> None:
+    """Paste a fitted image with rounded top corners and square bottom corners."""
+    try:
+        response = httpx.get(image_url, follow_redirects=True, timeout=6.0)
+        response.raise_for_status()
+        source = Image.open(BytesIO(response.content))
+        source = ImageOps.exif_transpose(source).convert("RGB")
+    except Exception:
+        source = Image.new("RGB", (width, height), "#DDD8CE")
+
+    fitted = ImageOps.fit(source, (width, height), method=Image.Resampling.LANCZOS)
+
+    # Mask: rounded top corners, square bottom corners
+    mask = Image.new("L", (width, height), 0)
+    md = ImageDraw.Draw(mask)
+    md.rectangle((0, radius, width, height), fill=255)               # body below arc
+    md.rectangle((radius, 0, width - radius, radius), fill=255)      # top centre strip
+    md.ellipse((0, 0, radius * 2, radius * 2), fill=255)             # top-left arc
+    md.ellipse((width - radius * 2, 0, width, radius * 2), fill=255) # top-right arc
+
     canvas.paste(fitted, (x, y), mask)
 
 
