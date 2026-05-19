@@ -145,6 +145,7 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
     return () => clearTimeout(t);
   }, [history, isSubmitting]);
 
+
   /* ── Versions derived from history ── */
   const versions = useMemo<VersionItem[]>(() => {
     const original: VersionItem = {
@@ -355,55 +356,56 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
             {isSubmitting ? <TypingIndicator /> : null}
           </ScrollView>
 
-          {/* ── Quick-action chips — pinned above composer, rises with keyboard ── */}
+          {/* ── Chips — outside thread, pinned above composer, rises with keyboard ── */}
           {!isSubmitting ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={s.chips}
-              style={s.chipBar}
-              keyboardShouldPersistTaps="handled"
-            >
-              {QUICK_PROMPTS.map(p => (
-                <Pressable
-                  key={p}
-                  onPress={() => void submit(p, p)}
-                  style={({ pressed }) => [s.chip, pressed && { opacity: 0.7 }]}
-                >
-                  <RNText style={s.chipText} numberOfLines={1}>{p}</RNText>
-                </Pressable>
-              ))}
-            </ScrollView>
+            <View style={s.chipBar}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.chips}
+                keyboardShouldPersistTaps="handled"
+              >
+                {QUICK_PROMPTS.map(p => (
+                  <Pressable
+                    key={p}
+                    onPress={() => void submit(p, p)}
+                    style={({ pressed }) => [s.chip, pressed && { opacity: 0.7 }]}
+                  >
+                    <RNText style={s.chipText} numberOfLines={1}>{p}</RNText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
           ) : null}
 
-          {/* ── Composer (branch label lives here so there's no gap) ── */}
+          {/* ── Composer ── */}
           <View style={s.composerBar}>
-            <Pressable style={s.branchLabel} onPress={() => setCardExpanded(e => !e)}>
+            <Pressable style={s.branchLine} onPress={() => setCardExpanded(e => !e)}>
               <Meta>Branching from: </Meta>
               <Meta style={{ color: "#C5683E" }}>{activeVersion.label} ›</Meta>
             </Pressable>
             <View style={s.inputRow}>
-            <TextInput
-              style={s.input}
-              value={composer}
-              onChangeText={setComposer}
-              placeholder="Push it somewhere specific…"
-              placeholderTextColor={theme.ink[4]}
-              multiline
-              returnKeyType="default"
-              blurOnSubmit={false}
-            />
-            <Pressable
-              onPress={() => void submit(composer)}
-              disabled={!canSend}
-              style={({ pressed }) => [
-                s.sendBtn,
-                canSend && s.sendBtnActive,
-                pressed && canSend && { opacity: 0.8 }
-              ]}
-            >
-              <Text style={[s.sendArrow, canSend && s.sendArrowActive]}>↑</Text>
-            </Pressable>
+              <TextInput
+                style={s.input}
+                value={composer}
+                onChangeText={setComposer}
+                placeholder="Push it somewhere specific…"
+                placeholderTextColor={theme.ink[4]}
+                multiline
+                returnKeyType="default"
+                blurOnSubmit={false}
+              />
+              <Pressable
+                onPress={() => void submit(composer)}
+                disabled={!canSend}
+                style={({ pressed }) => [
+                  s.sendBtn,
+                  canSend && s.sendBtnActive,
+                  pressed && canSend && { opacity: 0.8 }
+                ]}
+              >
+                <Text style={[s.sendArrow, canSend && s.sendArrowActive]}>↑</Text>
+              </Pressable>
             </View>
           </View>
         </>
@@ -801,12 +803,13 @@ const s = StyleSheet.create({
     color: theme.ink[3],
   },
 
-  /* Chips */
+  /* Chips — pinned above composer, View wrapper constrains height so no dead space */
   chipBar: {
-    height: 38,
+    height: 46,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: theme.palette.line,
     backgroundColor: theme.palette.bone,
+    justifyContent: "center",
   },
   chips: {
     flexDirection: "row",
@@ -831,12 +834,11 @@ const s = StyleSheet.create({
     color: theme.ink[1],
   },
 
-  /* Branch label — now lives inside composerBar */
-  branchLabel: {
+  /* Branch line inside composer — no separate gap block */
+  branchLine: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 4,
-    paddingBottom: 6,
+    marginBottom: 6,
   },
 
   /* Composer */
