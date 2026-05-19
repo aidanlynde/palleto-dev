@@ -55,7 +55,8 @@ export function MainScreen({
   return (
     <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
       <View style={{ flex: 1 }}>
-        {activeTab === "library" ? (
+        {/* Both tabs stay mounted — toggling display avoids unmount/remount on every tab switch */}
+        <View style={{ flex: 1, display: activeTab === "library" ? "flex" : "none" }}>
           <LibraryScreen
             firebaseUser={firebaseUser}
             onEditProject={onEditProject}
@@ -63,7 +64,8 @@ export function MainScreen({
             onSelectCard={onSelectCard}
             projectContext={projectContext}
           />
-        ) : (
+        </View>
+        <View style={{ flex: 1, display: activeTab === "profile" ? "flex" : "none" }}>
           <ProfileScreen
             customerInfo={customerInfo}
             firebaseUser={firebaseUser}
@@ -73,7 +75,7 @@ export function MainScreen({
             onRestorePurchases={onRestorePurchases}
             projectContext={projectContext}
           />
-        )}
+        </View>
       </View>
 
       <TabBar active={activeTab} onChange={selectTab} onScan={handleScan} />

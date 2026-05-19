@@ -4,7 +4,7 @@
  */
 import { useFocusEffect } from "@react-navigation/native";
 import { User } from "firebase/auth";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { FlatList, useWindowDimensions, View } from "react-native";
 
 import { InspirationCard, listCards } from "../services/api";
@@ -46,8 +46,16 @@ export function LibraryScreen({
 
   const [cards, setCards] = useState<InspirationCard[]>([]);
   const [status, setStatus] = useState("Loading library…");
+  const lastFetchedAt = useRef(0);
 
-  const loadCards = useCallback(async () => {
+  const loadCards = useCallback(async (force = false) => {
+    const now = Date.now();
+    // Skip if data is fresh (< 30s) and we already have cards — avoids redundant
+    // refetches every time the user returns from ProjectList / Profile etc.
+    if (!force && cards.length > 0 && now - lastFetchedAt.current < 30_000) {
+      return;
+    }
+    lastFetchedAt.current = now;
     try {
       const token = await firebaseUser.getIdToken();
       const nextCards = await listCards(token);
@@ -56,17 +64,17 @@ export function LibraryScreen({
     } catch {
       setStatus("Library failed to load.");
     }
-  }, [firebaseUser]);
+  }, [firebaseUser, cards.length]);
 
   useFocusEffect(
     useCallback(() => {
-      loadCards();
+      void loadCards();
     }, [loadCards])
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.palette.bone }}>
-      <ScrollScreen contentContainerStyle={{ paddingTop: 24 }}>
+      <ScrollScreen contentContainerStyle={{ paddingTop: 40 }}>
         {/* Headline */}
         <View
           style={{
