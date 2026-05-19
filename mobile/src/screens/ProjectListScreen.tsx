@@ -14,7 +14,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  View
+  View,
 } from "react-native";
 
 import { deleteProject, listProjects, ProjectSummary } from "../services/api";
@@ -32,6 +32,8 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [errorId, setErrorId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { void load(); }, []);
@@ -55,23 +57,39 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
     setRefreshing(false);
   }
 
-  function confirmDelete(project: ProjectSummary) {
-    const name = project.name || project.projectType || "this conversation";
-    Alert.alert(`Delete "${name}"?`, "This removes the project and its chat history.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => void doDelete(project.id) }
-    ]);
-  }
-
   async function doDelete(projectId: string) {
+    if (deletingId) return; // prevent double-tap
+    setDeletingId(projectId);
+    setErrorId(null);
     try {
       const token = await getToken();
       await deleteProject(token, projectId);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setProjects(prev => prev.filter(p => p.id !== projectId));
     } catch {
-      Alert.alert("Delete failed", "Try again in a moment.");
+      setErrorId(projectId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setDeletingId(null);
     }
+  }
+
+  async function clearAll() {
+    Alert.alert("Clear all projects?", "This removes every project and its chat history.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Clear all", style: "destructive", onPress: async () => {
+          for (const p of projects) {
+            try {
+              const token = await getToken();
+              await deleteProject(token, p.id);
+            } catch { /* skip failed ones */ }
+          }
+          setProjects([]);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+      }
+    ]);
   }
 
   const activeProject = projects.find(p => p.isActive);
@@ -88,6 +106,13 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
         </View>
         <Pill dark icon="plus" onPress={onNewConversation} />
       </View>
+
+      {/* Clear all — only shown when there are projects to clean up */}
+      {!loading && projects.length > 0 ? (
+        <Pressable onPress={clearAll} style={({ pressed }) => [s.clearAll, pressed && { opacity: 0.6 }]}>
+          <Text style={s.clearAllText}>Clear all</Text>
+        </Pressable>
+      ) : null}
 
       <ScrollView
         contentContainerStyle={s.content}
@@ -124,8 +149,10 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
                 <Meta style={{ color: "#C5683E" }}>ACTIVE FOR SCANS</Meta>
                 <ProjectRow
                   project={activeProject}
+                  isDeleting={deletingId === activeProject.id}
+                  hasError={errorId === activeProject.id}
                   onOpen={() => onOpenConversation(activeProject.id)}
-                  onDelete={() => confirmDelete(activeProject)}
+                  onDelete={() => void doDelete(activeProject.id)}
                 />
               </View>
             ) : null}
@@ -138,8 +165,10 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
                   <ProjectRow
                     key={p.id}
                     project={p}
+                    isDeleting={deletingId === p.id}
+                    hasError={errorId === p.id}
                     onOpen={() => onOpenConversation(p.id)}
-                    onDelete={() => confirmDelete(p)}
+                    onDelete={() => void doDelete(p.id)}
                   />
                 ))}
               </View>
@@ -153,10 +182,14 @@ export function ProjectListScreen({ onNewConversation, onOpenConversation, onBac
 
 function ProjectRow({
   project,
+  isDeleting,
+  hasError,
   onOpen,
   onDelete
 }: {
   project: ProjectSummary;
+  isDeleting: boolean;
+  hasError: boolean;
   onOpen: () => void;
   onDelete: () => void;
 }) {
@@ -165,10 +198,10 @@ function ProjectRow({
   const age = relativeTime(project.updatedAt);
 
   return (
-    <View style={s.row}>
-      {/* Tap anywhere on the content to open */}
+    <View style={[s.row, isDeleting && { opacity: 0.5 }, hasError && s.rowError]}>
       <Pressable
         onPress={onOpen}
+        disabled={isDeleting}
         style={({ pressed }) => [{ flex: 1, gap: 4 }, pressed && { opacity: 0.7 }]}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -181,16 +214,26 @@ function ProjectRow({
           {project.messageCount > 0 ? (
             <Meta style={{ fontSize: 11 }}>{project.messageCount} messages</Meta>
           ) : null}
+          {hasError ? (
+            <Meta style={{ fontSize: 11, color: theme.colors.error }}>Delete failed — tap × again</Meta>
+          ) : null}
         </View>
       </Pressable>
 
-      {/* Explicit delete button — always visible */}
       <Pressable
         onPress={onDelete}
-        hitSlop={10}
-        style={({ pressed }) => [s.deleteBtn, pressed && { opacity: 0.5 }]}
+        disabled={isDeleting}
+        hitSlop={12}
+        style={({ pressed }) => [
+          s.deleteBtn,
+          hasError && s.deleteBtnError,
+          pressed && { opacity: 0.5 }
+        ]}
       >
-        <Icon name="close" size={13} color={theme.ink[4]} />
+        {isDeleting
+          ? <ActivityIndicator size="small" color={theme.ink[3]} />
+          : <Icon name="close" size={13} color={hasError ? theme.colors.error : theme.ink[4]} />
+        }
       </Pressable>
     </View>
   );
@@ -292,6 +335,23 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0
+  },
+  deleteBtnError: {
+    backgroundColor: "#FDECEA"
+  },
+  rowError: {
+    borderWidth: 1,
+    borderColor: theme.colors.error
+  },
+  clearAll: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 20,
+    paddingBottom: 4
+  },
+  clearAllText: {
+    fontFamily: theme.font.sans,
+    fontSize: 13,
+    color: theme.ink[3]
   },
   activeDot: {
     width: 6,
