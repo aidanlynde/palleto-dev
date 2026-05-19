@@ -550,13 +550,15 @@ const s = StyleSheet.create({
   },
   chipBar: {
     flexShrink: 0,
+    height: 52,                          // explicit height stops cross-axis stretch
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: theme.palette.line
   },
   chips: {
     flexDirection: "row",
+    alignItems: "center",                // keeps chips at intrinsic height, not stretched
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
     gap: 8
   },
   chip: {
