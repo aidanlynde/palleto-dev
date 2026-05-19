@@ -353,28 +353,28 @@ export function RefineCardScreen({ card, firebaseUser, onBack, onRefined }: Prop
             )}
 
             {isSubmitting ? <TypingIndicator /> : null}
-          </ScrollView>
 
-          {/* ── Quick-action chips ── */}
-          {!isSubmitting ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={s.chips}
-              style={s.chipBar}
-              keyboardShouldPersistTaps="handled"
-            >
-              {QUICK_PROMPTS.map(p => (
-                <Pressable
-                  key={p}
-                  onPress={() => void submit(p, p)}
-                  style={({ pressed }) => [s.chip, pressed && { opacity: 0.7 }]}
-                >
-                  <RNText style={s.chipText} numberOfLines={1}>{p}</RNText>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : null}
+            {/* Quick-action chips — inside thread so they anchor to the last message */}
+            {!isSubmitting ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.chips}
+                style={s.chipBar}
+                keyboardShouldPersistTaps="handled"
+              >
+                {QUICK_PROMPTS.map(p => (
+                  <Pressable
+                    key={p}
+                    onPress={() => void submit(p, p)}
+                    style={({ pressed }) => [s.chip, pressed && { opacity: 0.7 }]}
+                  >
+                    <RNText style={s.chipText} numberOfLines={1}>{p}</RNText>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            ) : null}
+          </ScrollView>
 
           {/* ── Branching label ── */}
           <View style={s.branchLabel}>
@@ -805,14 +805,14 @@ const s = StyleSheet.create({
 
   /* Chips */
   chipBar: {
-    flexShrink: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: theme.palette.line,
+    marginHorizontal: -16,   // bleed to screen edges since thread has 16px padding
+    marginTop: 4,
   },
   chips: {
     flexDirection: "row",
+    alignItems: "center",    // prevents chips from stretching to container height
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 4,
     gap: 8,
   },
   chip: {
