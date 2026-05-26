@@ -11,6 +11,14 @@
     {
       "source": "/share/card/:token.png",
       "destination": "/api/share-card-image?token=:token"
+    },
+    {
+      "source": "/support",
+      "destination": "/support.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy.html"
     }
   ]
 }
