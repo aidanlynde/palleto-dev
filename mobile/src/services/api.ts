@@ -221,6 +221,36 @@ export async function uploadCard({
   return response.json();
 }
 
+export async function claimPreviewCard(idToken: string, card: InspirationCard): Promise<InspirationCard> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/cards/from-preview`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      image_url: card.image_url,
+      source_type: card.source_type,
+      title: card.title,
+      one_line_read: card.one_line_read,
+      creative_direction: card.creative_direction,
+      palette: card.palette,
+      visual_dna: card.visual_dna,
+      design_moves: card.design_moves,
+      project_lens: card.project_lens,
+      type_direction: card.type_direction,
+      search_language: card.search_language,
+      related_links: card.related_links
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to claim preview card: ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function uploadPreviewCard(input: {
   imageUri: string;
   mimeType?: string | null;

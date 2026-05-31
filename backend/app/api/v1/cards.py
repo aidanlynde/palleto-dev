@@ -12,6 +12,7 @@ from app.schemas.card import (
     CardRefinementCreate,
     CardRefinementRead,
     CardShareRead,
+    PreviewCardClaim,
     ProjectContextPayload,
 )
 from app.services.card_refinements import serialize_card
@@ -76,6 +77,42 @@ async def create_card(
     db.refresh(card)
 
     return _refresh_card_related_links(card)
+
+
+@router.post("/from-preview", response_model=CardRead, status_code=status.HTTP_201_CREATED)
+def claim_preview_card(
+    body: PreviewCardClaim,
+    db: DbSession,
+    firebase_user: FirebaseUser = Depends(get_current_firebase_user),
+) -> Card:
+    """Persist an already-processed preview card for an authenticated user.
+
+    Called after a guest completes a scan and then signs up / purchases.
+    The AI output is reused verbatim — no re-processing or image re-upload.
+    """
+    create_db_and_tables()
+    user = get_or_create_user(db, firebase_user)
+    card = Card(
+        id=str(uuid4()),
+        user_id=user.id,
+        image_url=body.image_url,
+        storage_path=None,
+        source_type=body.source_type,
+        title=body.title,
+        one_line_read=body.one_line_read,
+        creative_direction=body.creative_direction,
+        palette=[p.model_dump() for p in body.palette],
+        visual_dna=body.visual_dna.model_dump(),
+        design_moves=body.design_moves,
+        project_lens=body.project_lens.model_dump(),
+        type_direction=[t.model_dump() for t in body.type_direction],
+        search_language=body.search_language,
+        related_links=[r.model_dump() for r in body.related_links],
+    )
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+    return card
 
 
 @router.get("", response_model=list[CardRead])

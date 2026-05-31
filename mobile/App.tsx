@@ -17,7 +17,7 @@ import { useFonts } from "expo-font";
 import * as ExpoSplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { CustomerInfo } from "react-native-purchases";
 
@@ -34,6 +34,7 @@ import { QuickAccessScreen } from "./src/screens/QuickAccessScreen";
 import { RefineCardScreen } from "./src/screens/RefineCardScreen";
 import { SplashScreen } from "./src/screens/SplashScreen";
 import {
+  claimPreviewCard,
   getActiveProject,
   InspirationCard,
   saveActiveProject,
@@ -137,6 +138,7 @@ export default function App() {
   const [pendingInitialScan, setPendingInitialScan] = useState(false);
   const [startupWarning, setStartupWarning] = useState<string | null>(null);
   const [purchaseCompletedBeforeAuth, setPurchaseCompletedBeforeAuth] = useState(false);
+  const pendingAuthCompletionInFlight = useRef(false);
   const isPalletoProActive = Boolean(
     firebaseUser && revenueCatUserId === firebaseUser.uid && hasPalletoPro(customerInfo)
   );
@@ -222,6 +224,8 @@ export default function App() {
     }
 
     if (isPalletoProActive || purchaseCompletedBeforeAuth) {
+      if (pendingAuthCompletionInFlight.current) return;
+      pendingAuthCompletionInFlight.current = true;
       completePendingAuthDestination(pendingAuthDestination);
       return;
     }
@@ -420,28 +424,41 @@ export default function App() {
     setAuthRequestedFromLanding(false);
     setPurchaseCompletedBeforeAuth(false);
 
-    if (destination === "landing") {
-      const emptyAnswers = createEmptyOnboardingSurveyAnswers();
-      await completeOnboarding(emptyAnswers);
-      setOnboardingAnswers(emptyAnswers);
-      setOnboardingComplete(true);
-      trackEvent("landing_auth_unlocked");
-      return;
-    }
-
-    if (!selectedCard || selectedCard.id.startsWith("preview-")) {
-      if (selectedImage) {
-        navigationRef.navigate("Processing");
+    try {
+      if (destination === "landing") {
+        const emptyAnswers = createEmptyOnboardingSurveyAnswers();
+        await completeOnboarding(emptyAnswers);
+        setOnboardingAnswers(emptyAnswers);
+        setOnboardingComplete(true);
+        trackEvent("landing_auth_unlocked");
+        return;
       }
-      return;
-    }
 
-    if (destination === "refine") {
-      navigationRef.navigate("Refine");
-      return;
-    }
+      if (!selectedCard || selectedCard.id.startsWith("preview-")) {
+        if (selectedCard && firebaseUser) {
+          try {
+            const idToken = await firebaseUser.getIdToken();
+            const claimed = await claimPreviewCard(idToken, selectedCard);
+            setSelectedCard(claimed);
+            navigationRef.navigate("Result");
+          } catch {
+            navigationRef.navigate("Home");
+          }
+        } else {
+          navigationRef.navigate("Home");
+        }
+        return;
+      }
 
-    navigationRef.navigate("Home");
+      if (destination === "refine") {
+        navigationRef.navigate("Refine");
+        return;
+      }
+
+      navigationRef.navigate("Home");
+    } finally {
+      pendingAuthCompletionInFlight.current = false;
+    }
   }
 
   async function handleRestorePurchases() {

@@ -54,6 +54,21 @@ class ProjectContextPayload(BaseModel):
     tasteProfileWorkFor: list[str] = []
 
 
+class PreviewCardClaim(BaseModel):
+    image_url: str
+    source_type: str
+    title: str
+    one_line_read: str
+    creative_direction: str
+    palette: list[PaletteColor]
+    visual_dna: VisualDna
+    design_moves: list[str]
+    project_lens: ProjectLens
+    type_direction: list[TypeDirection]
+    search_language: list[str]
+    related_links: list[RelatedLink]
+
+
 class CardRead(BaseModel):
     id: str
     image_url: str
