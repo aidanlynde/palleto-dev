@@ -136,6 +136,7 @@ export default function App() {
   const [pendingPaywallUserKey, setPendingPaywallUserKey] = useState<string | null>(null);
   const [pendingInitialScan, setPendingInitialScan] = useState(false);
   const [startupWarning, setStartupWarning] = useState<string | null>(null);
+  const [purchaseCompletedBeforeAuth, setPurchaseCompletedBeforeAuth] = useState(false);
   const isPalletoProActive = Boolean(
     firebaseUser && revenueCatUserId === firebaseUser.uid && hasPalletoPro(customerInfo)
   );
@@ -205,6 +206,8 @@ export default function App() {
       })
       .catch((error) => {
         console.warn("Failed to identify RevenueCat user", error);
+        // Still mark RC as identified so the pending auth flow isn't blocked forever
+        setRevenueCatUserId(firebaseUser?.uid ?? null);
       });
   }, [firebaseUser, isAuthReady]);
 
@@ -218,7 +221,7 @@ export default function App() {
       return;
     }
 
-    if (isPalletoProActive) {
+    if (isPalletoProActive || purchaseCompletedBeforeAuth) {
       completePendingAuthDestination(pendingAuthDestination);
       return;
     }
@@ -236,6 +239,7 @@ export default function App() {
     isPalletoProActive,
     pendingAuthDestination,
     pendingPaywallUserKey,
+    purchaseCompletedBeforeAuth,
     revenueCatUserId
   ]);
 
@@ -368,6 +372,7 @@ export default function App() {
   async function handleLockedFeatureContinue(navigate: (screen: keyof RootStackParamList) => void) {
     if (!firebaseUser) {
       setPendingAuthDestination(lockedFeatureIntent);
+      setPurchaseCompletedBeforeAuth(true);
       setAuthRequestedFromLanding(true);
       trackEvent("locked_feature_auth_required", {
         card_id: selectedCard?.id,
@@ -413,6 +418,7 @@ export default function App() {
     setPendingAuthDestination(null);
     setPendingPaywallUserKey(null);
     setAuthRequestedFromLanding(false);
+    setPurchaseCompletedBeforeAuth(false);
 
     if (destination === "landing") {
       const emptyAnswers = createEmptyOnboardingSurveyAnswers();
@@ -424,7 +430,7 @@ export default function App() {
     }
 
     if (!selectedCard || selectedCard.id.startsWith("preview-")) {
-      if (selectedImage && (destination === "save" || destination === "refine")) {
+      if (selectedImage) {
         navigationRef.navigate("Processing");
       }
       return;
