@@ -424,6 +424,9 @@ export default function App() {
     }
 
     if (!selectedCard || selectedCard.id.startsWith("preview-")) {
+      if (selectedImage && (destination === "save" || destination === "refine")) {
+        navigationRef.navigate("Processing");
+      }
       return;
     }
 

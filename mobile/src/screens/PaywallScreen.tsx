@@ -205,8 +205,8 @@ export function PaywallScreen({ feature, onContinue, onClose }: Props) {
 
         <Reveal active={revealed >= 1} delay={100} style={{ alignItems: "center", marginTop: 8 }}>
           <View style={{ alignItems: "center" }}>
-            <Display size={34} style={{ lineHeight: 34, textAlign: "center" }}>{headline.line1}</Display>
-            <DisplayItalic size={34} color={theme.ink[2]} style={{ lineHeight: 34, textAlign: "center" }}>
+            <Display size={34} style={{ textAlign: "center" }}>{headline.line1}</Display>
+            <DisplayItalic size={34} color={theme.ink[2]} style={{ textAlign: "center" }}>
               {headline.line2}
             </DisplayItalic>
           </View>
@@ -604,7 +604,7 @@ const s = StyleSheet.create({
   priceNumber: {
     fontFamily: theme.font.display,
     fontSize: 40,
-    lineHeight: 40,
+    lineHeight: 48,
     color: "#FAF7F0",
     letterSpacing: -1
   },
