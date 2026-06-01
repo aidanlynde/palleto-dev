@@ -382,7 +382,11 @@ export default function App() {
         card_id: selectedCard?.id,
         feature: lockedFeatureIntent
       });
-      navigate("Auth");
+      // Do NOT call navigate("Auth") here. setAuthRequestedFromLanding(true)
+      // causes the conditional navigator to switch to Auth, exactly like
+      // startLandingSignIn does. Calling navigate() with a stale LockedFeature
+      // navigation object after the stack already reset corrupts navigation
+      // state in production builds.
       return;
     }
 
