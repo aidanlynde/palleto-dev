@@ -382,11 +382,17 @@ export default function App() {
         card_id: selectedCard?.id,
         feature: lockedFeatureIntent
       });
-      // Do NOT call navigate("Auth") here. setAuthRequestedFromLanding(true)
-      // causes the conditional navigator to switch to Auth, exactly like
-      // startLandingSignIn does. Calling navigate() with a stale LockedFeature
-      // navigation object after the stack already reset corrupts navigation
-      // state in production builds.
+      // Reset to a clean [Auth] stack using the global navigationRef (always fresh).
+      // The old bug used the local `navigation.navigate` prop from the LockedFeature
+      // screen — that object becomes stale once the conditional navigator re-renders
+      // in response to the flag changes above. navigationRef is always valid.
+      // We reset rather than navigate so the back-stack is clean: after signing in,
+      // completePendingAuthDestination pushes Result on top of Home.
+      setTimeout(() => {
+        if (navigationRef.isReady()) {
+          navigationRef.reset({ index: 0, routes: [{ name: "Auth" }] });
+        }
+      }, 0);
       return;
     }
 
@@ -446,12 +452,15 @@ export default function App() {
             const idToken = await firebaseUser.getIdToken();
             const claimed = await withTimeout(claimPreviewCard(idToken, selectedCard), 12000);
             setSelectedCard(claimed);
+            // Clear guest-scan state BEFORE navigating so that:
+            // (a) Home becomes the primary conditional screen (making it registered)
+            // (b) "Done" / "View Library" on the Result screen can navigate to Home
+            // (c) The stack becomes [Home, Result] instead of [Onboarding(step4), Result]
+            setOnboardingComplete(true);
+            setGuestScanStarted(false);
             navigationRef.navigate("Result");
           } catch {
             // Claim failed or timed out — bring the user into the app.
-            // Setting these flags reactively switches the navigator to Home
-            // without needing navigationRef.navigate("Home") which may not
-            // be registered during the guest-scan flow.
             setOnboardingComplete(true);
             setGuestScanStarted(false);
           }

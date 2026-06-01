@@ -92,26 +92,41 @@ export function PaywallScreen({ feature, onContinue, onClose }: Props) {
   const headline = HEADLINES[feature];
 
   const [price, setPrice] = useState<string | null>(null);
+  const [offeringsReady, setOfferingsReady] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
   /* ─── Fetch localized price on mount ─── */
   useEffect(() => {
     let mounted = true;
+    // Safety valve: never leave the button in "Loading…" for more than 5s.
+    const safetyTimer = setTimeout(() => {
+      if (mounted && !offeringsReady) {
+        setPrice(FALLBACK_PRICE);
+        setOfferingsReady(true);
+      }
+    }, 5000);
     (async () => {
       try {
         const pkg = await getLifetimePackage();
-        if (mounted && pkg) {
-          // priceString is locale-formatted by RevenueCat (e.g. "$4.99", "€4,99")
-          setPrice(pkg.product.priceString ?? FALLBACK_PRICE);
-        } else if (mounted) {
-          setPrice(FALLBACK_PRICE);
+        if (mounted) {
+          clearTimeout(safetyTimer);
+          setPrice(pkg?.product.priceString ?? FALLBACK_PRICE);
+          setOfferingsReady(true);
         }
       } catch {
-        if (mounted) setPrice(FALLBACK_PRICE);
+        if (mounted) {
+          clearTimeout(safetyTimer);
+          setPrice(FALLBACK_PRICE);
+          setOfferingsReady(true);
+        }
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+      clearTimeout(safetyTimer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* ─── Staggered reveal animation on mount ─── */
@@ -120,8 +135,7 @@ export function PaywallScreen({ feature, onContinue, onClose }: Props) {
     const t1 = setTimeout(() => setRevealed(1), 200);
     const t2 = setTimeout(() => setRevealed(2), 500);
     const t3 = setTimeout(() => setRevealed(3), 800);
-    const t4 = setTimeout(() => setRevealed(4), 1100);
-    return () => [t1, t2, t3, t4].forEach(clearTimeout);
+    return () => [t1, t2, t3].forEach(clearTimeout);
   }, []);
 
   /* ─── Purchase ─── */
@@ -138,19 +152,22 @@ export function PaywallScreen({ feature, onContinue, onClose }: Props) {
         trackEvent("paywall_purchase_succeeded", { feature });
         onContinue();
       } else {
-        // Should not happen, but guard anyway
         trackEvent("paywall_purchase_no_entitlement", { feature });
         Alert.alert("Purchase incomplete", "We could not verify the purchase. Try restoring.");
       }
     } catch (e: any) {
-      // RevenueCat throws { userCancelled: true } when the user dismisses the
-      // Apple/Google purchase sheet — that's normal, not an error.
       if (e?.userCancelled) {
+        // User dismissed the Apple sheet — don't show an error, they know what they did.
         trackEvent("paywall_purchase_cancelled", { feature });
       } else {
-        trackEvent("paywall_purchase_failed", { feature, message: String(e?.message ?? "") });
+        const msg = String(e?.message ?? "Unknown error");
+        trackEvent("paywall_purchase_failed", { feature, message: msg });
+        console.warn("[PaywallScreen] purchase failed:", msg);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Purchase failed", "Try again in a moment.");
+        Alert.alert(
+          "Purchase failed",
+          "The App Store returned an error. Check that you are signed in to your Apple ID and try again."
+        );
       }
     } finally {
       setPurchasing(false);
@@ -235,16 +252,21 @@ export function PaywallScreen({ feature, onContinue, onClose }: Props) {
           ))}
         </View>
 
-        <Reveal active={revealed >= 4} style={{ marginTop: 18 }}>
-          <PriceCard
-            price={price ?? FALLBACK_PRICE}
-            strikePrice={FALLBACK_STRIKE}
-            onPurchase={handlePurchase}
-            purchasing={purchasing}
-          />
-        </Reveal>
+        {/*
+          PriceCard is intentionally NOT wrapped in Reveal.
+          Reveal uses useNativeDriver:true with opacity=0, which causes iOS to
+          block touch events entirely (alpha=0 views are non-hittable). The CTA
+          button must be tappable the moment the screen appears.
+        */}
+        <PriceCardSection
+          price={price ?? FALLBACK_PRICE}
+          strikePrice={FALLBACK_STRIKE}
+          onPurchase={handlePurchase}
+          purchasing={purchasing}
+          loading={!offeringsReady}
+        />
 
-        <Reveal active={revealed >= 4} delay={300}>
+        <Reveal active={revealed >= 3} delay={200}>
           <View style={s.footer}>
             <FooterLink>Terms</FooterLink>
             <Text style={s.footerDot}>·</Text>
@@ -317,48 +339,68 @@ function ValueRow({
 }
 
 /* ──────────────────────────────────────────────────────────────
-   PriceCard — dark slab with price + CTA
+   PriceCardSection — always rendered at full opacity so iOS never
+   blocks touch events. Slides in from below on mount.
    ────────────────────────────────────────────────────────────── */
-function PriceCard({
-  price, strikePrice, onPurchase, purchasing
+function PriceCardSection({
+  price, strikePrice, onPurchase, purchasing, loading
 }: {
   price: string;
   strikePrice: string;
   onPurchase: () => void;
   purchasing: boolean;
+  loading: boolean;
 }) {
+  const ty = useRef(new Animated.Value(24)).current;
+
+  useEffect(() => {
+    Animated.timing(ty, {
+      toValue: 0,
+      duration: 500,
+      delay: 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [ty]);
+
+  const isDisabled = purchasing || loading;
+
   return (
-    <View style={s.priceCard}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-        <View>
-          <Text style={s.priceEyebrow}>LIFETIME · ONE-TIME</Text>
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 3 }}>
-            <Text style={s.priceNumber}>{price}</Text>
-            <Text style={s.priceStrike}>{strikePrice}</Text>
+    <Animated.View style={[{ marginTop: 18, transform: [{ translateY: ty }] }]}>
+      <View style={s.priceCard}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+          <View>
+            <Text style={s.priceEyebrow}>LIFETIME · ONE-TIME</Text>
+            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 3 }}>
+              <Text style={s.priceNumber}>{loading ? "—" : price}</Text>
+              {!loading && <Text style={s.priceStrike}>{strikePrice}</Text>}
+            </View>
           </View>
+          {!loading && (
+            <View style={s.ribbon}>
+              <Text style={s.ribbonText}>50% OFF</Text>
+            </View>
+          )}
         </View>
-        <View style={s.ribbon}>
-          <Text style={s.ribbonText}>50% OFF</Text>
-        </View>
+
+        <Pressable
+          onPress={onPurchase}
+          disabled={isDisabled}
+          style={({ pressed }) => [
+            s.cta,
+            pressed && { transform: [{ scale: 0.98 }] },
+            isDisabled && { opacity: 0.7 }
+          ]}
+        >
+          <Text style={s.ctaLabel}>
+            {loading ? "Loading…" : purchasing ? "Processing…" : "Become a Founding Member"}
+          </Text>
+          {!isDisabled ? <Text style={s.ctaArrow}>→</Text> : null}
+        </Pressable>
+
+        <Text style={s.priceFine}>ONE-TIME · NO RECURRING</Text>
       </View>
-
-      <Pressable
-        onPress={onPurchase}
-        disabled={purchasing}
-        style={({ pressed }) => [
-          s.cta,
-          pressed && { transform: [{ scale: 0.98 }] },
-          purchasing && { opacity: 0.7 }
-        ]}
-      >
-        <Text style={s.ctaLabel}>
-          {purchasing ? "Processing…" : "Become a Founding Member"}
-        </Text>
-        {!purchasing ? <Text style={s.ctaArrow}>→</Text> : null}
-      </Pressable>
-
-      <Text style={s.priceFine}>ONE-TIME · NO RECURRING</Text>
-    </View>
+    </Animated.View>
   );
 }
 
