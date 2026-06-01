@@ -400,7 +400,9 @@ export default function App() {
     }
 
     if (selectedCard.id.startsWith("preview-")) {
-      navigate("Onboarding");
+      // Logged-in user purchased/restored Pro while a preview card is active.
+      // Claim it (same path as the post-auth flow).
+      completePendingAuthDestination(lockedFeatureIntent);
       return;
     }
 
@@ -438,14 +440,20 @@ export default function App() {
         if (selectedCard && firebaseUser) {
           try {
             const idToken = await firebaseUser.getIdToken();
-            const claimed = await claimPreviewCard(idToken, selectedCard);
+            const claimed = await withTimeout(claimPreviewCard(idToken, selectedCard), 12000);
             setSelectedCard(claimed);
             navigationRef.navigate("Result");
           } catch {
-            navigationRef.navigate("Home");
+            // Claim failed or timed out — bring the user into the app.
+            // Setting these flags reactively switches the navigator to Home
+            // without needing navigationRef.navigate("Home") which may not
+            // be registered during the guest-scan flow.
+            setOnboardingComplete(true);
+            setGuestScanStarted(false);
           }
         } else {
-          navigationRef.navigate("Home");
+          // No card or no user — just open the capture screen so they can scan
+          navigationRef.navigate("Capture");
         }
         return;
       }
