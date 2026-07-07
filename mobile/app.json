@@ -62,7 +62,8 @@
       "expo-font",
       "expo-video",
       "@react-native-firebase/app",
-      "./plugins/with-firebase-modular-headers"
+      "./plugins/with-firebase-modular-headers",
+      "./plugins/with-fmt-fix"
     ]
   }
 }
