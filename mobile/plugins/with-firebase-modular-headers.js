@@ -36,12 +36,21 @@ module.exports = function withFirebaseModularHeaders(config) {
       //     end          ← closes installer.target_installation_results.each
       //   end            ← closes post_install do |installer|
       // end              ← closes target 'Palleto' do
+      // GCC_PREPROCESSOR_DEFINITIONS applies to ALL compilation types (C, C++, ObjC, ObjC++)
+      // unlike OTHER_CPLUSPLUSFLAGS which only covers C++/ObjC++.
+      // Note: GCC_PREPROCESSOR_DEFINITIONS uses NAME=VALUE syntax (no -D prefix).
       const fmtCode = [
         "",
         "    installer.pods_project.targets.each do |fmt_target|",
         "      fmt_target.build_configurations.each do |build_cfg|",
-        "        existing = build_cfg.build_settings['OTHER_CPLUSPLUSFLAGS'] || '$(inherited)'",
-        "        build_cfg.build_settings['OTHER_CPLUSPLUSFLAGS'] = existing + ' -DFMT_USE_CONSTEVAL=0' unless existing.include?('FMT_USE_CONSTEVAL')",
+        "        defs = build_cfg.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] || '$(inherited)'",
+        "        unless defs.include?('FMT_USE_CONSTEVAL')",
+        "          build_cfg.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] = defs + ' FMT_USE_CONSTEVAL=0'",
+        "        end",
+        "        flags = build_cfg.build_settings['OTHER_CPLUSPLUSFLAGS'] || '$(inherited)'",
+        "        unless flags.include?('FMT_USE_CONSTEVAL')",
+        "          build_cfg.build_settings['OTHER_CPLUSPLUSFLAGS'] = flags + ' -DFMT_USE_CONSTEVAL=0'",
+        "        end",
         "      end",
         "    end",
       ].join("\n");
